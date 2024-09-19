@@ -1,4 +1,11 @@
 import { command, subcommands, positional, option, string, flag, run } from "cmd-ts";
+import deployCmd from './commands/deploy';
+import envCmd from './commands/env';
+
+let json = flag({
+    long: 'json',
+    short: 'j',
+});
 
 const deploy = command({
     name: 'promote',
@@ -6,14 +13,9 @@ const deploy = command({
     version: '1.0.0',
     args: {
         env: positional({ type: string, displayName: 'env' }),
-        message: option({
-            long: 'greeting',
-            type: string,
-        }),
+        json,
     },
-    handler: (args) => {
-        console.log(args);
-    },
+    handler: deployCmd,
 });
 
 const env = command({
@@ -22,14 +24,9 @@ const env = command({
     version: '1.0.0',
     args: {
         env: positional({ type: string, displayName: 'env' }),
-        json: flag({
-            long: 'json',
-            short: 'j',
-        }),
+        json,
     },
-    handler: (args) => {
-        console.log(args);
-    },
+    handler: envCmd,
 });
 
 const zeus = subcommands({
