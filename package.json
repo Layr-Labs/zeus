@@ -1,0 +1,17 @@
+{
+  "name": "@layr-labs/zeus",
+  "version": "0.0.1",
+  "description": "web3 deployer / metadata manager",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "bun test",
+    "start": "bun run src/index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/bun": "^1.1.9",
+    "@types/node": "^22.5.5",
+    "cmd-ts": "^0.13.0"
+  }
+}
