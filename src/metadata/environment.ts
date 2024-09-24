@@ -1,11 +1,11 @@
 
 export interface Environment {
-    id: string;                                     // "testnet"
+    id: string;                                 // "testnet"
 
     /**
      * The envirnoment that this environment promotes to.
      */
-    precedes: string;                               // "mainnet"
+    precedes: string;                           // "mainnet"
 
     /**
      * important contract addresses for thie environment
@@ -13,7 +13,12 @@ export interface Environment {
     contractAddresses: Record<string, string>;      
 
     /**
-     * {@link SigningStrategy}.id() that this environment requires.
+     * {@link SigningStrategy.id} that this environment requires.
      */
-    signingStrategy: string;                        
+    signingStrategy: string;       
+    
+    /**
+     * Latest commit of your repo deployed in this environment.
+     */
+    latestDeployedCommit: string;
 }
