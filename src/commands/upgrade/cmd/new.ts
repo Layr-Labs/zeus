@@ -1,5 +1,5 @@
 import {command, positional, string} from 'cmd-ts';
-import {json} from '../../common';
+import {json} from '../../common.js';
 
 const cmd = command({
     name: 'new',

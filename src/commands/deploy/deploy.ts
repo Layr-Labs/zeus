@@ -1,7 +1,7 @@
 import { subcommands, } from "cmd-ts";
-import status from './cmd/status';
-import run from './cmd/run';
-import verify from './cmd/verify';
+import status from './cmd/status.js';
+import run from './cmd/run.js';
+import verify from './cmd/verify.js';
 
 export default subcommands({
     name: 'deploy',

@@ -1,5 +1,3 @@
-import { $ } from "bun";
-
 class GitMetadataStore {
     environment: string;
     repo: string;

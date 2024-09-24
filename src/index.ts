@@ -1,13 +1,21 @@
 #!/usr/bin/env node
 
 import { subcommands, run } from "cmd-ts";
-import deploy from './commands/deploy/deploy';
-import env from './commands/env/env';
-import upgrade from './commands/upgrade/upgrade';
+import deploy from './commands/deploy/deploy.js';
+import env from './commands/env/env.js';
+import upgrade from './commands/upgrade/upgrade.js';
+import chalk from 'chalk';
 
-const zeus = subcommands({
-    name: 'zeus',
-    cmds: { deploy, env, upgrade },
-});
+const main = () => {
+    const zeusHost = process.env.ZEUS_HOST;
+    const zeus = subcommands({
+        name: 'zeus',
+        description: `
+        $ZEUS_HOST: ${zeusHost ? chalk.green(zeusHost) : chalk.red('<unset>')}
+        `,
+        cmds: { deploy, env, upgrade },
+    });
+    run(zeus, process.argv.slice(2));
+}
 
-run(zeus, process.argv.slice(2));
+main();
