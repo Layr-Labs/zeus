@@ -1,4 +1,4 @@
-import { command, subcommands, run } from "cmd-ts";
+import { subcommands, run } from "cmd-ts";
 import deploy from './commands/deploy/deploy';
 import env from './commands/env/env';
 import upgrade from './commands/upgrade/upgrade';
