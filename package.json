@@ -4,8 +4,10 @@
   "description": "web3 deployer / metadata manager",
   "main": "src/index.ts",
   "scripts": {
+    "build": "tsc",
     "test": "bun test",
-    "start": "bun run src/index.ts"
+    "start": "node dist/index.js",
+    "bun-start": "bun dist/index.ts"
   },
   "bin": {
     "zeus": "./src/index.ts"
