@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { subcommands, run } from "cmd-ts";
 import deploy from './commands/deploy/deploy';
 import env from './commands/env/env';
