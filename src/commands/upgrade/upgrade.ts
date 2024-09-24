@@ -3,7 +3,7 @@ import newCmd from './cmd/new';
 
 export default subcommands({
     name: 'upgrade',
-    description: 'Upgrade',
+    description: 'Manage and create different protocol upgrades',
     version: '1.0.0',
     cmds: {
         "new": newCmd
