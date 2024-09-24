@@ -7,6 +7,9 @@
     "test": "bun test",
     "start": "bun run src/index.ts"
   },
+  "bin": {
+    "zeus": "./src/index.ts"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
