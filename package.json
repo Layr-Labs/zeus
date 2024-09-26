@@ -19,6 +19,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@safe-global/api-kit": "^2.4.6",
     "@types/bun": "^1.1.9",
     "@types/express": "^5.0.0",
     "@types/node": "^22.5.5",
@@ -27,7 +28,8 @@
     "cmd-ts": "^0.13.0",
     "express": "^4.21.0",
     "octokit": "^4.0.2",
-    "open": "^10.1.0"
+    "open": "^10.1.0",
+    "viem": "^2.21.15"
   },
   "devDependencies": {
     "@eslint/js": "^9.11.1",

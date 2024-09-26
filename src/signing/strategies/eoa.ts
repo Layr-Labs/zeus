@@ -1,12 +1,13 @@
-import { SigningStrategy, Txn } from "../signingStrategy.js";
+import { SigningStrategy, TSignatureRequest, Txn } from "../signingStrategy.js";
 
 export class EOASigningStrategy extends SigningStrategy {
-
-    // name of the signing strategy. should be unique.
     id = "eoa";
 
-    // sign some calldata
-    signTransactions(txns: Txn[]): Promise<`0x${string}`> {
+    requestNew(txns: Txn[]): Promise<TSignatureRequest> {
+        throw new Error('unimplemented');
+    }
+
+    latest(): Promise<TSignatureRequest | undefined> {
         throw new Error('unimplemented');
     }
 }
