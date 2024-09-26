@@ -8,6 +8,7 @@
     "build": "tsc",
     "test": "bun test",
     "start": "node dist/index.js",
+    "debug": "node --inspect-brk dist/index.js",
     "lint": "eslint",
     "lint-fix": "eslint --fix",
     "bun-start": "bun dist/index.ts"
@@ -19,9 +20,14 @@
   "license": "ISC",
   "dependencies": {
     "@types/bun": "^1.1.9",
+    "@types/express": "^5.0.0",
     "@types/node": "^22.5.5",
     "chalk": "^5.3.0",
-    "cmd-ts": "^0.13.0"
+    "clipboardy": "^4.0.0",
+    "cmd-ts": "^0.13.0",
+    "express": "^4.21.0",
+    "octokit": "^4.0.2",
+    "open": "^10.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.11.1",
