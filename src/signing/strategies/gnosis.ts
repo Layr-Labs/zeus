@@ -1,6 +1,5 @@
 import { SigningStrategy, Txn } from "../signingStrategy.js";
 
-
 export class GnosisSigningStrategy extends SigningStrategy {
 
     // name of the signing strategy. should be unique.

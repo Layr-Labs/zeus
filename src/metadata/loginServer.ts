@@ -49,7 +49,7 @@ export async function login(args?: {timeoutMs: number}): Promise<string> {
                 data.append('device_code', resp.device_code);
                 data.append('grant_type', 'urn:ietf:params:oauth:grant-type:device_code')
                 const req = await fetch(`https://github.com/login/oauth/access_token?${data.toString()}`, {method: 'POST', body: data, headers: new Headers({'Accept': 'application/json'})});
-                let response = await req.json();
+                const response = await req.json();
                 if (response.access_token) {
                     return response.access_token as string;
                 }
