@@ -14,6 +14,7 @@ export class GitMetadataStore {
             dotZeus(),
             JSON.stringify({accessToken: token} as TZeusState),
         )
+        console.log(`Updated ${dotZeus()}`)
     }
 
     constructor(args?: {environment: string, repo: string}) {

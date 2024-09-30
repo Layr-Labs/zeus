@@ -14,23 +14,7 @@ const cmd = command({
     handler: async function() {
         try {
             const state = load()
-            if (state?.dotZeus?.accessToken) {
-                // check if token is live
-                const client = new Octokit({auth: state?.dotZeus?.accessToken})
-                let loggedIn = false;
-                try {
-                    await client.rest.repos.listContributors();
-                    loggedIn = true;
-                } catch {}
-
-                if (loggedIn) {
-                    console.log(`Already logged in!`);
-                    return;
-                } 
-            } else {
-                console.log(`no access token present`);
-            }
-
+            
             const metadata = new GitMetadataStore();
             await metadata.triggerLogin();
 
