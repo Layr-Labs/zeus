@@ -4,7 +4,7 @@ import { loadExistingEnvs } from './list.js';
 import { requiresLogin, TState } from '../../inject.js';
 import { question } from '../../utils.js';
 
-async function handler(user: TState, args: {json: boolean |undefined}): Promise<void> {
+async function handler(user: TState, args: {}): Promise<void> {
     const gh = user.github!;
     const existingEnvs = await loadExistingEnvs(user);
     const zeusRepo = {
@@ -92,9 +92,7 @@ const cmd = command({
     name: 'new',
     description: 'create a new environment',
     version: '1.0.0',
-    args: {
-        json,
-    },
+    args: {},
     handler: requiresLogin(handler),
 })
 
