@@ -1,5 +1,4 @@
 import {command } from 'cmd-ts';
-import { json } from '../../common.js';
 import { loadExistingEnvs } from './list.js';
 import { requiresLogin, TState } from '../../inject.js';
 import { question } from '../../utils.js';
