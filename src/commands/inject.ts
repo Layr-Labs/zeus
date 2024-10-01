@@ -26,12 +26,30 @@ export function dotZeus(): string {
 
 export type TState = {
     github?: Octokit | undefined; 
-    zeusHost: string;
+    zeusHostOwner: string | undefined;
+    zeusHostRepo: string | undefined;
 }
 
 // get all zeus-state, from environment variables + repo.
 export async function load(): Promise<TState> {
     const dotZeus = loadDotZeus();
+
+    var zeusHostOwner: string | undefined;
+    var zeusHostRepo: string | undefined;
+
+    const url = "https://github.com/jbrower95/zeus-example";
+    if (process.env.ZEUS_HOST) {
+        try {
+            const urlObj = new URL(process.env.ZEUS_HOST!);
+            const pathComponents = urlObj.pathname.split('/').filter(Boolean);
+            const [owner, repo] = pathComponents.slice(-2);
+            zeusHostOwner = owner;
+            zeusHostRepo = repo;
+        } catch {
+            console.warn('invalid ZEUS_HOST. Expected a github url.');
+        };
+    }
+
 
     if (dotZeus?.accessToken) {
         // check if token is live
@@ -40,11 +58,11 @@ export async function load(): Promise<TState> {
             await client.rest.users.getAuthenticated();
             return {
                 github: client,
-                zeusHost: process.env.ZEUS_HOST!,
+                zeusHostOwner,
+                zeusHostRepo,
             }
         } catch (e) {
             // log out the user.
-            console.error(`Access token expired, logging out.`, e);
             writeDotZeus({
                 accessToken: undefined
             })
@@ -53,7 +71,8 @@ export async function load(): Promise<TState> {
 
     // logged-out
     return {
-        zeusHost: process.env.ZEUS_HOST!,
+        zeusHostOwner,
+        zeusHostRepo,
     }
 }
 
@@ -63,6 +82,10 @@ export function requiresLogin<Args extends any[], Returns>(fn: (user: TState, ..
         if (!state.github) {
             console.error(chalk.red('this action requires authentication. please login via `zeus login`'));
             process.exit(1);
+        }
+        if (!state.zeusHostOwner || !state.zeusHostRepo) {
+            console.error(chalk.red('please set a valid ZEUS_HOST repo in your terminal.'));
+            process.exit(2);
         }
         await fn(state, ..._args);
     }

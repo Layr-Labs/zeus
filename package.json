@@ -29,11 +29,13 @@
     "express": "^4.21.0",
     "octokit": "^4.0.2",
     "open": "^10.1.0",
+    "prompt-sync": "^4.2.0",
     "viem": "^2.21.15"
   },
   "devDependencies": {
     "@eslint/js": "^9.11.1",
     "@types/eslint__js": "^8.42.3",
+    "@types/prompt-sync": "^4.2.3",
     "eslint": "^9.11.1",
     "typescript": "^5.6.2",
     "typescript-eslint": "^8.7.0"

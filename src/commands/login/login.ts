@@ -13,8 +13,6 @@ const cmd = command({
     },
     handler: async function() {
         try {
-            const state = load()
-            
             const metadata = new GitMetadataStore();
             await metadata.triggerLogin();
 

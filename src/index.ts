@@ -6,13 +6,16 @@ import env from './commands/env/env.js';
 import upgrade from './commands/upgrade/upgrade.js';
 import chalk from 'chalk';
 import login from './commands/login/login.js';
+import { load } from "./commands/inject.js";
 
-const main = () => {
+const main = async () => {
     const zeusHost = process.env.ZEUS_HOST;
+    const isLoggedIn = await load()
     const zeus = subcommands({
         name: 'zeus',
         description: `
         $ZEUS_HOST: ${zeusHost ? chalk.green(zeusHost) : chalk.red('<unset>')}
+        ${isLoggedIn.github ? chalk.green('logged in') : chalk.red('logged out')}
         `,
         cmds: { deploy, env, upgrade, login },
     });

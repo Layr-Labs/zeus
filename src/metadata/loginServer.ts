@@ -14,7 +14,7 @@ const sleep = (timeMs: number) => {
 export async function login(args?: {timeoutMs: number}): Promise<string> {
     const params = new URLSearchParams({
         client_id: CLIENT_ID, 
-        scope: 'repo,read:user',
+        scope: 'repo read:user',
     })
     const state = { 
         didTimeout: false
