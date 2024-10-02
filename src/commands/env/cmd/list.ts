@@ -2,16 +2,35 @@ import {command} from 'cmd-ts';
 import { json } from '../../common.js';
 import { requiresLogin, TState } from '../../inject.js';
 
-const RESERVED_BRANCHES = ['main', 'master'];
-
 export const loadExistingEnvs = async (user: TState) => {
-    const { data: branches } = await user.github!.rest.repos.listBranches({
+    const gh = user.github!;
+    const zeusRepo = {
         owner: user.zeusHostOwner!,
         repo: user.zeusHostRepo!,
-      });
-  
-    return branches.filter(branch => !RESERVED_BRANCHES.includes(branch.name));
-}
+    };
+
+    try {
+        // List the contents of the 'environment' directory
+        const { data: directoryContents } = await gh.rest.repos.getContent({
+            ...zeusRepo,
+            path: 'environment',
+        });
+
+        // Filter to only keep directories
+        const existingEnvs = Array.isArray(directoryContents)
+            ? directoryContents.filter(item => item.type === 'dir').map(item => item.name)
+            : [];
+
+        return existingEnvs;
+    } catch (e) {
+        if (`${e}`.includes('Not Found')) {
+            // If the 'environment' folder does not exist yet, return an empty list
+            return [];
+        } else {
+            throw e;
+        }
+    }
+};
 
 async function handler(user: TState, args: {json: boolean |undefined}): Promise<void> {
     let envs = await loadExistingEnvs(user);
@@ -21,7 +40,7 @@ async function handler(user: TState, args: {json: boolean |undefined}): Promise<
     } else {
         if (envs && envs.length > 0) {
             console.log(`Found ${envs.length} environment${envs.length > 1 ? 's' : ''}:`)
-            envs.forEach((env) => console.log(`\t- ${env.name}`));
+            envs.forEach((env) => console.log(`\t- ${env}`));
         } else {
             console.log(`No environments yet. Create one with 'zeus env new'`);
         }

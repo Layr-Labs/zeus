@@ -2,6 +2,8 @@ import {command } from 'cmd-ts';
 import { loadExistingEnvs } from './list.js';
 import { requiresLogin, TState } from '../../inject.js';
 import { question } from '../../utils.js';
+import { Environment } from '../../../metadata/environment.js';
+import chalk from 'chalk';
 
 async function handler(user: TState, args: {}): Promise<void> {
     const gh = user.github!;
@@ -13,20 +15,20 @@ async function handler(user: TState, args: {}): Promise<void> {
     const { data: repoData } = await gh.rest.repos.get(zeusRepo);
     const defaultBranch = repoData.default_branch;
 
-    const envName = question({
+    const envName = await question({
         text: "Environment name?",
         isValid: (text: string) => {
-            const isValidRegex = /^[a-zA-Z0-9-]+$/.test(text)
-            const isNotTaken = existingEnvs.filter(e => e.name === text).length == 0;
-            return isValidRegex && isNotTaken; 
+            const isValidRegex = /^[a-zA-Z0-9-]+$/.test(text);
+            const isNotTaken = existingEnvs.filter(e => e === text).length == 0;
+            return isValidRegex && isNotTaken;
         },
         maxAttempts: 5,
         errorMessage: "failed to create environment"
-    })
+    });
 
     // Step 1: Get the latest commit SHA of the base branch
 
-    var latestCommitSha: any;
+    var latestCommitSha: string;
     try {
         const { data: baseBranchData } = await gh!.rest.repos.getBranch({
             ...zeusRepo,
@@ -35,56 +37,38 @@ async function handler(user: TState, args: {}): Promise<void> {
 
         latestCommitSha = baseBranchData.commit.sha;
     } catch (e) {
-        // create initial commit if we fail to get the default branch.
         if (`${e}`.includes('Branch not found')) {
-            throw new Error(`Your ZEUS_HOST is uninitialized. Please push a blank commit to it. Thanks!`)
-            // console.info(`creating repo initial blob`);
-            // const { data: blobData } = await gh.rest.git.createBlob({
-            //     ...zeusRepo,
-            //     content: 'Zeus!',
-            //     encoding: 'utf-8',
-            // });
-
-            // // // Step 2: Create a tree that points to the new blob
-            // console.info(`creating repo initial tree`);
-            // const { data: treeData } = await gh.rest.git.createTree({
-            //     ...zeusRepo,
-            //     tree: [
-            //         {
-            //             path: 'README.md',
-            //             mode: '100644',
-            //             type: 'blob',
-            //             sha: blobData.sha,
-            //         },
-            //     ],
-            // });
-
-            // console.info(`creating repo initial commit`);
-            // const { data: commitData } = await gh.rest.git.createCommit({
-            //     ...zeusRepo,
-            //     message: 'Initial commit',
-            //     tree: treeData.sha, // Initially, the tree can be empty
-            //     parents: [], // No parents for the first commit
-            // });
-
-            // await gh.rest.git.createRef({
-            //     ...zeusRepo,
-            //     ref: `refs/heads/${defaultBranch}`,
-            //     sha: commitData.sha,
-            //   });
-            // latestCommitSha = commitData.sha;
+            throw new Error(`ZEUS_HOST is uninitialized. Please push a blank commit to it. Thanks!`);
         } else {
             throw e;
         }
     }
 
-    await gh.rest.git.createRef({
-        ...zeusRepo,
-        ref: `refs/heads/${envName}`, // Git references must use the format 'refs/heads/{branch}'
-        sha: latestCommitSha,
-    });
-  
-    console.log("Created environment!");
+    // Step 2: Create a new folder in the default branch
+    const newFolderPath = `environment/${envName}/manifest.json`;
+    const content = JSON.stringify({
+        id: `${envName}`,
+        precedes: '',
+        contractAddresses: {},     
+        signingStrategy: '',       
+        latestDeployedCommit: '',
+    } as Environment, null, ' ');
+
+    // Create a new file in the repository (which effectively creates the folder)
+    try {
+        await gh.rest.repos.createOrUpdateFileContents({
+            ...zeusRepo,
+            path: newFolderPath,
+            message: `Create environment: ${envName}`,
+            content: Buffer.from(content).toString('base64'),
+            branch: defaultBranch,
+            sha: latestCommitSha,
+        });
+
+        console.log(`${chalk.green('+')} created environment`);
+    } catch (e) {
+        throw new Error(`Failed to create environment folder: ${e}`);
+    }
 }
 
 const cmd = command({

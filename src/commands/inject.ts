@@ -3,6 +3,7 @@ import { homedir } from 'os';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { Octokit } from 'octokit';
 import chalk from 'chalk';
+import { Enviornment } from './environment.js';
 
 export type TZeusState = {
     accessToken: string | undefined,
@@ -28,16 +29,16 @@ export type TState = {
     github?: Octokit | undefined; 
     zeusHostOwner: string | undefined;
     zeusHostRepo: string | undefined;
+    environment?: Enviornment | undefined;
 }
 
 // get all zeus-state, from environment variables + repo.
-export async function load(): Promise<TState> {
+export async function load(args?: {env: string}): Promise<TState> {
     const dotZeus = loadDotZeus();
 
     var zeusHostOwner: string | undefined;
     var zeusHostRepo: string | undefined;
 
-    const url = "https://github.com/jbrower95/zeus-example";
     if (process.env.ZEUS_HOST) {
         try {
             const urlObj = new URL(process.env.ZEUS_HOST!);
@@ -50,7 +51,6 @@ export async function load(): Promise<TState> {
         };
     }
 
-
     if (dotZeus?.accessToken) {
         // check if token is live
         const client = new Octokit({auth: dotZeus?.accessToken})
@@ -60,7 +60,10 @@ export async function load(): Promise<TState> {
                 github: client,
                 zeusHostOwner,
                 zeusHostRepo,
+                environment: args?.env ? new Enviornment(client, args.env!) : undefined,
             }
+
+            // load the environment if it's available
         } catch (e) {
             // log out the user.
             writeDotZeus({
@@ -76,8 +79,8 @@ export async function load(): Promise<TState> {
     }
 }
 
-export function requiresLogin<Args extends any[], Returns>(fn: (user: TState, ...args: Args) => Promise<Returns>) {
-    return async (..._args: Args) => {
+export function requiresLogin<Args extends any[], T, Returns>(fn: (user: TState, cliArgs: T, ...args: Args) => Promise<Returns>) {
+    return async (cliArgs: T, ..._args: Args) => {
         const state = await load();
         if (!state.github) {
             console.error(chalk.red('this action requires authentication. please login via `zeus login`'));
@@ -87,6 +90,6 @@ export function requiresLogin<Args extends any[], Returns>(fn: (user: TState, ..
             console.error(chalk.red('please set a valid ZEUS_HOST repo in your terminal.'));
             process.exit(2);
         }
-        await fn(state, ..._args);
+        await fn(state, cliArgs, ..._args);
     }
   }

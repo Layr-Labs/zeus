@@ -2,7 +2,6 @@
 import p from 'prompt-sync';
 
 const ask = p({sigint: true});
-
 const defaultMaxAttempts = 5;
 
 export const question = (args: {
