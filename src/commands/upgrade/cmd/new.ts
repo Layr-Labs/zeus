@@ -1,11 +1,9 @@
-import {command, positional, string} from 'cmd-ts';
+import {command} from 'cmd-ts';
 import {json} from '../../common.js';
 import { requiresLogin, TState } from '../../inject.js';
 import { select } from '@inquirer/prompts';
 
 const handler = async function(user: TState, args: {json: boolean}) {
-    // TODO: implement creating a new upgrade.
-
     const answer = await select({
         message: 'Select an upgrade strategy',
         choices: [
@@ -21,9 +19,15 @@ const handler = async function(user: TState, args: {json: boolean}) {
           },
         ],
       });
-    
-      // TODO: implement
-      throw new Error(`${answer} unsupported.`);
+
+      switch (answer) {
+        case 'viem':
+            // TODO: codegen a new Upgrade for this.
+        case 'forge':
+            // TODO: codegen a new forge script for this.
+        default:
+            throw new Error(`${answer} unsupported.`);
+      }
 };
 
 const cmd = command({

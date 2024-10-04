@@ -19,6 +19,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ethersproject/hardware-wallets": "^5.7.0",
     "@inquirer/prompts": "^6.0.1",
     "@safe-global/api-kit": "^2.4.6",
     "@types/bun": "^1.1.9",
@@ -27,6 +28,7 @@
     "chalk": "^5.3.0",
     "clipboardy": "^4.0.0",
     "cmd-ts": "^0.13.0",
+    "ethers": "^6.13.3",
     "express": "^4.21.0",
     "octokit": "^4.0.2",
     "open": "^10.1.0",
