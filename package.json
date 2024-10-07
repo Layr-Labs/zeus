@@ -19,8 +19,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ethers-ext/signer-ledger": "^6.0.0-beta.1",
     "@ethersproject/hardware-wallets": "^5.7.0",
     "@inquirer/prompts": "^6.0.1",
+    "@ledgerhq/hw-transport-node-hid": "^6.29.5",
     "@safe-global/api-kit": "^2.4.6",
     "@types/bun": "^1.1.9",
     "@types/express": "^5.0.0",

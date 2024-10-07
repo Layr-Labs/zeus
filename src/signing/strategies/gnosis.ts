@@ -11,11 +11,10 @@ type TGnosisBaseArgs = {
 
 export abstract class GnosisSigningStrategy<T> extends SigningStrategy<TGnosisBaseArgs & T> {
 
-    abstract getTransactionHash(txn: SafeTransaction): Promise<`0x${string}`>;
-    abstract getSignature(txn: SafeTransaction): Promise<`0x${string}`>;
+    abstract getSignature(safeVersion: string, txn: SafeTransaction): Promise<`0x${string}`>;
     abstract getSignerAddress(): Promise<string>;
-
     abstract isValidSubCommandArgs(obj: any): obj is T;
+    
     isValidArgs(obj: any): obj is TGnosisBaseArgs & T {
         return obj !== null && obj !== undefined && typeof obj.safeAddress == 'string' && typeof obj.rpcUrl == 'string' && this.isValidSubCommandArgs(obj); 
     }
@@ -23,7 +22,7 @@ export abstract class GnosisSigningStrategy<T> extends SigningStrategy<TGnosisBa
     async requestNew(txns: Txn[]): Promise<TSignatureRequest> {
         const {safeAddress, rpcUrl} = this.args;
         const apiKit = new SafeApiKit.default({
-            chainId: 1n,
+            chainId: 1n, // TODO:(multinetwork)
             txServiceUrl: 'https://safe-transaction-mainnet.safe.global',
         })
         const protocolKitOwner1 = await Safe.default.init({
@@ -40,19 +39,24 @@ export abstract class GnosisSigningStrategy<T> extends SigningStrategy<TGnosisBa
             }
             }),
         })
+
+        const hash = await protocolKitOwner1.getTransactionHash(txn)
+        const version = await protocolKitOwner1.getContractVersion();
+
         await apiKit.proposeTransaction({
             safeAddress,
             safeTransactionData: txn.data,
-            safeTxHash: await this.getTransactionHash(txn),
+            safeTxHash: hash,
             senderAddress: await this.getSignerAddress(),
-            senderSignature: await this.getSignature(txn),
+            senderSignature: await this.getSignature(version, txn),
         })
 
-        // TODO: store `safeTxHash` in ZEUS_HOST.
+        // TODO:(milestone1) store `safeTxHash` in ZEUS_HOST.
         throw new Error('unimplemented');
     }
 
     latest(): Promise<TSignatureRequest> {
+        // TODO:(milestone1): get the status of the latest signature request.
         throw new Error('unimplemented');
     }
 }
