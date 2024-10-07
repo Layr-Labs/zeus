@@ -1,30 +1,29 @@
 import path from 'path';
-import { homedir } from 'os';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import os from 'os';
 import { Octokit } from 'octokit';
 import { execSync } from 'child_process';
 import chalk from 'chalk';
 import { Enviornment } from './environment.js';
+import { JSONBackedConfig } from './config.js';
 
-export type TZeusState = {
+export type TZeusConfig = {
+    zeusHost: string,
+}
+
+export type TZeusProfile = {
     accessToken: string | undefined,
 }
 
-export function loadDotZeus(): TZeusState | undefined {
-    try { 
-        return existsSync(dotZeus()) ? JSON.parse(readFileSync(dotZeus(), {encoding: 'utf-8'})) as TZeusState : undefined;
-    } catch {}
-}
-
-export function writeDotZeus(state: TZeusState) {
-    try { 
-        return writeFileSync(dotZeus(), JSON.stringify(state, null, 4))
-    } catch {}
-}
-
-export function dotZeus(): string {
-    const repoRoot = execSync('git rev-parse --show-toplevel').toString('utf-8');
-    return path.join(repoRoot, '.zeus');
+export const configs = {
+    zeus: new JSONBackedConfig<TZeusConfig>({
+        defaultPath: async () => {
+            const repoRoot = execSync('git rev-parse --show-toplevel').toString('utf-8');
+            return path.join(repoRoot, '.zeus');
+        },
+    }),
+    zeusProfile: new JSONBackedConfig<TZeusProfile>({
+        defaultPath: async () => path.resolve(os.homedir(), '.zeusProfile')
+    })
 }
 
 export type TState = {
@@ -36,9 +35,10 @@ export type TState = {
 
 // get all zeus-state, from environment variables + repo.
 export async function load(args?: {env: string}): Promise<TState> {
-    const dotZeus = loadDotZeus();
+    const repoConfig = await configs.zeus.load();
+    const profile = await configs.zeusProfile.load();
 
-    if (!dotZeus) {
+    if (!repoConfig) {
         console.error('Zeus should be run from within a contracts repository containing a `.zeus` file.');
         throw new Error('Aborting.');
     }
@@ -58,9 +58,9 @@ export async function load(args?: {env: string}): Promise<TState> {
         };
     }
 
-    if (dotZeus?.accessToken) {
+    if (profile?.accessToken) {
         // check if token is live
-        const client = new Octokit({auth: dotZeus?.accessToken})
+        const client = new Octokit({auth: profile?.accessToken})
         try {
             await client.rest.users.getAuthenticated();
             return {
@@ -73,7 +73,7 @@ export async function load(args?: {env: string}): Promise<TState> {
             // load the environment if it's available
         } catch (e) {
             // log out the user.
-            writeDotZeus({
+            configs.zeusProfile.write({
                 accessToken: undefined
             })
         }
