@@ -29,7 +29,7 @@ export abstract class SigningStrategy<TArgs> {
     //  e.g the EOA will run '-s', 
     abstract forgeArgs(): string[];
 
-    async runForgeScript(path: string): Promise<string> {
+    async runForgeScript(path: string): Promise<any> {
         return new Promise((resolve, reject) => {
             const child = spawn('forge', ['script', path, ...this.forgeArgs(), '--json']);
 

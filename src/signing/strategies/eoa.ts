@@ -2,7 +2,7 @@ import { SigningStrategy, TSignatureRequest, Txn } from "../signingStrategy.js";
 
 type TEOAArgs = {};
 
-export class EOASigningStrategy extends SigningStrategy<TEOAArgs> {
+export default class EOASigningStrategy extends SigningStrategy<TEOAArgs> {
     id = "eoa";
 
     execute(path: string): void {

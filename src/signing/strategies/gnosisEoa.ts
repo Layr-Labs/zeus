@@ -20,6 +20,8 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
 
     execute(path: string) {
         // TODO:execute the forge script, get its output and sign it.
+        const output = this.runForgeScript(path);
+        console.log(output);
     }
     
     async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
