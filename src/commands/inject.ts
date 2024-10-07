@@ -2,6 +2,7 @@ import path from 'path';
 import { homedir } from 'os';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { Octokit } from 'octokit';
+import { execSync } from 'child_process';
 import chalk from 'chalk';
 import { Enviornment } from './environment.js';
 
@@ -22,7 +23,8 @@ export function writeDotZeus(state: TZeusState) {
 }
 
 export function dotZeus(): string {
-    return path.join(homedir(), '.zeus');
+    const repoRoot = execSync('git rev-parse --show-toplevel').toString('utf-8');
+    return path.join(repoRoot, '.zeus');
 }
 
 export type TState = {
@@ -35,6 +37,11 @@ export type TState = {
 // get all zeus-state, from environment variables + repo.
 export async function load(args?: {env: string}): Promise<TState> {
     const dotZeus = loadDotZeus();
+
+    if (!dotZeus) {
+        console.error('Zeus should be run from within a contracts repository containing a `.zeus` file.');
+        throw new Error('Aborting.');
+    }
 
     var zeusHostOwner: string | undefined;
     var zeusHostRepo: string | undefined;
