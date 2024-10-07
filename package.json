@@ -10,6 +10,7 @@
     "start": "node dist/index.js",
     "debug": "node --inspect-brk dist/index.js",
     "lint": "eslint",
+    "prepack": "build-binary",
     "lint-fix": "eslint --fix",
     "build-binary": "webpack -c webpack.config.cjs",
     "bun-start": "bun dist/index.ts"
