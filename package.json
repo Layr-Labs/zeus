@@ -11,10 +11,11 @@
     "debug": "node --inspect-brk dist/index.js",
     "lint": "eslint",
     "lint-fix": "eslint --fix",
+    "build-binary": "webpack -c webpack.config.cjs",
     "bun-start": "bun dist/index.ts"
   },
   "bin": {
-    "zeus": "./dist/index.js"
+    "zeus": "./dist/bundle.cjs"
   },
   "author": "",
   "license": "ISC",
@@ -42,7 +43,10 @@
     "@types/eslint__js": "^8.42.3",
     "@types/prompt-sync": "^4.2.3",
     "eslint": "^9.11.1",
+    "ts-loader": "^9.5.1",
     "typescript": "^5.6.2",
-    "typescript-eslint": "^8.7.0"
+    "typescript-eslint": "^8.7.0",
+    "webpack": "^5.95.0",
+    "webpack-cli": "^5.1.4"
   }
 }
