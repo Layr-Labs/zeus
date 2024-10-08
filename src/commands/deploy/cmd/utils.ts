@@ -107,6 +107,8 @@ export type TDeploy = {
     phase: TDeployPhase;
     startTime?: string; // human readable timestamp of when this started, from zeus's perspective.
     endTime?: string; // human readable timestamp of when this completed, from zeus's perspective.
+    
+    update?: () => Promise<void> // updates the deploy object on the repo.
 }
 
 export async function getActiveDeploy(user: TState, env: string): Promise<TDeploy | undefined> {

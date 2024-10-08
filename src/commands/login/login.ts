@@ -1,5 +1,5 @@
 import {command} from 'cmd-ts';
-import { json } from '../common.js';
+import {json} from '../args.js';
 import { GitMetadataStore } from '../../metadata/gitBackedMetadataStore.js';
 import { load } from '../inject.js';
 import { Octokit } from 'octokit';

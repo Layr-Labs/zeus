@@ -10,19 +10,22 @@ export class LedgerSigningStrategy extends SigningStrategy<TLedgerArgs> {
         return true;
     }
 
-    execute(path: string): void {
-        // TODO: run an EOA script and sign/broadcast with ledger.
-        throw new Error('unsupported');
+    async requestNew(path: string): Promise<TSignatureRequest | undefined> {
+        const output = await this.runForgeScript(path);
+        console.log(output);
+        // TODO: parse the output.
+        // TODO: parse updated contract addresses json.
+        // TODO: update metadata repo.
+        return { 
+            signedTransactions: [],
+            deployedContracts: {},
+            ready: false,
+            poll: async () => {throw new Error('unimplemented')}
+        }
     }
 
-    // lets sub-scripts inject args.
-    //  e.g the EOA will run '-s', 
     forgeArgs(): string[] {
-        return [];
-    }
-
-    requestNew(txns: Txn[]): Promise<TSignatureRequest> {
-        throw new Error('unimplemented');
+        return ["--ledger", `"execute(string memory)"`, "./deploy.json",];
     }
 
     latest(): Promise<TSignatureRequest | undefined> {

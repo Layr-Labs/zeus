@@ -19,7 +19,9 @@ export abstract class GnosisSigningStrategy<T> extends SigningStrategy<TGnosisBa
         return obj !== null && obj !== undefined && typeof obj.safeAddress == 'string' && typeof obj.rpcUrl == 'string' && this.isValidSubCommandArgs(obj); 
     }
 
-    async requestNew(txns: Txn[]): Promise<TSignatureRequest> {
+    async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
+        var txns: Txn[] = [];
+
         const {safeAddress, rpcUrl} = this.args;
         const apiKit = new SafeApiKit.default({
             chainId: 1n, // TODO:(multinetwork)

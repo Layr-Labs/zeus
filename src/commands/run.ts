@@ -1,5 +1,5 @@
 import {command, option} from 'cmd-ts';
-import {json} from './common.js';
+import {json} from './args.js';
 import { requiresLogin, TState } from './inject.js';
 
 const handler = async function(user: TState, args: {json: boolean, command: string, env: string}) {

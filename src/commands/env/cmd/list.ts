@@ -1,5 +1,5 @@
 import {command} from 'cmd-ts';
-import { json } from '../../common.js';
+import {json} from '../../args.js';
 import { requiresLogin, TState } from '../../inject.js';
 
 export const loadExistingEnvs = async (user: TState) => {

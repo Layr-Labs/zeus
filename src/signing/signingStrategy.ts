@@ -1,5 +1,4 @@
-import {basename} from 'path';
-import { spawn, spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 
 export type Txn = {
     calldata: `0x${string}`
@@ -7,10 +6,14 @@ export type Txn = {
 }
 
 export interface TSignatureRequest {
-    // RLP encoded signed-txn
-    signedTransaction: `0x${string}` | undefined,
+    // Any RLP encoded signed-txns
+    signedTransactions?: `0x${string}`[] | undefined,
 
-    poll: (args?: {timeoutMs: number}) => Promise<`0x${string}`>
+    // any contracts known to have been deployed by this operation.
+    deployedContracts?: Record<string, `0x${string}`> | undefined,
+
+    ready: boolean,
+    poll: (args?: {timeoutMs: number}) => Promise<TSignatureRequest>
 }
 
 // TODO: signing strategy should inject node / publicClient
@@ -23,7 +26,14 @@ export abstract class SigningStrategy<TArgs> {
     // name of the signing strategy. should be unique.
     abstract id: string;
 
-    abstract execute(path: string): void;
+    // trigger the signing process for the given upgrade script.
+    //
+    // NOTE: this WILL side effects 
+    //      - (e.g in the case of a gnosis multisig proposal, an api request), or
+    //      - (e.g in the case of an EOA deploy, the literal deploy).
+    //
+    //      Any state produced from this should be checked in.
+    abstract requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined>;
 
     // lets sub-scripts inject args.
     //  e.g the EOA will run '-s', 
@@ -66,22 +76,13 @@ export abstract class SigningStrategy<TArgs> {
         });
     }
 
-
-
-    // sign some calldata
-    //
-    // NOTE: this may have side effects (e.g in the case of a gnosis multisig proposal)
-    //       if `signTransaction` can have side effects, it's expected that this should be
-    //       idempotent/resumable, and rely on `ZEUS_HOST`/temp files for state-tracking.
-    abstract requestNew(txns: Txn[]): Promise<TSignatureRequest>;
-
     // pollable method to check whether the latest requested signature completed or not. if it completed,
     // returns the signed value. `poll()`
     abstract latest(): Promise<TSignatureRequest | undefined>;
 
     constructor(options: Record<string, any>) {
         if (!this.isValidArgs(options)) {
-            throw new Error('invalid arguments for signing strategy');
+            throw new Error(`Missing required arguments for signing strategy: ${this.constructor.name}`);
         }
         this.args = options;
     } 
