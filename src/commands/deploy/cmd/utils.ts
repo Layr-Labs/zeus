@@ -2,7 +2,7 @@ import { Octokit } from "octokit";
 import { TState } from "../../inject.js";
 
 // Current status, if applicable, of an ongoing deploy in this environment.
-// - undefined - the deploy has not started yet.
+// - "" - the deploy has not started yet.
 // - "create" -- [eoa] the `create` phase has been run and is submitted to the network.
 //    * CLI should confirm that etherscan has ABIs for contracts.
 // - "wait_create_confirm" -- we are waiting for the confirmation of the associated transactions from deploy.
@@ -15,7 +15,7 @@ import { TState } from "../../inject.js";
 // - "complete" - the upgrade has been fully applied, and all metadata is available.
 // - "cancelled" - the upgrade was cancelled during the timelock phase, if applicable.
 export type TDeployPhase = (
-     undefined |
+     "" |
      "create" | 
      "wait_create_confirm" | 
      "queue" | 
@@ -28,12 +28,82 @@ export type TDeployPhase = (
      "cancelled"
 )
 
+// "skips" a phase, which 
+export const skip = (deploy: TDeploy) => {
+    switch (deploy.phase) {
+        case "create":
+        case "wait_create_confirm":
+            deploy.phase = "queue";
+            break;
+        case "queue":
+        case "wait_queue_find_signers":
+        case "wait_queue_confirm":
+        case "wait_queue_timelock":
+            deploy.phase = "execute";
+            break;
+        case "execute":
+            // TODO: this probably should throw
+            deploy.phase = "cancelled";
+            break;
+        case "wait_execute_confirm":
+            // TODO: this probably should throw
+            deploy.phase = "complete";
+            break;
+        case "complete":
+        case "cancelled":
+            // nothing to advance
+            break;
+        case "":
+            deploy.phase = "create";
+            break;
+        default:
+            throw new Error(`Deploy in unknown phase: ${deploy.phase}`);
+    }
+}
+
+export const advance = (deploy: TDeploy) => {
+    switch (deploy.phase) {
+        case "create":
+            deploy.phase = "wait_create_confirm";
+        case "wait_create_confirm":
+            deploy.phase = "queue";
+            break;
+        case "queue":
+            deploy.phase = "wait_queue_find_signers";
+            break;
+        case "wait_queue_find_signers":
+            deploy.phase = "wait_queue_confirm";
+            break;
+        case "wait_queue_confirm":
+            deploy.phase = "wait_queue_timelock";
+            break;
+        case "wait_queue_timelock":
+            deploy.phase = "execute";
+            break;
+        case "execute":
+            deploy.phase = "wait_execute_confirm";
+            break;
+        case "wait_execute_confirm":
+            deploy.phase = "complete";
+            break;
+        case "complete":
+        case "cancelled":
+            // nothing to advance
+            break;
+        case "":
+            deploy.phase = "create";
+            break;
+        default:
+            throw new Error(`Deploy in unknown phase: ${deploy.phase}`);
+    }
+}
+
 export function isTerminalPhase(state: TDeployPhase): boolean {
     return state === "complete" || state === "cancelled";
 }
 
 export type TDeploy = {
-    upgradeScript: string; // the name of the upgrade script used.
+    upgradePath: string; // the name of the upgrade script used.
     phase: TDeployPhase;
     startTime?: string; // human readable timestamp of when this started, from zeus's perspective.
     endTime?: string; // human readable timestamp of when this completed, from zeus's perspective.

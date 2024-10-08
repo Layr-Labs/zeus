@@ -68,8 +68,6 @@ export async function load(args?: {env: string}): Promise<TState> {
                 zeusHostRepo,
                 environment: args?.env ? new Enviornment(client, args.env!) : undefined,
             }
-
-            // load the environment if it's available
         } catch (e) {
             // log out the user.
             configs.zeusProfile.write({
