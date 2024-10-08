@@ -1,4 +1,5 @@
 
+import chalk from 'chalk';
 import { readFileSync, writeFileSync } from 'fs';
 
 export class JSONBackedConfig<T> {
@@ -10,13 +11,20 @@ export class JSONBackedConfig<T> {
         this.defaultPath = options.defaultPath;
     }
 
-    async load(): Promise<T> {
-        const path = this.providedPath ? this.providedPath : await this.defaultPath();
-        return JSON.parse(readFileSync(path, {encoding: 'utf-8'})) as T;
+    async path(): Promise<string> {
+        return this.providedPath ? this.providedPath : await this.defaultPath();
+    }
+
+    async load(): Promise<T | undefined> {
+        try {
+            return JSON.parse(readFileSync(await this.path(), {encoding: 'utf-8'})) as T;
+        } catch {
+            return undefined;
+        }
     }
 
     async write(value: T): Promise<void> {
-        const path = this.providedPath ? this.providedPath : await this.defaultPath();
-        return writeFileSync(path, JSON.stringify(value, null, 4))
+        writeFileSync(await this.path(), JSON.stringify(value, null, 4))
+        console.log(chalk.green(`+ updated zeus config '${await this.path()}'`));
     }
 }

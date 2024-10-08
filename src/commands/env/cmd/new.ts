@@ -1,6 +1,6 @@
 import {command } from 'cmd-ts';
 import { loadExistingEnvs } from './list.js';
-import { requiresLogin, TState } from '../../inject.js';
+import { requiresLogin, requiresRepo, TState } from '../../inject.js';
 import { question } from '../../utils.js';
 import { Environment } from '../../../metadata/environment.js';
 import chalk from 'chalk';
@@ -76,7 +76,7 @@ const cmd = command({
     description: 'create a new environment',
     version: '1.0.0',
     args: {},
-    handler: requiresLogin(handler),
+    handler: requiresLogin(requiresRepo(handler)),
 })
 
 export default cmd;

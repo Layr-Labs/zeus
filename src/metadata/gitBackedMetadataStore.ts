@@ -1,6 +1,5 @@
-import { dotZeus, TZeusState } from '../commands/inject.js';
+import { configs } from '../commands/inject.js';
 import {login} from './loginServer.js';
-import { writeFileSync, existsSync, readFileSync } from 'fs';
 
 export class GitMetadataStore {
     environment?: string;
@@ -10,11 +9,8 @@ export class GitMetadataStore {
         const token = await login();
         
         // store the token in ~/.zeus
-        writeFileSync(
-            dotZeus(),
-            JSON.stringify({accessToken: token} as TZeusState),
-        )
-        console.log(`Updated ${dotZeus()}`)
+        configs.zeusProfile.write({accessToken: token})
+        console.log(`Updated ${await configs.zeusProfile.path()}`)
     }
 
     constructor(args?: {environment: string, repo: string}) {

@@ -8,17 +8,21 @@ import { JSONBackedConfig } from './config.js';
 
 export type TZeusConfig = {
     zeusHost: string,
+    migrationDirectory: string
 }
 
 export type TZeusProfile = {
     accessToken: string | undefined,
 }
 
+export const getRepoRoot = () => {
+    return execSync('git rev-parse --show-toplevel').toString('utf-8').trim();
+}
+
 export const configs = {
     zeus: new JSONBackedConfig<TZeusConfig>({
         defaultPath: async () => {
-            const repoRoot = execSync('git rev-parse --show-toplevel').toString('utf-8');
-            return path.join(repoRoot, '.zeus');
+            return path.join(getRepoRoot(), '.zeus');
         },
     }),
     zeusProfile: new JSONBackedConfig<TZeusProfile>({
@@ -35,20 +39,15 @@ export type TState = {
 
 // get all zeus-state, from environment variables + repo.
 export async function load(args?: {env: string}): Promise<TState> {
-    const repoConfig = await configs.zeus.load();
     const profile = await configs.zeusProfile.load();
-
-    if (!repoConfig) {
-        console.error('Zeus should be run from within a contracts repository containing a `.zeus` file.');
-        throw new Error('Aborting.');
-    }
+    const zeusRepo = await configs.zeus.load();
 
     var zeusHostOwner: string | undefined;
     var zeusHostRepo: string | undefined;
 
-    if (process.env.ZEUS_HOST) {
+    if (zeusRepo) {
         try {
-            const urlObj = new URL(process.env.ZEUS_HOST!);
+            const urlObj = new URL(zeusRepo.zeusHost);
             const pathComponents = urlObj.pathname.split('/').filter(Boolean);
             const [owner, repo] = pathComponents.slice(-2);
             zeusHostOwner = owner;
@@ -86,16 +85,23 @@ export async function load(args?: {env: string}): Promise<TState> {
     }
 }
 
+export function requiresRepo<Args extends any[], Returns>(fn: (...args: Args) => Promise<Returns>) {
+    return async (..._args: Args) => {
+        const repoConfig = await configs.zeus.load();
+        if (!repoConfig) {
+            console.error('This command should be run from within a repository containing a `.zeus` file.');
+            process.exit(1);
+        }
+        return await fn(..._args);
+    }
+}
+
 export function requiresLogin<Args extends any[], T, Returns>(fn: (user: TState, cliArgs: T, ...args: Args) => Promise<Returns>) {
     return async (cliArgs: T, ..._args: Args) => {
         const state = await load();
         if (!state.github) {
             console.error(chalk.red('this action requires authentication. please login via `zeus login`'));
             process.exit(1);
-        }
-        if (!state.zeusHostOwner || !state.zeusHostRepo) {
-            console.error(chalk.red('please set a valid ZEUS_HOST repo in your terminal.'));
-            process.exit(2);
         }
         await fn(state, cliArgs, ..._args);
     }

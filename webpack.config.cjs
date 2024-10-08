@@ -4,6 +4,9 @@ const webpack = require("webpack");
 module.exports = {
   target: 'node',
   entry: './src/index.ts',
+  watch: true,
+  mode: 'development',
+  devtool: 'inline-source-map',
   module: {
     rules: [
       {
@@ -19,7 +22,6 @@ module.exports = {
       '.js': ['.js', '.ts'],
     },
   },
-  mode: 'production',
   output: {
     filename: 'bundle.cjs',
     path: path.resolve(__dirname, 'dist'),

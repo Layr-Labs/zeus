@@ -15,7 +15,7 @@ export const question = (args: {
     while (attempt < (args.maxAttempts || defaultMaxAttempts)) {
         response = ask(args.text + ': ')
         if (args.isValid(response)) {
-            return response;
+            return response.trim();
         }
         attempt++;
     }
