@@ -1,7 +1,7 @@
 import SafeApiKit from "@safe-global/api-kit";
 import {SafeTransaction} from "@safe-global/safe-core-sdk-types";
 import Safe from '@safe-global/protocol-kit'
-import { SigningStrategy, TSignatureRequest, Txn } from "../signingStrategy.js";
+import { Strategy, TSignatureRequest, Txn } from "../strategy.js";
 import {privateKeyToAccount} from 'viem/accounts';
 
 type TGnosisBaseArgs = {
@@ -9,7 +9,7 @@ type TGnosisBaseArgs = {
     rpcUrl: string;
 }
 
-export abstract class GnosisSigningStrategy<T> extends SigningStrategy<TGnosisBaseArgs & T> {
+export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs & T> {
 
     abstract getSignature(safeVersion: string, txn: SafeTransaction): Promise<`0x${string}`>;
     abstract getSignerAddress(): Promise<string>;

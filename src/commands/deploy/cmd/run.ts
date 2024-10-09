@@ -1,56 +1,59 @@
 import { command } from "cmd-ts";
 import * as allArgs from '../../args.js';
-import { requiresLogin, TState, configs, getRepoRoot } from "../../inject.js";
-import { getActiveDeploy, isTerminalPhase, skip, advance, TDeploy } from "./utils.js";
+import { TState, configs, getRepoRoot, requires, loggedIn } from "../../inject.js";
+import { getActiveDeploy, isTerminalPhase, skip, advance, TDeploy, TDeployPhase } from "./utils.js";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
 import { all } from '../../../signing/strategies/strategies.js';
-import { SigningStrategy } from "../../../signing/signingStrategy.js";
+import { Strategy } from "../../../signing/strategy.js";
 import chalk from "chalk";
+import { canonicalPaths } from "../../../metadata/paths.js";
 
-const canonicalPaths = {
-    deploy: (upgradeDir: string) => join(upgradeDir, "1-deploy.s.sol"),
-    queue: (upgradeDir: string) => join(upgradeDir, "2-queue.s.sol"),
-    execute: (upgradeDir: string) => join(upgradeDir, "3-execute.s.sol"),
+const blankDeploy = (args: {env: string, upgrade: string, upgradePath: string}) => {
+    return {
+        env: args.env,
+        upgrade: args.upgrade,
+        upgradePath: args.upgradePath,
+        phase: "" as TDeployPhase,
+        startTime: new Date().toString(),
+        endTime: '',
+    } as const;
 }
 
 async function handler(user: TState, args: {env: string, json: boolean, upgrade: string, signingStrategy: string}) {
-    const signingStrategyClass = all.find((strategy) => new strategy(args).id === args.signingStrategy);
-    if (!signingStrategyClass) {
-        console.error(`No such signing strategy: ${args.signingStrategy}`);
-        console.error(`Available strategies: ${all.map((s) => new s(args).id)}`);
-        process.exit(1);
-    }
-    const signingStrategy = new signingStrategyClass(args);
-    const deploy = await getActiveDeploy(user, args.env);
-    if (deploy) {
-        console.log(`Resuming existing deploy... (began at ${deploy.startTime})`);
-        // double check the upgrade is correct
-        return await executeOrContinueDeploy(deploy, signingStrategy);
-    }
-
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
         process.exit(1);
     }
 
-    // resolve the relative path
     const upgradePath = normalize(join(getRepoRoot(), repoConfig.migrationDirectory, args.upgrade))
     if (!existsSync(upgradePath) || !lstatSync(upgradePath).isDirectory() ) {
         console.error(`Upgrade ${args.upgrade} doesn't exist, or isn't a directory. (searching '${upgradePath}')`)
         process.exit(1);
     }
 
-    await executeOrContinueDeploy({
-        upgradePath,
-        phase: "",
-        startTime: new Date().toString(),
-        endTime: '',
-    }, signingStrategy);
+    const newDeploy = blankDeploy({env: args.env, upgrade: args.upgrade, upgradePath});
+    const signingStrategyClass = all.find((strategy) => new strategy(newDeploy, args, user!.metadataStore!).id === args.signingStrategy);
+    if (!signingStrategyClass) {
+        console.error(`No such signing strategy: ${args.signingStrategy}`);
+        console.error(`Available strategies: ${all.map((s) => new s(newDeploy, args, user!.metadataStore!).id)}`);
+        process.exit(1);
+    }
+
+    const deploy = await getActiveDeploy(user, args.env);
+    if (deploy) {
+        console.log(`Resuming existing deploy... (began at ${deploy.startTime})`);
+        const signingStrategy = new signingStrategyClass(deploy, args, user.metadataStore!);
+        // double check the upgrade is correct
+        return await executeOrContinueDeploy(deploy, signingStrategy);
+    }
+
+    const signingStrategy = new signingStrategyClass(newDeploy, args, user.metadataStore!);
+    await executeOrContinueDeploy(newDeploy, signingStrategy);
 }
 
-const executeOrContinueDeploy = async (deploy: TDeploy, strategy: SigningStrategy<any>) => {
+const executeOrContinueDeploy = async (deploy: TDeploy, strategy: Strategy<any>) => {
     while (!isTerminalPhase(deploy.phase)) {
         console.log(chalk.green(`[info] Deploy phase: ${deploy.phase}`))
         switch (deploy.phase) {
@@ -60,6 +63,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, strategy: SigningStrateg
             case "create":
                 const createScript = canonicalPaths.deploy(deploy.upgradePath);
                 if (existsSync(createScript)) {
+                    console.log("Running ", createScript)
                     const sigRequest = await strategy.requestNew(createScript);
                     if (sigRequest?.ready) {
                         advance(deploy);
@@ -120,5 +124,5 @@ export default command({
         json: allArgs.json,
         ...allArgs.signingStrategyFlags,
     },
-    handler: requiresLogin(handler),
+    handler: requires(handler, loggedIn),
 })

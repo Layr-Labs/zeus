@@ -1,4 +1,9 @@
+import chalk from 'chalk';
 import { spawn } from 'child_process';
+import { TDeploy } from '../commands/deploy/cmd/utils.js';
+import { MetadataStore } from '../metadata/metadataStore.js';
+import { canonicalPaths } from '../metadata/paths.js';
+import { getRepoRoot } from '../commands/inject.js';
 
 export type Txn = {
     calldata: `0x${string}`
@@ -17,8 +22,11 @@ export interface TSignatureRequest {
 }
 
 // TODO: signing strategy should inject node / publicClient
-export abstract class SigningStrategy<TArgs> {
+export abstract class Strategy<TArgs> {
     readonly args: TArgs;
+
+    readonly deploy: TDeploy;
+    readonly metadata: MetadataStore;
 
     // coercion funciton for checking arg validity
     abstract isValidArgs(obj: any): obj is TArgs;
@@ -37,11 +45,21 @@ export abstract class SigningStrategy<TArgs> {
 
     // lets sub-scripts inject args.
     //  e.g the EOA will run '-s', 
-    abstract forgeArgs(): string[];
+    abstract forgeArgs(): Promise<string[]>;
+
+    async pathToDeployParamters(): Promise<string> {
+        return await this.metadata.getJSONPath(canonicalPaths.deployDirectory(
+            getRepoRoot(),
+            this.deploy.env,
+            this.deploy.upgrade,
+        ))
+    }
 
     async runForgeScript(path: string): Promise<any> {
-        return new Promise((resolve, reject) => {
-            const child = spawn('forge', ['script', path, ...this.forgeArgs(), '--json']);
+        return new Promise(async (resolve, reject) => {
+            const args = ['script', path, ...await this.forgeArgs(), '--json'];
+            console.log(chalk.italic(`Running: forge ${args.join(' ')}`))
+            const child = spawn('forge', args);
 
             let stdoutData = '';
             let stderrData = '';
@@ -80,7 +98,9 @@ export abstract class SigningStrategy<TArgs> {
     // returns the signed value. `poll()`
     abstract latest(): Promise<TSignatureRequest | undefined>;
 
-    constructor(options: Record<string, any>) {
+    constructor(deploy: TDeploy, options: Record<string, any>, metadataStore: MetadataStore) {
+        this.deploy = deploy;
+        this.metadata = metadataStore;
         if (!this.isValidArgs(options)) {
             throw new Error(`Missing required arguments for signing strategy: ${this.constructor.name}`);
         }

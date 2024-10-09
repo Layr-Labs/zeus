@@ -1,9 +1,9 @@
 import {command} from 'cmd-ts';
-import { getRepoRoot, requiresLogin, TState } from './inject.js';
+import { getRepoRoot, loggedIn, requires, TState } from './inject.js';
 import { configs } from './inject.js';
 import { question } from './utils.js';
 import path from 'path';
-import { existsSync, mkdirSync, rmSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import chalk from 'chalk';
 
 const handler = async function(user: TState, args: {}) {
@@ -57,6 +57,6 @@ const cmd = command({
     description: 'initializes a contracts repo with zeus',
     version: '1.0.0',
     args: {},
-    handler: requiresLogin(handler),
+    handler: requires(handler, loggedIn),
 })
 export default cmd;

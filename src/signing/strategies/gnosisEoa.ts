@@ -10,7 +10,7 @@ type TGnosisEOAArgs = {
 export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
     id: string = "gnosis.eoa";
     
-    forgeArgs(): string[] {
+    async forgeArgs(): Promise<string[]> {
         return ["--private-key", this.args.privateKey];
     }
 

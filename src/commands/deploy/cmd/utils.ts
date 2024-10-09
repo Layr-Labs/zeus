@@ -103,6 +103,9 @@ export function isTerminalPhase(state: TDeployPhase): boolean {
 }
 
 export type TDeploy = {
+    env: string;
+    upgrade: string;
+
     upgradePath: string; // the name of the upgrade script used.
     phase: TDeployPhase;
     startTime?: string; // human readable timestamp of when this started, from zeus's perspective.

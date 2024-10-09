@@ -1,11 +1,9 @@
-import { Octokit } from "octokit";
+import { MetadataStore } from "../metadata/metadataStore.js";
 
-export class Enviornment {
+export class Environment {
     name: string
-    github: Octokit
 
-    constructor(github: Octokit, name: string) {
+    constructor(name: string) {
         this.name = name;
-        this.github = github;
     }
 }

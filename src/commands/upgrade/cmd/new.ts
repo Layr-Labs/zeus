@@ -1,6 +1,6 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args.js';
-import { requiresLogin, TState } from '../../inject.js';
+import { loggedIn, requires, TState } from '../../inject.js';
 import { select } from '@inquirer/prompts';
 
 const handler = async function(user: TState, args: {json: boolean}) {
@@ -37,6 +37,6 @@ const cmd = command({
     args: {
         json,
     },
-    handler: requiresLogin(handler),
+    handler: requires(handler, loggedIn),
 })
 export default cmd;

@@ -1,6 +1,6 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args.js';
-import { requiresLogin, TState } from '../../inject.js';
+import { loggedIn, requires, TState } from '../../inject.js';
 
 export const loadExistingEnvs = async (user: TState) => {
     const gh = user.github!;
@@ -54,7 +54,7 @@ const cmd = command({
     args: {
         json,
     },
-    handler: requiresLogin(handler),
+    handler: requires(handler, loggedIn),
 })
 
 export default cmd;

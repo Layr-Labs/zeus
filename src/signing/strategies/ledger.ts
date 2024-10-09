@@ -1,8 +1,8 @@
-import { SigningStrategy, TSignatureRequest, Txn } from "../signingStrategy.js";
+import { Strategy, TSignatureRequest, Txn } from "../strategy.js";
 
 type TLedgerArgs = {};
 
-export class LedgerSigningStrategy extends SigningStrategy<TLedgerArgs> {
+export class LedgerSigningStrategy extends Strategy<TLedgerArgs> {
     id = "ledger";
 
     // coercion funciton for checking arg validity
@@ -24,8 +24,8 @@ export class LedgerSigningStrategy extends SigningStrategy<TLedgerArgs> {
         }
     }
 
-    forgeArgs(): string[] {
-        return ["--ledger", `"execute(string memory)"`, "./deploy.json",];
+    async forgeArgs(): Promise<string[]> {
+        return ["--ledger", "--sig", `"deploy()"`, "./deploy.json",];
     }
 
     latest(): Promise<TSignatureRequest | undefined> {

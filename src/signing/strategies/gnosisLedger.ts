@@ -12,7 +12,7 @@ type TGnosisEOAArgs = {} // no additional args here.
 export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
     id: string = "gnosis.ledger";
 
-    forgeArgs(): string[] {
+    async forgeArgs(): Promise<string[]> {
         return ["--ledger"];
     }
 

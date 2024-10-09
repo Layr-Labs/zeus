@@ -1,11 +1,11 @@
 import { privateKeyToAccount } from "viem/accounts";
-import { SigningStrategy, TSignatureRequest, Txn } from "../signingStrategy.js";
+import { Strategy, TSignatureRequest, Txn } from "../strategy.js";
 
 type TEOAArgs = {
     privateKey: string
 };
 
-export default class EOASigningStrategy extends SigningStrategy<TEOAArgs> {
+export default class EOASigningStrategy extends Strategy<TEOAArgs> {
     id = "eoa";
 
     isValidArgs(obj: any): obj is TEOAArgs {
@@ -23,8 +23,8 @@ export default class EOASigningStrategy extends SigningStrategy<TEOAArgs> {
         return true;
     }
 
-    forgeArgs(): string[] {
-        return ["--private-key", this.args.privateKey, `"execute(string memory)"`, "./deploy.json",];
+    async forgeArgs(): Promise<string[]> {
+        return ["--private-key", this.args.privateKey, '--sig', `deploy(string)`, await this.pathToDeployParamters()];
     }
 
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
