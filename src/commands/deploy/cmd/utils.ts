@@ -115,19 +115,10 @@ export type TDeploy = {
 }
 
 export async function getActiveDeploy(user: TState, env: string): Promise<TDeploy | undefined> {
-    const repoDetails = {
-        owner: user.zeusHostOwner!,
-        repo: user.zeusHostRepo!,
-    };
-    const github = user.github!;
     const environmentPath = `environment/${env}/deploys`;
-
     try {
         // Fetch the contents of the 'environment/{name}/deploys' directory
-        const { data: directoryContents } = await github.rest.repos.getContent({
-            ...repoDetails,
-            path: environmentPath,
-        });
+        const directoryContents = await user.metadataStore!.getDirectory(environmentPath);
 
         if (!Array.isArray(directoryContents) || directoryContents.length === 0) {
             return undefined; // No deploys found
@@ -142,20 +133,15 @@ export async function getActiveDeploy(user: TState, env: string): Promise<TDeplo
         const deployJsonPath = `${environmentPath}/${latestDeployDir.name}/deploy.json`;
 
         // Fetch the deploy.json file content
-        const { data: deployFile } = await github.rest.repos.getContent({
-            ...repoDetails,
-            path: deployJsonPath,
-        });
+        const deploy = await user.metadataStore!.getJSONFile<TDeploy>(
+            deployJsonPath
+        ); 
 
-        if (!("content" in deployFile) || !deployFile.content) {
+        if (!deploy) {
             throw new Error(`deploy.json not found in ${deployJsonPath}`);
         }
 
-        // Decode the base64 content of deploy.json
-        const deployJsonContent = Buffer.from(deployFile.content, "base64").toString("utf-8");
-        const deployData: TDeploy = JSON.parse(deployJsonContent);
-
-        return deployData;
+        return deploy;
     } catch (error) {
         if (`${error}`.includes('Not Found')) {
             // If the environment or deploy directory is not found, return undefined

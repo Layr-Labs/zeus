@@ -1,13 +1,9 @@
 import {command} from 'cmd-ts';
 import {json} from '../args.js';
-import { requires, TState } from '../inject.js';
+import { inRepo, requires, TState } from '../inject.js';
 
 async function handler(user: TState) {
     try {
-        if (await user.metadataStore!.isLoggedIn()) {
-            console.info("warning: already logged in.");
-        }
-
         await user.metadataStore!.login();
         console.log(`Happy deploying!`);
     } catch(e) {
@@ -22,7 +18,7 @@ const cmd = command({
     args: {
         json,
     },
-    handler: requires(handler),
+    handler: requires(handler, inRepo),
 })
 
 export default cmd;

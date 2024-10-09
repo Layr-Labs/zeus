@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { configs } from '../commands/inject.js';
 import {login as loginToGithub} from './github.js';
-import { MetadataStore } from './metadataStore.js';
+import { MetadataStore, TDirectory } from './metadataStore.js';
 import { Octokit } from 'octokit';
 
 export class GitMetadataStore implements MetadataStore {
@@ -18,8 +18,8 @@ export class GitMetadataStore implements MetadataStore {
         if (this.accessToken) {
             this.octokit = new Octokit({auth: this.accessToken});
         }
+
         configs.zeusProfile.write({accessToken: this.accessToken})
-        console.log(chalk.green(`+ Updated ${await configs.zeusProfile.path()}`))
         return true;
     }
 
@@ -31,13 +31,11 @@ export class GitMetadataStore implements MetadataStore {
 
     async initialize(): Promise<void> {
         try {
-            const config = configs.zeusProfile.load();
-            config.then(c => {
-                this.accessToken = c?.accessToken
-                if (this.accessToken) {
-                    this.octokit = new Octokit({auth: this.accessToken});
-                }
-            })
+            const config = await configs.zeusProfile.load();
+            this.accessToken = config?.accessToken
+            if (this.accessToken) {
+                this.octokit = new Octokit({auth: this.accessToken});
+            }
         } catch {}
     }
 
@@ -46,12 +44,12 @@ export class GitMetadataStore implements MetadataStore {
         try {
             await client.rest.users.getAuthenticated();
             return true;
-        } catch {
+        } catch (e) {
             return false;
         }
     }
 
-    async getPath(path: string): Promise<string> {
+    async getFile(path: string): Promise<string> {
         const response = await this.octokit!.rest.repos.getContent({
             owner: this.owner!,
             repo: this.repo!,
@@ -68,11 +66,38 @@ export class GitMetadataStore implements MetadataStore {
         }
     }
 
-    async getJSONPath<T>(path: string): Promise<T> {
-        return JSON.parse(await this.getPath(path)) as T;
+    async getDirectory(path: string): Promise<TDirectory | undefined> {
+        try {
+            const response = await this.octokit!.rest.repos.getContent({
+                owner: this.owner,
+                repo: this.repo,
+                path,
+                ref: this.branch,
+            });
+
+            if (Array.isArray(response.data)) {
+                // This means the path is a directory, so we map the contents to the TDirectory type
+                const directory: TDirectory = response.data.map(item => ({
+                    type: item.type,
+                    name: item.name,
+                }));
+
+                return directory;
+            } else {
+                // If the response is not an array, it's not a directory
+                throw new Error(`${path} is not a directory.`);
+            }
+        } catch (error) {
+            console.error(`Failed to get directory contents for path: ${path}`, error);
+            return undefined;
+        }
     }
 
-    async updatePath(path: string, contents: string): Promise<string> {
+    async getJSONFile<T>(path: string): Promise<T> {
+        return JSON.parse(await this.getFile(path)) as T;
+    }
+
+    async updateFile(path: string, contents: string): Promise<string> {
         const response = await this.octokit!.rest.repos.getContent({
             owner: this.owner,
             repo: this.repo,

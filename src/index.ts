@@ -12,16 +12,18 @@ import testCmd from './commands/test.js';
 import initCmd from './commands/init.js';
 
 const main = async () => {
-    const isLoggedIn = await load()
+    const state = await load()
 
-    const hasZeusHost = !!isLoggedIn?.zeusHostOwner;
-    const zeusHost = isLoggedIn?.zeusHostOwner ? `${isLoggedIn?.zeusHostOwner}/${isLoggedIn?.zeusHostRepo}` : '<repo uninitialized>';
+    const isLoggedIn = await state.metadataStore?.isLoggedIn() ?? false;
+
+    const hasZeusHost = !!state?.zeusHostOwner;
+    const zeusHost = state?.zeusHostOwner ? `${state?.zeusHostOwner}/${state?.zeusHostRepo}` : '<repo uninitialized>';
     
     const zeus = subcommands({
         name: 'zeus',
         description: `
         metadata: ${hasZeusHost ? chalk.green(zeusHost) : chalk.red(zeusHost)}
-        ${!!isLoggedIn.github ? chalk.green('logged in!') : chalk.red('logged out')}
+        ${isLoggedIn ? chalk.green('logged in!') : chalk.red('logged out')}
         `,
         cmds: { deploy, env, upgrade, login, run: runCmd, test: testCmd, init: initCmd},
     });

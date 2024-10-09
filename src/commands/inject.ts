@@ -49,7 +49,6 @@ export async function load(args?: {env: string}): Promise<TState> {
     var metadataStore: MetadataStore | undefined;
     
     if (zeusRepo) {
-        console.log('here');
         try {
             const urlObj = new URL(zeusRepo.zeusHost);
             const pathComponents = urlObj.pathname.split('/').filter(Boolean);
@@ -65,6 +64,7 @@ export async function load(args?: {env: string}): Promise<TState> {
 
 
     if (metadataStore && !await metadataStore.isLoggedIn()) {
+        console.log("logging out automatically.");
         await configs.zeusProfile.write({
             accessToken: undefined
         })
@@ -93,7 +93,7 @@ export function requires<Args extends any[], T, Returns>(fn: (user: TState, cliA
 
 export async function loggedIn(): Promise<void> {
     const state = await load();
-    if (!state.github) {
+    if (!state.metadataStore || !await state.metadataStore!.isLoggedIn()) {
         console.error(chalk.red('this action requires authentication. please login via `zeus login`'));
         process.exit(1);
     }

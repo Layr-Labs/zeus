@@ -48,7 +48,7 @@ export abstract class Strategy<TArgs> {
     abstract forgeArgs(): Promise<string[]>;
 
     async pathToDeployParamters(): Promise<string> {
-        return await this.metadata.getJSONPath(canonicalPaths.deployDirectory(
+        return await this.metadata.getJSONFile(canonicalPaths.deployDirectory(
             getRepoRoot(),
             this.deploy.env,
             this.deploy.upgrade,

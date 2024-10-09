@@ -1,5 +1,7 @@
-import { configs } from '../commands/inject.js';
-import {login} from './github.js';
+export type TDirectory = {
+    type: string;
+    name: string;
+}[];
 
 export interface MetadataStore {
     environment?: string;
@@ -11,7 +13,8 @@ export interface MetadataStore {
     // async constructor
     initialize(): Promise<void>;
 
-    getPath(path: string): Promise<string>;
-    getJSONPath<T>(path: string): Promise<T>;
-    updatePath(path: string, contents: string): Promise<string>;
+    getFile(path: string): Promise<string>;
+    getDirectory(path: string): Promise<TDirectory | undefined>;
+    getJSONFile<T>(path: string): Promise<T>;
+    updateFile(path: string, contents: string): Promise<string>;
 };

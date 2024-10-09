@@ -25,6 +25,6 @@ export class JSONBackedConfig<T> {
 
     async write(value: T): Promise<void> {
         writeFileSync(await this.path(), JSON.stringify(value, null, 4))
-        console.log(chalk.green(`+ updated zeus config '${await this.path()}'`));
+        console.log(chalk.green(`+ updated config '${await this.path()}'`));
     }
 }
