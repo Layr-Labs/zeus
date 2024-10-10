@@ -1,5 +1,5 @@
 import {command} from 'cmd-ts';
-import { getRepoRoot, loggedIn, requires, TState } from './inject.js';
+import { getRepoRoot, inRepo, loggedIn, requires, TState } from './inject.js';
 import { configs } from './inject.js';
 import { question } from './utils.js';
 import path from 'path';
@@ -57,6 +57,6 @@ const cmd = command({
     description: 'initializes a contracts repo with zeus',
     version: '1.0.0',
     args: {},
-    handler: requires(handler, loggedIn),
+    handler: requires(handler),
 })
 export default cmd;

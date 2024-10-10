@@ -42,6 +42,7 @@ export type TState = {
 
 // get all zeus-state, from environment variables + repo.
 export async function load(args?: {env: string}): Promise<TState> {
+    const zeusProfile = await configs.zeusProfile.load();
     const zeusRepo = await configs.zeus.load();
 
     var zeusHostOwner: string | undefined;
@@ -62,8 +63,7 @@ export async function load(args?: {env: string}): Promise<TState> {
         };
     }
 
-
-    if (metadataStore && !await metadataStore.isLoggedIn()) {
+    if (zeusProfile?.accessToken && metadataStore && !await metadataStore.isLoggedIn()) {
         console.log("logging out automatically.");
         await configs.zeusProfile.write({
             accessToken: undefined
@@ -75,7 +75,7 @@ export async function load(args?: {env: string}): Promise<TState> {
         zeusHostOwner,
         zeusHostRepo,
         metadataStore,
-        github: (metadataStore as GitMetadataStore).octokit,
+        github: (metadataStore as GitMetadataStore)?.octokit,
         environment: args?.env ? new Environment(args.env!) : undefined,
     }
 }

@@ -17,4 +17,5 @@ export interface MetadataStore {
     getDirectory(path: string): Promise<TDirectory | undefined>;
     getJSONFile<T>(path: string): Promise<T | undefined>;
     updateFile(path: string, contents: string): Promise<string>;
+    updateJSON<T>(path: string, contents: T): Promise<string>;
 };

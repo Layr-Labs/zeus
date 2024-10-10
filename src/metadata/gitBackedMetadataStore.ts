@@ -107,6 +107,11 @@ export class GitMetadataStore implements MetadataStore {
         return JSON.parse(contents) as T;
     }
 
+    async updateJSON<T>(path: string, contents: T): Promise<string> {
+        const content = JSON.stringify(contents, null, 2);
+        return await this.updateFile(path, content);
+    }
+
     async updateFile(path: string, contents: string): Promise<string> {
         var response: any;
         try {

@@ -50,6 +50,10 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
         return ["--private-key", this.args.privateKey, '--broadcast', '--rpc-url', this.args.rpcUrl, '--sig', `deploy(string)`, await this.pathToDeployParamters()];
     }
 
+    redactInOutput(): string[] {
+        return [this.args.privateKey];
+    }
+
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
         const {output, chainId} = await this.runForgeScript(pathToUpgrade);
         const deployedContracts = parseTuples(output.returns['0'].value).map((tuple) => {
@@ -59,7 +63,6 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
         const deployLatest = JSON.parse(readFileSync(canonicalPaths.forgeDeployLatestMetadata(getRepoRoot(), basename(pathToUpgrade), chainId!), {encoding: 'utf-8'}))
         const {timestamp, chain} = deployLatest;
         const runLatest = JSON.parse(readFileSync(canonicalPaths.forgeRunJson(getRepoRoot(), basename(pathToUpgrade), chain as number, timestamp), {encoding: 'utf-8'}))
-        
         return { 
             forge: {
                 runLatest,

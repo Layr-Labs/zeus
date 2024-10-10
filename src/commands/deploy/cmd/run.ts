@@ -8,16 +8,23 @@ import { all } from '../../../signing/strategies/strategies.js';
 import { Strategy } from "../../../signing/strategy.js";
 import chalk from "chalk";
 import { canonicalPaths } from "../../../metadata/paths.js";
+import { MetadataStore } from "../../../metadata/metadataStore.js";
+import { createPublicClient, http } from "viem";
+import { mainnet } from "viem/chains";
+import ora from 'ora';
+import { TDeployManifest } from "../../../metadata/schema.js";
 
-const blankDeploy = (args: {env: string, upgrade: string, upgradePath: string}) => {
+const blankDeploy = (args: {env: string, upgrade: string, upgradePath: string, name: string}) => {
+    const start = new Date();
     return {
+        name: args.name,
         env: args.env,
         upgrade: args.upgrade,
         upgradePath: args.upgradePath,
         phase: "" as TDeployPhase,
-        startTime: new Date().toString(),
-        endTime: '',
-    } as const;
+        startTime: start.toString(),
+        startTimestamp: start.getTime() / 1000,
+    } as TDeploy;
 }
 
 function formatNow() {
@@ -30,24 +37,15 @@ function formatNow() {
 
     return `${year}-${month}-${day}-${hours}-${minutes}`;
 }
-  
 
-async function handler(user: TState, args: {env: string, rpcUrl: string | undefined, json: boolean, upgrade: string, signingStrategy: string}) {
+async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string, signingStrategy: string}) {
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
         process.exit(1);
     }
 
-    const upgradePath = normalize(join(getRepoRoot(), repoConfig.migrationDirectory, args.upgrade))
-    if (!existsSync(upgradePath) || !lstatSync(upgradePath).isDirectory() ) {
-        console.error(`Upgrade ${args.upgrade} doesn't exist, or isn't a directory. (searching '${upgradePath}')`)
-        process.exit(1);
-    }
-
-    const newDeploy = blankDeploy({env: args.env, upgrade: args.upgrade, upgradePath});
-    const signingStrategyClass = all.find((strategy) => new strategy(newDeploy, args, user!.metadataStore!).id === args.signingStrategy);
-    if (!signingStrategyClass) {
+    const noSuchStrategyAndExit = () => {
         console.error(`No such signing strategy: ${args.signingStrategy}`);
         console.error(`Available strategies: ${all.map((s) => new s(newDeploy, args, user!.metadataStore!).id)}`);
         process.exit(1);
@@ -56,31 +54,72 @@ async function handler(user: TState, args: {env: string, rpcUrl: string | undefi
     const deploy = await getActiveDeploy(user, args.env);
     if (deploy) {
         console.log(`Resuming existing deploy... (began at ${deploy.startTime})`);
+        const signingStrategyClass = all.find((strategy) => new strategy(deploy, args, user.metadataStore!).id === args.signingStrategy);
+        if (!signingStrategyClass) {
+            noSuchStrategyAndExit();
+            return;
+        }   
+
         const signingStrategy = new signingStrategyClass(deploy, args, user.metadataStore!);
-        // double check the upgrade is correct
-        return await executeOrContinueDeploy(deploy, signingStrategy);
+        return await executeOrContinueDeploy(deploy, signingStrategy, user, args.rpcUrl);
     }
 
+    const upgradePath = normalize(join(getRepoRoot(), repoConfig.migrationDirectory, args.upgrade))
+    if (!existsSync(upgradePath) || !lstatSync(upgradePath).isDirectory() ) {
+        console.error(`Upgrade ${args.upgrade} doesn't exist, or isn't a directory. (searching '${upgradePath}')`)
+        process.exit(1);
+    }
+    const blankDeployName = `${formatNow()}-${args.upgrade}`;
+    const newDeploy = blankDeploy({name: blankDeployName, env: args.env, upgrade: args.upgrade, upgradePath});
+    const signingStrategyClass = all.find((strategy) => new strategy(newDeploy, args, user!.metadataStore!).id === args.signingStrategy);
+    if (!signingStrategyClass) {
+        noSuchStrategyAndExit();
+        return;
+    }
+
+    const deployJsonPath = join(canonicalPaths.deployDirectory('', args.env, blankDeployName), "deploy.json");
     const signingStrategy = new signingStrategyClass(newDeploy, args, user.metadataStore!);
-    
     // create the new deploy.
-    const deployJsonPath = join(canonicalPaths.deployDirectory('', args.env, `${formatNow()}-${args.upgrade}`), "deploy.json");
-    console.log(`Creating file: ${deployJsonPath}`);
     await user!.metadataStore?.updateFile(
         deployJsonPath, 
         '{}',
     )
+    console.log(chalk.green(`+ creating deploy: ${deployJsonPath}`));
     console.log(chalk.green('+ started deploy'));
 
-    await executeOrContinueDeploy(newDeploy, signingStrategy);
+    await executeOrContinueDeploy(newDeploy, signingStrategy, user, args.rpcUrl);
 }
 
-const executeOrContinueDeploy = async (deploy: TDeploy, strategy: Strategy<any>) => {
-    while (!isTerminalPhase(deploy.phase)) {
+const saveDeploy = async (metadataStore: MetadataStore, deploy: TDeploy) => {
+    const deployJsonPath = join(
+        canonicalPaths.deployDirectory('', deploy.env, deploy.name),
+        "deploy.json"
+    );
+    await metadataStore.updateJSON<TDeploy>(
+        deployJsonPath,
+        deploy
+    );
+    console.log(chalk.green(`* updated deploy (${deployJsonPath})`))
+}
+
+const updateLatestDeploy = async (metadataStore: MetadataStore, env: string, deployName: string | undefined, forceOverride = false) => {
+    const deployManifestPath = canonicalPaths.deploysManifest(env);
+    const deployManifest = await metadataStore.getJSONFile<TDeployManifest>(deployManifestPath) ?? {};
+    if (deployManifest.inProgressDeploy && !forceOverride) {
+        throw new Error('unexpected - deploy already in progress.');
+    }    
+    deployManifest.inProgressDeploy = deployName;
+    await metadataStore.updateJSON<TDeployManifest>(deployManifestPath, deployManifest!);
+}
+
+const executeOrContinueDeploy = async (deploy: TDeploy, strategy: Strategy<any>, user: TState, rpcUrl: string | undefined) => {
+    while (true) {
         console.log(chalk.green(`[info] Deploy phase: ${deploy.phase}`))
         switch (deploy.phase) {
             case "":
                 advance(deploy);
+                await saveDeploy(user.metadataStore!, deploy);
+                await updateLatestDeploy(user.metadataStore!, deploy.env, deploy.name);
                 break;
             case "create":
                 const createScript = canonicalPaths.deploy(deploy.upgradePath);
@@ -88,24 +127,73 @@ const executeOrContinueDeploy = async (deploy: TDeploy, strategy: Strategy<any>)
                     const sigRequest = await strategy.requestNew(createScript);
                     if (sigRequest?.ready) {
                         advance(deploy);
+                        await saveDeploy(user.metadataStore!, deploy);
+                        await user.metadataStore!.updateJSON(
+                            join(
+                                canonicalPaths.deployDirectory("", deploy.env, deploy.name),
+                                "foundry.run.json"
+                            ),
+                            sigRequest.forge?.runLatest
+                        )
+                        await user.metadataStore!.updateJSON(
+                            join(
+                                canonicalPaths.deployDirectory("", deploy.env, deploy.name),
+                                "foundry.deploy.json"
+                            ),
+                            sigRequest.forge?.deployLatest
+                        )
+                        console.log(chalk.green(`+ uploaded metadata`));
                     } else {
                         console.error(`Deploy failed with ready=false. Please try again.`);
                         process.exit(1);
                     }
                 } else {
                     skip(deploy);
+                    await saveDeploy(user.metadataStore!, deploy);
                 }
                 break;
             case "wait_create_confirm":
-                console.log("TODO: implement.");
-                process.exit(1);
-                // TODO: Handle waiting for confirmation of create transactions
-                break;
+                // check the transactions created by the previous step.
+                const foundryDeploy = await user.metadataStore?.getJSONFile<any>(
+                    join(
+                        canonicalPaths.deployDirectory("", deploy.env, deploy.name),
+                        "foundry.deploy.json"
+                    ),
+                );
+                if (!foundryDeploy) {
+                    throw new Error('foundry.deploy.json was corrupted.');
+                }
+
+                // TODO:multicain
+                const client = createPublicClient({
+                    chain: mainnet, 
+                    transport: http(rpcUrl),
+                })
+
+                const prompt = ora(`Verifying ${foundryDeploy.transactions.length} transactions...`);
+                const spinner = prompt.start();
+
+                for (let txn of foundryDeploy.transactions) {
+                    const receipt = await client.getTransactionReceipt({hash: txn.hash});
+                    if (receipt.status !== "success") {
+                        console.error(`Transaction(${txn}) did not succeed: ${receipt.status}`)
+                        process.exit(1);
+                        // TODO: what is the step forward here for the user?
+                    }
+                }
+                spinner.stopAndPersist();
+                advance(deploy);
+                await saveDeploy(user.metadataStore!, deploy);
+                console.log(chalk.bold(`To continue running this transaction, re-run with the requested signer.`))
+                return;
             case "queue":
                 if (existsSync(canonicalPaths.queue(deploy.upgradePath))) {
                     // TODO: run the queue.
+                    throw new Error('TODO: implement queue step')
                 } else {
+                    console.log(`[info] No queue script, skipping.`);
                     skip(deploy);
+                    await saveDeploy(user.metadataStore!, deploy);
                 }
                 break;
             case "wait_queue_find_signers":
@@ -121,18 +209,24 @@ const executeOrContinueDeploy = async (deploy: TDeploy, strategy: Strategy<any>)
                 if (existsSync(canonicalPaths.execute(deploy.upgradePath))) {
                     // TODO: run the execute phase.
                 } else {
+                    console.log(`[info] No execute step, skipping.`)
                     skip(deploy);
+                    await saveDeploy(user.metadataStore!, deploy);
                 }
                 break;
             case "wait_execute_confirm":
                 // TODO: Handle waiting for execute transaction confirmation
                 break;
             case "complete":
-                // TODO: Handle when the upgrade is complete
-                break;
+                console.log(`Deploy completed successfully!`);
+                await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
+                await saveDeploy(user.metadataStore!, deploy);
+                return;
             case "cancelled":
-                // TODO: Handle when the upgrade is cancelled
-                break;
+                console.log(`Deploy failed.`);
+                await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
+                await saveDeploy(user.metadataStore!, deploy);
+                return;
             default:
                 // TODO: Handle unknown phase
         }
@@ -146,6 +240,7 @@ export default command({
     args: {
         env: allArgs.env,
         upgrade: allArgs.upgrade,
+        resume: allArgs.resume,
         signingStrategy: allArgs.signingStrategy,
         json: allArgs.json,
         rpcUrl: allArgs.rpcUrl,

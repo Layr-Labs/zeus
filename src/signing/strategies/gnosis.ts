@@ -20,6 +20,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
     }
 
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
+        // TODO: run the forge script.
         var txns: Txn[] = [];
 
         const {safeAddress, rpcUrl} = this.args;

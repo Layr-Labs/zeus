@@ -33,6 +33,15 @@ export interface TSignatureRequest {
     ready: boolean,
 }
 
+function redact(haystack: string, ...needles: string[]) {
+    let out = haystack;
+    for (let needle of needles) {
+        out = out.replaceAll(needle, chalk.bold('<redacted>'));
+    }
+    return out;
+}
+
+
 // TODO: signing strategy should inject node / publicClient
 export abstract class Strategy<TArgs> {
     readonly deploy: TDeploy;
@@ -65,13 +74,17 @@ export abstract class Strategy<TArgs> {
     //  e.g the EOA will run '-s', 
     abstract forgeArgs(): Promise<string[]>;
 
+    // any important data to redact in output.
+    redactInOutput(): string[] {
+        return [];
+    }
+
     async pathToDeployParamters(): Promise<string> {
         const paramsPath = canonicalPaths.deployParameters(
             '',
             this.deploy.env,
         );
         const deployParametersContents = await this.metadata.getJSONFile(paramsPath) ?? {}
-
         const tmpFile = tmp.fileSync({dir: './', postfix: '.json', mode: 0o600});
         fs.writeFileSync(tmpFile.fd, JSON.stringify(deployParametersContents));
         return tmpFile.name;
@@ -82,7 +95,7 @@ export abstract class Strategy<TArgs> {
             var chainId: number | undefined = undefined;
             const args = ['script', path, ...await this.forgeArgs(), '--json'];
 
-            const prompt = ora(`Running: ${chalk.italic(`forge ${args.join(' ')}`)}`);
+            const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...this.redactInOutput())}`)}`);
             const spinner = prompt.start();
 
             const child = spawn('forge', args, {stdio: 'pipe'});

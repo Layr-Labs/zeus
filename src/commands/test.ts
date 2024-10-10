@@ -4,6 +4,7 @@ import { loggedIn, requires, TState } from './inject.js';
 
 const handler = async function(user: TState, args: {json: boolean, command: string, env: string}) {
     // TODO:(milestone1): run the test with environment injected.
+    //  see: code for Strategy.pathTo
 };
 
 const cmd = command({

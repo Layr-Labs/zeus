@@ -1,5 +1,20 @@
+export type TDeployManifest = {
+    
+    inProgressDeploy?: string;
 
-export interface Environment {
+}
+
+export type TUpgrade = {
+    name: string;
+    fromSemver: string;
+    to: string;
+}
+
+export type TUpgradeManifest = {
+    upgrades: TUpgrade[];
+}
+
+export interface TEnvironmentManifest {
     id: string;                                 // "testnet"
 
     /**

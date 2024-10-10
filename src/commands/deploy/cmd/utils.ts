@@ -1,5 +1,8 @@
 import { Octokit } from "octokit";
 import { TState } from "../../inject.js";
+import { canonicalPaths } from "../../../metadata/paths.js";
+import { TDeployManifest } from "../../../metadata/schema.js";
+import { join } from "path";
 
 // Current status, if applicable, of an ongoing deploy in this environment.
 // - "" - the deploy has not started yet.
@@ -43,8 +46,7 @@ export const skip = (deploy: TDeploy) => {
             deploy.phase = "execute";
             break;
         case "execute":
-            // TODO: this probably should throw
-            deploy.phase = "cancelled";
+            deploy.phase = "complete";
             break;
         case "wait_execute_confirm":
             // TODO: this probably should throw
@@ -60,7 +62,7 @@ export const skip = (deploy: TDeploy) => {
         default:
             throw new Error(`Deploy in unknown phase: ${deploy.phase}`);
     }
-    console.log(`Updated phase: ${before} -> ${deploy.phase}`);
+    console.log(`Updated phase: ${before ?? '<uninitialized>'} -> ${deploy.phase}`);
 }
 
 export const advance = (deploy: TDeploy) => {
@@ -103,7 +105,7 @@ export const advance = (deploy: TDeploy) => {
         default:
             throw new Error(`Deploy in unknown phase: ${deploy.phase}`);
     }
-    console.log(`Updated phase: ${before} -> ${deploy.phase}`);
+    console.log(`Updated phase: ${before ?? '<uninitialized>'} -> ${deploy.phase}`);
 }
 
 export function isTerminalPhase(state: TDeployPhase): boolean {
@@ -111,57 +113,33 @@ export function isTerminalPhase(state: TDeployPhase): boolean {
 }
 
 export type TDeploy = {
+    name: string;
     env: string;
     upgrade: string;
 
     upgradePath: string; // the name of the upgrade script used.
     phase: TDeployPhase;
-    startTime?: string; // human readable timestamp of when this started, from zeus's perspective.
-    endTime?: string; // human readable timestamp of when this completed, from zeus's perspective.
+
+    startTime: string; // human readable timestamp of when this started, from zeus's perspective.
+    startTimestamp: number; // unix ts
     
+    endTime?: string; // human readable timestamp of when this completed, from zeus's perspective.
+    endTimestamp?: number; // unix ts
+
     update?: () => Promise<void> // updates the deploy object on the repo.
 }
 
 export async function getActiveDeploy(user: TState, env: string): Promise<TDeploy | undefined> {
-    const environmentPath = `environment/${env}/deploys`;
-    try {
-        // Fetch the contents of the 'environment/{name}/deploys' directory
-        const directoryContents = await user.metadataStore!.getDirectory(environmentPath);
-
-        if (!Array.isArray(directoryContents) || directoryContents.length === 0) {
-            return undefined; // No deploys found
-        }
-
-        // Sort directories by name to find the latest deploy (assuming alphabetical ordering of timestamps)
-        const sortedDirectories = directoryContents
-            .filter(item => item.type === "dir")
-            .sort((a, b) => b.name.localeCompare(a.name));
-
-        const latestDeployDir = sortedDirectories[0];
-        if (!latestDeployDir) {
-            return;
-        }
-
-        // TODO: replace with canonicalPaths
-        const deployJsonPath = `${environmentPath}/${latestDeployDir.name}/deploy.json`;
-
-        // Fetch the deploy.json file content
-        console.log(`Fetching file: ${deployJsonPath}`);
-        const deploy = await user.metadataStore!.getJSONFile<TDeploy>(
-            deployJsonPath
-        ); 
-
-        if (!deploy) {
-            throw new Error(`deploy.json not found in ${deployJsonPath}`);
-        }
-
-        return deploy;
-    } catch (error) {
-        if (`${error}`.includes('Not Found')) {
-            // If the environment or deploy directory is not found, return undefined
-            return undefined;
-        } else {
-            throw error;
-        }
+    const aggregateDeployManifest = await user.metadataStore?.getJSONFile<TDeployManifest>(
+        canonicalPaths.deploysManifest(env)
+    );
+    if (aggregateDeployManifest?.inProgressDeploy) {
+        const deployName = aggregateDeployManifest!.inProgressDeploy;
+        return await user.metadataStore!.getJSONFile<TDeploy>(
+            join(
+                canonicalPaths.deployDirectory('', env, deployName),
+                "deploy.json"
+            )
+        )
     }
 }

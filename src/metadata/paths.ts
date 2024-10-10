@@ -18,5 +18,9 @@ export const canonicalPaths = {
     forgeDeployLatestMetadata: (repoRoot: string, scriptName: string, chainId: number) =>       join(repoRoot, `broadcast`, scriptName, `${chainId}`, `deploy-latest.json`),
     
     // timestamp comes from the JSON output of the DeployLatestMetadata.
-    forgeRunJson: (repoRoot: string, scriptName: string, chainId: number, timestamp: number) => join(repoRoot, `broadcast`, scriptName, `${chainId}`, `run-${timestamp}.json`)
+    forgeRunJson: (repoRoot: string, scriptName: string, chainId: number, timestamp: number) => join(repoRoot, `broadcast`, scriptName, `${chainId}`, `run-${timestamp}.json`),
+
+    environmentManifest: (envName: string) => `environment/${envName}/manifest.json`,
+    deploysManifest: (envName: string) => `environment/${envName}/deploys/deploys.json`,
+    ugradesManifest: (envName: string) => `environment/${envName}/upgrades/upgrades.json`,
 }

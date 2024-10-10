@@ -2,10 +2,11 @@ import {command } from 'cmd-ts';
 import { loadExistingEnvs } from './list.js';
 import { inRepo, loggedIn, requires, TState } from '../../inject.js';
 import { question } from '../../utils.js';
-import { Environment } from '../../../metadata/environment.js';
+import { TDeployManifest, TEnvironmentManifest, TUpgradeManifest } from '../../../metadata/schema.js'
 import chalk from 'chalk';
+import { canonicalPaths } from '../../../metadata/paths.js';
 
-async function handler(user: TState, args: {}): Promise<void> {
+async function handler(user: TState, _: {}): Promise<void> {
     const gh = user.github!;
     const existingEnvs = await loadExistingEnvs(user);
     const zeusRepo = {
@@ -43,47 +44,36 @@ async function handler(user: TState, args: {}): Promise<void> {
     }
 
     // Step 2: Create a new folder in the default branch
-    const newFolderPath = `environment/${envName}/manifest.json`;
-    const deploysFolder = `environment/${envName}/deploys/deploys.json`;
-    const ugradesFolder = `environment/${envName}/upgrades/upgrades.json`;
-
-    const content = JSON.stringify({
+    const envManifestContent = {
         id: `${envName}`,
         precedes: '',
         contractAddresses: {},     
         signingStrategy: '',       
         latestDeployedCommit: '',
-    } as Environment, null, ' ');
+    } as TEnvironmentManifest;
+
+    const deployManifestContent = {
+        inProgressDeploy: '',
+    } as TDeployManifest;
+
+    const upgradesManifestContent = {
+        upgrades: [],
+    } as TUpgradeManifest; 
 
     // Create a new file in the repository (which effectively creates the folder)
     try {
-        await gh.rest.repos.createOrUpdateFileContents({
-            ...zeusRepo,
-            path: newFolderPath,
-            message: `Create environment: ${envName}`,
-            content: Buffer.from(content).toString('base64'),
-            branch: defaultBranch,
-            sha: latestCommitSha,
-        });
-
-        await gh.rest.repos.createOrUpdateFileContents({
-            ...zeusRepo,
-            path: deploysFolder,
-            message: `Initialized environment: ${envName} [1/2]`,
-            content: Buffer.from(content).toString('base64'),
-            branch: defaultBranch,
-            sha: latestCommitSha,
-        });
-
-        await gh.rest.repos.createOrUpdateFileContents({
-            ...zeusRepo,
-            path: ugradesFolder,
-            message: `Initialized environment: ${envName} [2/2]`,
-            content: Buffer.from(content).toString('base64'),
-            branch: defaultBranch,
-            sha: latestCommitSha,
-        });
-
+        await user.metadataStore?.updateJSON(
+            canonicalPaths.environmentManifest(envName),
+            envManifestContent,
+        );
+        await user.metadataStore?.updateJSON(
+            canonicalPaths.deploysManifest(envName),
+            deployManifestContent,
+        );
+        await user.metadataStore?.updateJSON(
+            canonicalPaths.ugradesManifest(envName),
+            upgradesManifestContent
+        );
         console.log(`${chalk.green('+')} created environment`);
     } catch (e) {
         throw new Error(`Failed to create environment folder: ${e}`);
