@@ -13,8 +13,8 @@ export interface MetadataStore {
     // async constructor
     initialize(): Promise<void>;
 
-    getFile(path: string): Promise<string>;
+    getFile(path: string): Promise<string | undefined>;
     getDirectory(path: string): Promise<TDirectory | undefined>;
-    getJSONFile<T>(path: string): Promise<T>;
+    getJSONFile<T>(path: string): Promise<T | undefined>;
     updateFile(path: string, contents: string): Promise<string>;
 };

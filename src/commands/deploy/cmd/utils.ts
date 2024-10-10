@@ -30,6 +30,7 @@ export type TDeployPhase = (
 
 // "skips" a phase, which 
 export const skip = (deploy: TDeploy) => {
+    const before = deploy.phase;
     switch (deploy.phase) {
         case "create":
         case "wait_create_confirm":
@@ -59,12 +60,18 @@ export const skip = (deploy: TDeploy) => {
         default:
             throw new Error(`Deploy in unknown phase: ${deploy.phase}`);
     }
+    console.log(`Updated phase: ${before} -> ${deploy.phase}`);
 }
 
 export const advance = (deploy: TDeploy) => {
+    const before = deploy.phase;
     switch (deploy.phase) {
+        case "":
+            deploy.phase = "create";
+            break;
         case "create":
             deploy.phase = "wait_create_confirm";
+            break;
         case "wait_create_confirm":
             deploy.phase = "queue";
             break;
@@ -96,6 +103,7 @@ export const advance = (deploy: TDeploy) => {
         default:
             throw new Error(`Deploy in unknown phase: ${deploy.phase}`);
     }
+    console.log(`Updated phase: ${before} -> ${deploy.phase}`);
 }
 
 export function isTerminalPhase(state: TDeployPhase): boolean {
@@ -130,9 +138,15 @@ export async function getActiveDeploy(user: TState, env: string): Promise<TDeplo
             .sort((a, b) => b.name.localeCompare(a.name));
 
         const latestDeployDir = sortedDirectories[0];
+        if (!latestDeployDir) {
+            return;
+        }
+
+        // TODO: replace with canonicalPaths
         const deployJsonPath = `${environmentPath}/${latestDeployDir.name}/deploy.json`;
 
         // Fetch the deploy.json file content
+        console.log(`Fetching file: ${deployJsonPath}`);
         const deploy = await user.metadataStore!.getJSONFile<TDeploy>(
             deployJsonPath
         ); 

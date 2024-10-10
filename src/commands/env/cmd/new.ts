@@ -26,8 +26,6 @@ async function handler(user: TState, args: {}): Promise<void> {
         errorMessage: "failed to create environment"
     });
 
-    // Step 1: Get the latest commit SHA of the base branch
-
     var latestCommitSha: string;
     try {
         const { data: baseBranchData } = await gh!.rest.repos.getBranch({
@@ -46,6 +44,9 @@ async function handler(user: TState, args: {}): Promise<void> {
 
     // Step 2: Create a new folder in the default branch
     const newFolderPath = `environment/${envName}/manifest.json`;
+    const deploysFolder = `environment/${envName}/deploys/deploys.json`;
+    const ugradesFolder = `environment/${envName}/upgrades/upgrades.json`;
+
     const content = JSON.stringify({
         id: `${envName}`,
         precedes: '',
@@ -60,6 +61,24 @@ async function handler(user: TState, args: {}): Promise<void> {
             ...zeusRepo,
             path: newFolderPath,
             message: `Create environment: ${envName}`,
+            content: Buffer.from(content).toString('base64'),
+            branch: defaultBranch,
+            sha: latestCommitSha,
+        });
+
+        await gh.rest.repos.createOrUpdateFileContents({
+            ...zeusRepo,
+            path: deploysFolder,
+            message: `Initialized environment: ${envName} [1/2]`,
+            content: Buffer.from(content).toString('base64'),
+            branch: defaultBranch,
+            sha: latestCommitSha,
+        });
+
+        await gh.rest.repos.createOrUpdateFileContents({
+            ...zeusRepo,
+            path: ugradesFolder,
+            message: `Initialized environment: ${envName} [2/2]`,
             content: Buffer.from(content).toString('base64'),
             branch: defaultBranch,
             sha: latestCommitSha,

@@ -3,30 +3,48 @@ import { spawn } from 'child_process';
 import { TDeploy } from '../commands/deploy/cmd/utils.js';
 import { MetadataStore } from '../metadata/metadataStore.js';
 import { canonicalPaths } from '../metadata/paths.js';
-import { getRepoRoot } from '../commands/inject.js';
+import tmp from 'tmp';
+import fs from 'fs';
+import ora from 'ora';
+
+tmp.setGracefulCleanup();
 
 export type Txn = {
     calldata: `0x${string}`
     to: `0x${string}`
 }
 
+type TForgeOutput = {
+    output: any
+    chainId: number | undefined
+}
+
 export interface TSignatureRequest {
+    forge?: {
+        runLatest: any,
+        deployLatest: any
+    }
     // Any RLP encoded signed-txns
     signedTransactions?: `0x${string}`[] | undefined,
 
     // any contracts known to have been deployed by this operation.
-    deployedContracts?: Record<string, `0x${string}`> | undefined,
+    deployedContracts?: {name: string, address: `0x${string}`}[] | undefined,
 
     ready: boolean,
-    poll: (args?: {timeoutMs: number}) => Promise<TSignatureRequest>
 }
 
 // TODO: signing strategy should inject node / publicClient
 export abstract class Strategy<TArgs> {
-    readonly args: TArgs;
-
     readonly deploy: TDeploy;
     readonly metadata: MetadataStore;
+    readonly options: Record<string, any>;
+
+    public get args(): TArgs {
+        if (!this.isValidArgs(this.options)) {
+            throw new Error(`Missing required arguments for signing strategy: ${this.constructor.name}`);
+        }
+        return this.options;
+    }
 
     // coercion funciton for checking arg validity
     abstract isValidArgs(obj: any): obj is TArgs;
@@ -48,18 +66,26 @@ export abstract class Strategy<TArgs> {
     abstract forgeArgs(): Promise<string[]>;
 
     async pathToDeployParamters(): Promise<string> {
-        return await this.metadata.getJSONFile(canonicalPaths.deployDirectory(
-            getRepoRoot(),
+        const paramsPath = canonicalPaths.deployParameters(
+            '',
             this.deploy.env,
-            this.deploy.upgrade,
-        ))
+        );
+        const deployParametersContents = await this.metadata.getJSONFile(paramsPath) ?? {}
+
+        const tmpFile = tmp.fileSync({dir: './', postfix: '.json', mode: 0o600});
+        fs.writeFileSync(tmpFile.fd, JSON.stringify(deployParametersContents));
+        return tmpFile.name;
     }
 
-    async runForgeScript(path: string): Promise<any> {
+    async runForgeScript(path: string): Promise<TForgeOutput> {
         return new Promise(async (resolve, reject) => {
+            var chainId: number | undefined = undefined;
             const args = ['script', path, ...await this.forgeArgs(), '--json'];
-            console.log(chalk.italic(`Running: forge ${args.join(' ')}`))
-            const child = spawn('forge', args);
+
+            const prompt = ora(`Running: ${chalk.italic(`forge ${args.join(' ')}`)}`);
+            const spinner = prompt.start();
+
+            const child = spawn('forge', args, {stdio: 'pipe'});
 
             let stdoutData = '';
             let stderrData = '';
@@ -73,17 +99,22 @@ export abstract class Strategy<TArgs> {
             });
 
             child.on('close', (code) => {
+                spinner.stop();
                 if (code !== 0) {
                     return reject(new Error(`Forge script failed with code ${code}: ${stderrData}`));
                 }
 
                 // Search for the first line that begins with '{' (--json output)
                 const lines = stdoutData.split('\n');
+                const chainLine = lines.find(line => line.trim().startsWith('Chain'));
+                if (chainLine) {
+                    chainId = parseInt(chainLine.split(' ')[1])
+                }
                 const jsonLine = lines.find(line => line.trim().startsWith('{'));
                 if (jsonLine) {
                     try {
                         const parsedJson = JSON.parse(jsonLine);
-                        return resolve(parsedJson);
+                        return resolve({output: parsedJson, chainId});
                     } catch (e) {
                         return reject(new Error(`Failed to parse JSON: ${e}`));
                     }
@@ -101,9 +132,6 @@ export abstract class Strategy<TArgs> {
     constructor(deploy: TDeploy, options: Record<string, any>, metadataStore: MetadataStore) {
         this.deploy = deploy;
         this.metadata = metadataStore;
-        if (!this.isValidArgs(options)) {
-            throw new Error(`Missing required arguments for signing strategy: ${this.constructor.name}`);
-        }
-        this.args = options;
+        this.options = options;
     } 
 }

@@ -49,22 +49,28 @@ export class GitMetadataStore implements MetadataStore {
         }
     }
 
-    async getFile(path: string): Promise<string> {
-        const response = await this.octokit!.rest.repos.getContent({
-            owner: this.owner!,
-            repo: this.repo!,
-            path,
-            ref: this.branch, // You can specify a branch here
-        });
+    async getFile(path: string): Promise<string | undefined> {
+        try {
+            const response = await this.octokit!.rest.repos.getContent({
+                owner: this.owner!,
+                repo: this.repo!,
+                path,
+                ref: this.branch, // You can specify a branch here
+            });
 
-        if ('content' in response.data) {
-            // The content is base64-encoded, so decode it
-            const decodedContent = Buffer.from(response.data.content, 'base64').toString('utf8');
-            return decodedContent;
-        } else {
-            throw new Error('Content not found');
+            if ('content' in response.data) {
+                // The content is base64-encoded, so decode it
+                const decodedContent = Buffer.from(response.data.content, 'base64').toString('utf8');
+                return decodedContent;
+            } 
+        } catch (e) {
+            if (`${e}`.includes('Not Found')) {
+                return undefined;
+            }
+
+            throw e;
         }
-    }
+    } 
 
     async getDirectory(path: string): Promise<TDirectory | undefined> {
         try {
@@ -93,32 +99,43 @@ export class GitMetadataStore implements MetadataStore {
         }
     }
 
-    async getJSONFile<T>(path: string): Promise<T> {
-        return JSON.parse(await this.getFile(path)) as T;
+    async getJSONFile<T>(path: string): Promise<T | undefined> {
+        const contents = await this.getFile(path);
+        if (!contents) {
+            return undefined;
+        }
+        return JSON.parse(contents) as T;
     }
 
     async updateFile(path: string, contents: string): Promise<string> {
-        const response = await this.octokit!.rest.repos.getContent({
-            owner: this.owner,
-            repo: this.repo,
-            path,
-            ref: this.branch,
-        });
-
+        var response: any;
+        try {
+            response = await this.octokit!.rest.repos.getContent({
+                owner: this.owner,
+                repo: this.repo,
+                path,
+                ref: this.branch,
+            });
+        } catch (e) {
+            if (!`${e}`.includes('Not Found')) {
+                // only throw if it's not a not found error.
+                throw e;
+            }
+        }
+ 
         // Ensure the response is a file and cast to the correct type
-        if (Array.isArray(response.data)) {
+        if (Array.isArray(response?.data)) {
             throw new Error(`The path ${path} is a directory, not a file.`);
         }
 
-        const fileData = response.data as { sha: string; content: string; path: string };
-
+        const fileData = response?.data as { sha: string; content: string; path: string } | undefined;
         const updatedResponse = await this.octokit!.rest.repos.createOrUpdateFileContents({
             owner: this.owner,
             repo: this.repo,
             path,
             message: `Updated ${path}`,
             content: Buffer.from(contents).toString('base64'),
-            sha: fileData.sha, // Use the SHA from the fetched file
+            sha: fileData?.sha, // Use the SHA from the fetched file
             branch: this.branch,
         });
 

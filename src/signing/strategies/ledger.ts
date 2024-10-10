@@ -18,9 +18,8 @@ export class LedgerSigningStrategy extends Strategy<TLedgerArgs> {
         // TODO: update metadata repo.
         return { 
             signedTransactions: [],
-            deployedContracts: {},
+            deployedContracts: [],
             ready: false,
-            poll: async () => {throw new Error('unimplemented')}
         }
     }
 

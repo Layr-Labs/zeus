@@ -20,7 +20,19 @@ const blankDeploy = (args: {env: string, upgrade: string, upgradePath: string}) 
     } as const;
 }
 
-async function handler(user: TState, args: {env: string, json: boolean, upgrade: string, signingStrategy: string}) {
+function formatNow() {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    return `${year}-${month}-${day}-${hours}-${minutes}`;
+}
+  
+
+async function handler(user: TState, args: {env: string, rpcUrl: string | undefined, json: boolean, upgrade: string, signingStrategy: string}) {
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
@@ -50,6 +62,16 @@ async function handler(user: TState, args: {env: string, json: boolean, upgrade:
     }
 
     const signingStrategy = new signingStrategyClass(newDeploy, args, user.metadataStore!);
+    
+    // create the new deploy.
+    const deployJsonPath = join(canonicalPaths.deployDirectory('', args.env, `${formatNow()}-${args.upgrade}`), "deploy.json");
+    console.log(`Creating file: ${deployJsonPath}`);
+    await user!.metadataStore?.updateFile(
+        deployJsonPath, 
+        '{}',
+    )
+    console.log(chalk.green('+ started deploy'));
+
     await executeOrContinueDeploy(newDeploy, signingStrategy);
 }
 
@@ -63,16 +85,20 @@ const executeOrContinueDeploy = async (deploy: TDeploy, strategy: Strategy<any>)
             case "create":
                 const createScript = canonicalPaths.deploy(deploy.upgradePath);
                 if (existsSync(createScript)) {
-                    console.log("Running ", createScript)
                     const sigRequest = await strategy.requestNew(createScript);
                     if (sigRequest?.ready) {
                         advance(deploy);
+                    } else {
+                        console.error(`Deploy failed with ready=false. Please try again.`);
+                        process.exit(1);
                     }
                 } else {
                     skip(deploy);
                 }
                 break;
             case "wait_create_confirm":
+                console.log("TODO: implement.");
+                process.exit(1);
                 // TODO: Handle waiting for confirmation of create transactions
                 break;
             case "queue":
@@ -122,6 +148,7 @@ export default command({
         upgrade: allArgs.upgrade,
         signingStrategy: allArgs.signingStrategy,
         json: allArgs.json,
+        rpcUrl: allArgs.rpcUrl,
         ...allArgs.signingStrategyFlags,
     },
     handler: requires(handler, loggedIn),
