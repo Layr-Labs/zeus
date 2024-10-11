@@ -7,7 +7,12 @@ export const env = option({ type: string, long: 'env', short: 'e', description: 
 export const upgrade = option({ type: string, long: 'upgrade', short: 'u', description: "The name of an upgrade in your upgrade directory."});
 export const resume = flag({ long: 'resume', description: "Resume an existing running deploy."});
 
-export const signingStrategy = option({ description: `How you want to sign/execute the upgrade step. Available options: ${all.map(s => new s({} as unknown as TDeploy, {}, undefined as unknown as MetadataStore).id).join(', ')}`, type: string, long: 'signingStrategy', short: 's'})
+export const signingStrategy = option({ 
+    description: `How you want to sign/execute the upgrade step. Available options: ${all.map(s => new s({} as unknown as TDeploy, {}, undefined as unknown as MetadataStore).id).join(', ')}`, 
+    type: optional(string), 
+    long: 'signingStrategy', 
+    short: 's'
+})
 export const json = flag({
     long: 'json',
     short: 'j',

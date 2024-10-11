@@ -9,6 +9,6 @@ import { LedgerSigningStrategy } from './ledger.js';
 export const all: (new (deploy: TDeploy, options: Record<string, any>, metadataStore: MetadataStore) => Strategy<any>)[] = [
     EOASigningStrategy,
     LedgerSigningStrategy,
-    // GnosisEOAStrategy,
-    // GnosisLedgerStrategy,
+    GnosisEOAStrategy,
+    //GnosisLedgerStrategy,
 ]

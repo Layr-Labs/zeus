@@ -50,9 +50,13 @@ export abstract class Strategy<TArgs> {
 
     public get args(): TArgs {
         if (!this.isValidArgs(this.options)) {
-            throw new Error(`Missing required arguments for signing strategy: ${this.constructor.name}`);
+            throw new Error(`Missing required arguments for signing strategy: ${this.constructor.name} ${this.usage() ? `(Usage: ${this.usage()})` : ''}`);
         }
         return this.options;
+    }
+
+    usage(): string {
+        return '';
     }
 
     // coercion funciton for checking arg validity

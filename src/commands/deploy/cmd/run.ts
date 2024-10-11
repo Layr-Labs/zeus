@@ -14,6 +14,12 @@ import { mainnet } from "viem/chains";
 import ora from 'ora';
 import { TDeployManifest } from "../../../metadata/schema.js";
 
+export const supportedSigners: Partial<Record<TDeployPhase, string[]>> = {
+    "create": ["eoa", "ledger"],
+    "queue": ["gnosis.eoa", "gnosis.ledger"],
+    "execute": ["gnosis.eoa", "gnosis.ledger"],
+}
+
 const blankDeploy = (args: {env: string, upgrade: string, upgradePath: string, name: string}) => {
     const start = new Date();
     return {
@@ -38,29 +44,18 @@ function formatNow() {
     return `${year}-${month}-${day}-${hours}-${minutes}`;
 }
 
-async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string, signingStrategy: string}) {
+async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string, signingStrategy: string | undefined}) {
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
         process.exit(1);
     }
 
-    const noSuchStrategyAndExit = () => {
-        console.error(`No such signing strategy: ${args.signingStrategy}`);
-        console.error(`Available strategies: ${all.map((s) => new s(newDeploy, args, user!.metadataStore!).id)}`);
-        process.exit(1);
-    }
-
     const deploy = await getActiveDeploy(user, args.env);
     if (deploy) {
         console.log(`Resuming existing deploy... (began at ${deploy.startTime})`);
-        const signingStrategyClass = all.find((strategy) => new strategy(deploy, args, user.metadataStore!).id === args.signingStrategy);
-        if (!signingStrategyClass) {
-            noSuchStrategyAndExit();
-            return;
-        }   
-
-        const signingStrategy = new signingStrategyClass(deploy, args, user.metadataStore!);
+        const signingStrategyClass = args.signingStrategy ? all.find((strategy) => new strategy(deploy, args, user.metadataStore!).id === args.signingStrategy) : undefined;
+        const signingStrategy = signingStrategyClass && new signingStrategyClass(deploy, args, user.metadataStore!);
         return await executeOrContinueDeploy(deploy, signingStrategy, user, args.rpcUrl);
     }
 
@@ -72,13 +67,9 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
     const blankDeployName = `${formatNow()}-${args.upgrade}`;
     const newDeploy = blankDeploy({name: blankDeployName, env: args.env, upgrade: args.upgrade, upgradePath});
     const signingStrategyClass = all.find((strategy) => new strategy(newDeploy, args, user!.metadataStore!).id === args.signingStrategy);
-    if (!signingStrategyClass) {
-        noSuchStrategyAndExit();
-        return;
-    }
-
+    
     const deployJsonPath = join(canonicalPaths.deployDirectory('', args.env, blankDeployName), "deploy.json");
-    const signingStrategy = new signingStrategyClass(newDeploy, args, user.metadataStore!);
+    const signingStrategy = signingStrategyClass && new signingStrategyClass(newDeploy, args, user.metadataStore!); 
     // create the new deploy.
     await user!.metadataStore?.updateFile(
         deployJsonPath, 
@@ -112,9 +103,22 @@ const updateLatestDeploy = async (metadataStore: MetadataStore, env: string, dep
     await metadataStore.updateJSON<TDeployManifest>(deployManifestPath, deployManifest!);
 }
 
-const executeOrContinueDeploy = async (deploy: TDeploy, strategy: Strategy<any>, user: TState, rpcUrl: string | undefined) => {
+const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any> | undefined, user: TState, rpcUrl: string | undefined) => {
     while (true) {
         console.log(chalk.green(`[info] Deploy phase: ${deploy.phase}`))
+
+        const getStrategy: () => Strategy<any> = () => {
+            if (!_strategy) {
+                console.error(`This phase requires a signing strategy. Please rerun with --signingStrategy [${supportedSigners[deploy.phase]?.join(' | ')}]`)
+                process.exit(1);
+            }
+            if (Object.keys(supportedSigners).includes(deploy.phase) && !supportedSigners[deploy.phase]?.includes(_strategy.id)) {
+                console.error(`This deploy phase does not support this signingStrategy. Please rerun with --signingStrategy [${supportedSigners[deploy.phase]?.join(' | ')}] `)
+                process.exit(1);
+            }
+            return _strategy;
+        }
+
         switch (deploy.phase) {
             case "":
                 advance(deploy);
@@ -124,7 +128,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, strategy: Strategy<any>,
             case "create":
                 const createScript = canonicalPaths.deploy(deploy.upgradePath);
                 if (existsSync(createScript)) {
-                    const sigRequest = await strategy.requestNew(createScript);
+                    const sigRequest = await getStrategy().requestNew(createScript);
                     if (sigRequest?.ready) {
                         advance(deploy);
                         await saveDeploy(user.metadataStore!, deploy);
