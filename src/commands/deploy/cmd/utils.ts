@@ -1,4 +1,3 @@
-import { Octokit } from "octokit";
 import { TState } from "../../inject.js";
 import { canonicalPaths } from "../../../metadata/paths.js";
 import { TDeployManifest } from "../../../metadata/schema.js";
