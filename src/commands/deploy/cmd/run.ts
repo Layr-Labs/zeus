@@ -1,7 +1,7 @@
 import { command } from "cmd-ts";
 import * as allArgs from '../../args.js';
 import { TState, configs, getRepoRoot, requires, loggedIn } from "../../inject.js";
-import { getActiveDeploy, isTerminalPhase, skip, advance, TDeploy, TDeployPhase } from "./utils.js";
+import { getActiveDeploy, isTerminalPhase, advance } from "./utils.js";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
 import { all } from '../../../signing/strategies/strategies.js';
@@ -12,25 +12,34 @@ import { MetadataStore } from "../../../metadata/metadataStore.js";
 import { createPublicClient, http } from "viem";
 import { mainnet } from "viem/chains";
 import ora from 'ora';
-import { TDeployManifest } from "../../../metadata/schema.js";
+import fs from 'fs';
+import { Segment, TDeploy, TDeployManifest, TDeployPhase, TSegmentType } from "../../../metadata/schema.js";
 
-export const supportedSigners: Partial<Record<TDeployPhase, string[]>> = {
-    "create": ["eoa", "ledger"],
-    "queue": ["gnosis.eoa", "gnosis.ledger"],
-    "execute": ["gnosis.eoa", "gnosis.ledger"],
+export const supportedSigners: Record<TSegmentType, string[]> = {
+    "eoa": ["eoa", "ledger"],
+    "multisig": ["gnosis.eoa", "gnosis.ledger"],
 }
 
-const blankDeploy = (args: {env: string, upgrade: string, upgradePath: string, name: string}) => {
+process.on("unhandledRejection", (error) => {
+    console.error(error); // This prints error with stack included (as for normal errors)
+    throw error; // Following best practices re-throw error and let the process exit with error code
+  });
+
+const blankDeploy = (args: {env: string, upgrade: string, upgradePath: string, name: string, segments: Segment[]}) => {
     const start = new Date();
-    return {
+    const deploy: TDeploy = {
         name: args.name,
         env: args.env,
+        segmentId: 0,
+        segments: args.segments,
+        metadata: [],
         upgrade: args.upgrade,
         upgradePath: args.upgradePath,
         phase: "" as TDeployPhase,
         startTime: start.toString(),
         startTimestamp: start.getTime() / 1000,
-    } as TDeploy;
+    };
+    return deploy;
 }
 
 function formatNow() {
@@ -48,7 +57,7 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
-        process.exit(1);
+        return;
     }
 
     const deploy = await getActiveDeploy(user, args.env);
@@ -62,10 +71,29 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
     const upgradePath = normalize(join(getRepoRoot(), repoConfig.migrationDirectory, args.upgrade))
     if (!existsSync(upgradePath) || !lstatSync(upgradePath).isDirectory() ) {
         console.error(`Upgrade ${args.upgrade} doesn't exist, or isn't a directory. (searching '${upgradePath}')`)
-        process.exit(1);
+        return;
     }
     const blankDeployName = `${formatNow()}-${args.upgrade}`;
-    const newDeploy = blankDeploy({name: blankDeployName, env: args.env, upgrade: args.upgrade, upgradePath});
+
+    let _id = 0;
+    const segments = fs.readdirSync(upgradePath).filter(p => p.endsWith('.s.sol') && (p.includes('eoa') || p.includes('multisig'))).map<Segment>(p => {
+        if (p.includes('eoa')) {
+            // eoa
+            return {
+                id: _id++,
+                filename: p,
+                type: 'eoa'
+            }
+        } else {
+            // multisig
+            return {
+                id: _id++,
+                filename: p,
+                type: 'multisig'
+            }
+        }
+    });
+    const newDeploy = blankDeploy({name: blankDeployName, env: args.env, upgrade: args.upgrade, upgradePath, segments});
     const signingStrategyClass = all.find((strategy) => new strategy(newDeploy, args, user!.metadataStore!).id === args.signingStrategy);
     
     const deployJsonPath = join(canonicalPaths.deployDirectory('', args.env, blankDeployName), "deploy.json");
@@ -108,27 +136,42 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
         console.log(chalk.green(`[info] Deploy phase: ${deploy.phase}`))
 
         const getStrategy: () => Strategy<any> = () => {
+            const segment = deploy.segments[deploy.segmentId];
             if (!_strategy) {
-                console.error(`This phase requires a signing strategy. Please rerun with --signingStrategy [${supportedSigners[deploy.phase]?.join(' | ')}]`)
+                console.error(`This phase requires a signing strategy. Please rerun with --signingStrategy [${supportedSigners[segment.type]?.join(' | ')}]`)
                 process.exit(1);
             }
-            if (Object.keys(supportedSigners).includes(deploy.phase) && !supportedSigners[deploy.phase]?.includes(_strategy.id)) {
-                console.error(`This deploy phase does not support this signingStrategy. Please rerun with --signingStrategy [${supportedSigners[deploy.phase]?.join(' | ')}] `)
+            if (Object.keys(supportedSigners).includes(deploy.phase) && !supportedSigners[segment.type]?.includes(_strategy.id)) {
+                console.error(`This deploy phase does not support this signingStrategy. Please rerun with --signingStrategy [${supportedSigners[segment.type]?.join(' | ')}] `)
                 process.exit(1);
             }
             return _strategy;
         }
 
         switch (deploy.phase) {
+            // global states
             case "":
                 advance(deploy);
                 await saveDeploy(user.metadataStore!, deploy);
                 await updateLatestDeploy(user.metadataStore!, deploy.env, deploy.name);
                 break;
-            case "create":
-                const createScript = canonicalPaths.deploy(deploy.upgradePath);
-                if (existsSync(createScript)) {
-                    const sigRequest = await getStrategy().requestNew(createScript);
+            case "complete":
+                console.log(`Deploy completed successfully!`);
+                await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
+                await saveDeploy(user.metadataStore!, deploy);
+                return;
+            case "cancelled":
+                console.log(`Deploy failed.`);
+                await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
+                await saveDeploy(user.metadataStore!, deploy);
+                return;
+            // eoa states
+            case "eoa_start":
+                const script = join(deploy.upgradePath, deploy.segments[deploy.segmentId].filename);
+                if (existsSync(script)) {
+                    // TODO: check whether this deploy already has forge documents uploaded from a previous run.
+                    // (i.e that it bailed before advancing.)
+                    const sigRequest = await getStrategy().requestNew(script);
                     if (sigRequest?.ready) {
                         advance(deploy);
                         await saveDeploy(user.metadataStore!, deploy);
@@ -149,14 +192,15 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                         console.log(chalk.green(`+ uploaded metadata`));
                     } else {
                         console.error(`Deploy failed with ready=false. Please try again.`);
-                        process.exit(1);
+                        return;
                     }
                 } else {
-                    skip(deploy);
-                    await saveDeploy(user.metadataStore!, deploy);
+                    console.error(`Missing expected script: ${script}`);
+                    console.error(`Fix your local copy and continue with --resume`);
+                    return;
                 }
                 break;
-            case "wait_create_confirm":
+            case "eoa_wait_confirm":
                 // check the transactions created by the previous step.
                 const foundryDeploy = await user.metadataStore?.getJSONFile<any>(
                     join(
@@ -181,7 +225,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                     const receipt = await client.getTransactionReceipt({hash: txn.hash});
                     if (receipt.status !== "success") {
                         console.error(`Transaction(${txn}) did not succeed: ${receipt.status}`)
-                        process.exit(1);
+                        return;
                         // TODO: what is the step forward here for the user?
                     }
                 }
@@ -190,49 +234,32 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                 await saveDeploy(user.metadataStore!, deploy);
                 console.log(chalk.bold(`To continue running this transaction, re-run with the requested signer.`))
                 return;
-            case "queue":
-                if (existsSync(canonicalPaths.queue(deploy.upgradePath))) {
-                    // TODO: run the queue.
-                    throw new Error('TODO: implement queue step')
+
+            // multisig states.
+            case "multisig_start": {                
+                const script = join(canonicalPaths.deployDirectory("", deploy.env, deploy.name), deploy.segments[deploy.segmentId].filename);
+                if (existsSync(script)) {
+                    const sigRequest = await getStrategy().requestNew(script);
+                    console.log(sigRequest);
+                    throw new Error('TODO: finish implementing queue step')
                 } else {
-                    console.log(`[info] No queue script, skipping.`);
-                    skip(deploy);
-                    await saveDeploy(user.metadataStore!, deploy);
+                    console.error(`Missing expected script: ${script}. Please check your local copy and try again.`)
+                    return;
                 }
                 break;
-            case "wait_queue_find_signers":
-                // TODO: Handle waiting for queue transactions to find signers
+            }
+            case "multisig_wait_signers":
+                // TODO: check the gnosis api for whether the txns has enough sponsors.
                 break;
-            case "wait_queue_confirm":
-                // TODO: Handle waiting for queue transactions confirmation
+            case "multisig_execute":
+                // TODO: check the gnosis api to see if the txn executed onchain. execute it. log the result / txn.
                 break;
-            case "wait_queue_timelock":
-                // TODO: Handle timelock waiting
+            case "multisig_wait_confirm":
+                // TODO: check the gnosis api to see if the txn executed successfully.
                 break;
-            case "execute":
-                if (existsSync(canonicalPaths.execute(deploy.upgradePath))) {
-                    // TODO: run the execute phase.
-                } else {
-                    console.log(`[info] No execute step, skipping.`)
-                    skip(deploy);
-                    await saveDeploy(user.metadataStore!, deploy);
-                }
-                break;
-            case "wait_execute_confirm":
-                // TODO: Handle waiting for execute transaction confirmation
-                break;
-            case "complete":
-                console.log(`Deploy completed successfully!`);
-                await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
-                await saveDeploy(user.metadataStore!, deploy);
-                return;
-            case "cancelled":
-                console.log(`Deploy failed.`);
-                await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
-                await saveDeploy(user.metadataStore!, deploy);
-                return;
             default:
-                // TODO: Handle unknown phase
+                console.error(`Deploy is in unknown phase: ${deploy.phase}. Make sure your zeus is up-to-date.`);
+                return;
         }
     }
 }

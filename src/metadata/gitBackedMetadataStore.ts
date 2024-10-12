@@ -107,12 +107,12 @@ export class GitMetadataStore implements MetadataStore {
         return JSON.parse(contents) as T;
     }
 
-    async updateJSON<T>(path: string, contents: T): Promise<string> {
+    async updateJSON<T>(path: string, contents: T): Promise<void> {
         const content = JSON.stringify(contents, null, 2);
         return await this.updateFile(path, content);
     }
 
-    async updateFile(path: string, contents: string): Promise<string> {
+    async updateFile(path: string, contents: string): Promise<void> {
         var response: any;
         try {
             response = await this.octokit!.rest.repos.getContent({
@@ -144,13 +144,11 @@ export class GitMetadataStore implements MetadataStore {
             branch: this.branch,
         });
 
-        const sha = updatedResponse.data.content?.sha; // Return the new SHA after the update
+        const sha = updatedResponse.data.content?.sha;
         if (!sha) {
             console.error("error: sha response empty")
             process.exit(1);
         }
-
-        return sha;
     }
 }
 

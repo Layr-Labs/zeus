@@ -75,7 +75,7 @@ export async function load(args?: {env: string}): Promise<TState> {
         zeusHostOwner,
         zeusHostRepo,
         metadataStore,
-        github: (metadataStore as GitMetadataStore)?.octokit,
+        github: metadataStore ? (metadataStore! as unknown as GitMetadataStore)?.octokit : undefined,
         environment: args?.env ? new Environment(args.env!) : undefined,
     }
 }

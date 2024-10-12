@@ -2,7 +2,6 @@ import SafeApiKit from "@safe-global/api-kit";
 import {SafeTransaction} from "@safe-global/safe-core-sdk-types";
 import Safe from '@safe-global/protocol-kit'
 import { Strategy, TSignatureRequest, Txn } from "../strategy.js";
-import {privateKeyToAccount} from 'viem/accounts';
 
 type TGnosisBaseArgs = {
     safeAddress: string;
@@ -19,7 +18,16 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         return obj !== null && obj !== undefined && typeof obj.safeAddress == 'string' && typeof obj.rpcUrl == 'string' && this.isValidSubCommandArgs(obj); 
     }
 
+    async forgeArgs(): Promise<string[]> {
+        return ['--sig', `execute(string)`, await this.pathToDeployParamters()];
+    }
+
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
+
+        const output = await this.runForgeScript(pathToUpgrade);
+        console.log(output);
+        process.exit(1);
+
         // TODO: run the forge script.
         var txns: Txn[] = [];
 

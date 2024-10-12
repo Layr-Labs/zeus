@@ -22,7 +22,3 @@ export const question = (args: {
 
     throw new Error(args.errorMessage);
 };
-
-const withWalletClient = async (walletClient: any) => {
-
-}

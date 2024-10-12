@@ -1,11 +1,11 @@
 import chalk from 'chalk';
 import { spawn } from 'child_process';
-import { TDeploy } from '../commands/deploy/cmd/utils.js';
 import { MetadataStore } from '../metadata/metadataStore.js';
 import { canonicalPaths } from '../metadata/paths.js';
 import tmp from 'tmp';
 import fs from 'fs';
 import ora from 'ora';
+import { TDeploy } from '../metadata/schema.js';
 
 tmp.setGracefulCleanup();
 
@@ -31,6 +31,12 @@ export interface TSignatureRequest {
     deployedContracts?: {name: string, address: `0x${string}`}[] | undefined,
 
     ready: boolean,
+}
+
+type Result = {
+    stdout: string;
+    stderr: string;
+    code: number;       
 }
 
 function redact(haystack: string, ...needles: string[]) {
@@ -94,35 +100,53 @@ export abstract class Strategy<TArgs> {
         return tmpFile.name;
     }
 
+    // for mocking.
+    static runWithArgs(cmd: string, args: string[]): Promise<Result> {
+        return new Promise((resolve, reject) => {
+            try {
+                const child = spawn(cmd, args, {stdio: 'pipe'});
+
+                let stdoutData = '';
+                let stderrData = '';
+
+                child.stdout.on('data', (data) => {
+                    stdoutData += data.toString();
+                });
+
+                child.stderr.on('data', (data) => {
+                    stderrData += data.toString();
+                });
+
+                child.on('close', (code) => {
+                    if (code != 0) {
+                        reject({stdout: stdoutData, code, stderr: stderrData})
+                    } else {
+                        resolve({stdout: stdoutData, code, stderr: stderrData})
+                    }
+                });
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
     async runForgeScript(path: string): Promise<TForgeOutput> {
         return new Promise(async (resolve, reject) => {
-            var chainId: number | undefined = undefined;
-            const args = ['script', path, ...await this.forgeArgs(), '--json'];
+            try {
+                var chainId: number | undefined = undefined;
+                const args = ['script', path, ...await this.forgeArgs(), '--json'];
 
-            const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...this.redactInOutput())}`)}`);
-            const spinner = prompt.start();
+                const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...this.redactInOutput())}`)}`);
+                const spinner = prompt.start();
 
-            const child = spawn('forge', args, {stdio: 'pipe'});
-
-            let stdoutData = '';
-            let stderrData = '';
-
-            child.stdout.on('data', (data) => {
-                stdoutData += data.toString();
-            });
-
-            child.stderr.on('data', (data) => {
-                stderrData += data.toString();
-            });
-
-            child.on('close', (code) => {
+                const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args);
                 spinner.stop();
                 if (code !== 0) {
-                    return reject(new Error(`Forge script failed with code ${code}: ${stderrData}`));
+                    return reject(new Error(`Forge script failed with code ${code}: ${stderr}`));
                 }
 
                 // Search for the first line that begins with '{' (--json output)
-                const lines = stdoutData.split('\n');
+                const lines = stdout.split('\n');
                 const chainLine = lines.find(line => line.trim().startsWith('Chain'));
                 if (chainLine) {
                     chainId = parseInt(chainLine.split(' ')[1])
@@ -138,7 +162,9 @@ export abstract class Strategy<TArgs> {
                 } else {
                     return reject(new Error('No JSON output found.'));
                 }
-            });
+            } catch (e) {
+                reject(e);
+            }
         });
     }
 

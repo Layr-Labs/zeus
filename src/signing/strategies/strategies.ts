@@ -1,5 +1,5 @@
-import { TDeploy } from '../../commands/deploy/cmd/utils.js';
 import { MetadataStore } from '../../metadata/metadataStore.js';
+import { TDeploy } from '../../metadata/schema.js';
 import {Strategy} from '../strategy.js';
 import EOASigningStrategy from './eoa.js';
 import { GnosisEOAStrategy } from './gnosisEoa.js';

@@ -4,9 +4,6 @@ export type TDirectory = {
 }[];
 
 export interface MetadataStore {
-    environment?: string;
-    repo?: string;
-
     login(): Promise<boolean>;
     isLoggedIn(): Promise<boolean>;
 
@@ -16,6 +13,7 @@ export interface MetadataStore {
     getFile(path: string): Promise<string | undefined>;
     getDirectory(path: string): Promise<TDirectory | undefined>;
     getJSONFile<T>(path: string): Promise<T | undefined>;
-    updateFile(path: string, contents: string): Promise<string>;
-    updateJSON<T>(path: string, contents: T): Promise<string>;
+
+    updateFile(path: string, contents: string): Promise<void>;
+    updateJSON<T>(path: string, contents: T): Promise<void>;
 };

@@ -1,6 +1,6 @@
 import { privateKeyToAccount } from "viem/accounts";
 import { GnosisSigningStrategy } from "./gnosis.js";
-import {SafeTransaction} from "@safe-global/safe-core-sdk-types";
+import { SafeTransaction } from "@safe-global/safe-core-sdk-types";
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index.js"
 
 type TGnosisEOAArgs = {
@@ -11,11 +11,11 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
     id: string = "gnosis.eoa";
     
     async forgeArgs(): Promise<string[]> {
-        return ["--private-key", this.args.privateKey];
+        return ["--private-key", this.args.privateKey, ...await super.forgeArgs()];
     }
 
     isValidSubCommandArgs(obj: any): obj is TGnosisEOAArgs {
-        return obj !== null && obj !== undefined && typeof obj.privateKey == 'string' && super.isValidArgs(obj); 
+        return obj !== null && obj !== undefined && typeof obj.privateKey == 'string'; 
     }
 
     execute(path: string) {
