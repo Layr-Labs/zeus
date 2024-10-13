@@ -1,4 +1,4 @@
-import { Strategy, TSignatureRequest, Txn } from "../strategy.js";
+import { Strategy, TSignatureRequest, Txn } from "../strategy";
 
 type TLedgerArgs = {};
 

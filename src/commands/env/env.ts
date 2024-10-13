@@ -1,6 +1,6 @@
 import { subcommands } from "cmd-ts";
-import newCmd from './cmd/new.js';
-import list from './cmd/list.js';
+import newCmd from './cmd/new';
+import list from './cmd/list';
 
 export default subcommands({
     name: 'env',

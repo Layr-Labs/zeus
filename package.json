@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "description": "web3 deployer / metadata manager",
   "main": "src/index.ts",
-  "type": "module",
   "scripts": {
     "build": "tsc",
     "test": "jest",

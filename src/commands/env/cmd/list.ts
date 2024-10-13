@@ -1,6 +1,6 @@
 import {command} from 'cmd-ts';
-import {json} from '../../args.js';
-import { loggedIn, requires, TState } from '../../inject.js';
+import {json} from '../../args';
+import { loggedIn, requires, TState } from '../../inject';
 
 export const loadExistingEnvs = async (user: TState) => {
     const gh = user.github!;

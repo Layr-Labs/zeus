@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals";
-import { Strategy } from "../signing/strategy.js";
-import { MetadataStore, TDirectory } from "../metadata/metadataStore.js";
+import { Strategy } from "../signing/strategy";
+import { MetadataStore, TDirectory } from "../metadata/metadataStore";
 
 export async function mockForgeReturnOnce(args: {code?: number, response: any, stderr?: string}) {
     const spy = await jest.spyOn(Strategy, "runWithArgs");

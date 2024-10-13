@@ -1,5 +1,5 @@
 import { command, positional, string } from "cmd-ts";
-import {json} from '../../args.js';
+import {json} from '../../args';
 
 const cmd = command({
     name: 'verify',

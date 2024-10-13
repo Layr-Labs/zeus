@@ -1,7 +1,6 @@
 import {command} from 'cmd-ts';
-import { getRepoRoot, inRepo, loggedIn, requires, TState } from './inject.js';
-import { configs } from './inject.js';
-import { question } from './utils.js';
+import { getRepoRoot, requires, TState, configs} from './inject';
+import { question } from './utils';
 import path from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import chalk from 'chalk';

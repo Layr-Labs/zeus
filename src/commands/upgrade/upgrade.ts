@@ -1,5 +1,5 @@
 import { subcommands } from "cmd-ts";
-import newCmd from './cmd/new.js';
+import newCmd from './cmd/new';
 
 export default subcommands({
     name: 'upgrade',

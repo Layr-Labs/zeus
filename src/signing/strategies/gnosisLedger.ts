@@ -1,6 +1,6 @@
-import { GnosisSigningStrategy } from "./gnosis.js";
+import { GnosisSigningStrategy } from "./gnosis";
 import { SafeTransaction } from '@safe-global/types-kit';
-import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index.js"
+import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 import { LedgerSigner } from "@ethers-ext/signer-ledger";
 import HIDTransport from "@ledgerhq/hw-transport-node-hid";
 import { getDefaultProvider } from 'ethers'

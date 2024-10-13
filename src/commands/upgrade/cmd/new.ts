@@ -1,6 +1,6 @@
 import {command} from 'cmd-ts';
-import {json} from '../../args.js';
-import { loggedIn, requires, TState } from '../../inject.js';
+import {json} from '../../args';
+import { loggedIn, requires, TState } from '../../inject';
 import { select } from '@inquirer/prompts';
 
 const handler = async function(user: TState, args: {json: boolean}) {

@@ -1,8 +1,8 @@
-import { TState } from "../../inject.js";
-import { canonicalPaths } from "../../../metadata/paths.js";
-import { TDeployManifest, TDeployPhase } from "../../../metadata/schema.js";
+import { TState } from "../../inject";
+import { canonicalPaths } from "../../../metadata/paths";
+import { TDeployManifest, TDeployPhase } from "../../../metadata/schema";
 import { join } from "path";
-import { TDeploy } from "../../../metadata/schema.js";
+import { TDeploy } from "../../../metadata/schema";
 
 export const advanceSegment = (deploy: TDeploy) => {
     if (deploy.segments[deploy.segmentId]?.type === "eoa") {

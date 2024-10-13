@@ -1,6 +1,6 @@
 import { flag, option, string, optional } from "cmd-ts";
-import { all } from "../signing/strategies/strategies.js";
-import { MetadataStore } from "../metadata/metadataStore.js";
+import { all } from "../signing/strategies/strategies";
+import { MetadataStore } from "../metadata/metadataStore";
 import { TDeploy } from "../metadata/schema.js";
 
 export const env = option({ type: string, long: 'env', short: 'e', description: "An environment, one returned from `zeus env list`" })

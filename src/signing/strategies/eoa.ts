@@ -1,11 +1,11 @@
 import { privateKeyToAccount } from "viem/accounts";
-import { Strategy, TSignatureRequest } from "../strategy.js";
-import { canonicalPaths } from "../../metadata/paths.js";
-import { getRepoRoot } from "../../commands/inject.js";
+import { Strategy, TSignatureRequest } from "../strategy";
+import { canonicalPaths } from "../../metadata/paths";
+import { getRepoRoot } from "../../commands/inject";
 import { basename } from "path";
 import { readFileSync } from "fs";
 import chalk from "chalk";
-import { parseTuples } from "./utils.js";
+import { parseTuples } from "./utils";
 
 type TEOAArgs = {
     privateKey: string

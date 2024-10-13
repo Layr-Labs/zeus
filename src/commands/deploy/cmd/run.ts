@@ -1,19 +1,19 @@
 import { command } from "cmd-ts";
-import * as allArgs from '../../args.js';
-import { TState, configs, getRepoRoot, requires, loggedIn } from "../../inject.js";
-import { getActiveDeploy, isTerminalPhase, advance } from "./utils.js";
+import * as allArgs from '../../args';
+import { TState, configs, getRepoRoot, requires, loggedIn } from "../../inject";
+import { getActiveDeploy, isTerminalPhase, advance } from "./utils";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
-import { all } from '../../../signing/strategies/strategies.js';
-import { Strategy, TForgeRequest } from "../../../signing/strategy.js";
+import { all } from '../../../signing/strategies/strategies';
+import { Strategy, TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
 import chalk from "chalk";
-import { canonicalPaths } from "../../../metadata/paths.js";
-import { MetadataStore } from "../../../metadata/metadataStore.js";
+import { canonicalPaths } from "../../../metadata/paths";
+import { MetadataStore } from "../../../metadata/metadataStore";
 import { createPublicClient, http } from "viem";
 import { mainnet } from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
-import { Segment, TDeploy, TDeployManifest, TDeployPhase, TSegmentType } from "../../../metadata/schema.js";
+import { Segment, TDeploy, TDeployManifest, TDeployPhase, TSegmentType } from "../../../metadata/schema";
 
 export const supportedSigners: Record<TSegmentType, string[]> = {
     "eoa": ["eoa", "ledger"],
@@ -86,16 +86,14 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
     const blankDeployName = `${formatNow()}-${args.upgrade}`;
 
     let _id = 0;
-    const segments = fs.readdirSync(upgradePath).filter(p => p.endsWith('.s.sol') && (p.includes('eoa') || p.includes('multisig'))).map<Segment>(p => {
+    const segments = fs.readdirSync(upgradePath).filter(p => p.endsWith('.s.sol') && (p.includes('eoa') || p.includes('multisig'))).sort((a, b) => a.localeCompare(b)).map<Segment>(p => {
         if (p.includes('eoa')) {
-            // eoa
             return {
                 id: _id++,
                 filename: p,
                 type: 'eoa'
             }
         } else {
-            // multisig
             return {
                 id: _id++,
                 filename: p,
@@ -144,7 +142,6 @@ const updateLatestDeploy = async (metadataStore: MetadataStore, env: string, dep
 const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any> | undefined, user: TState, rpcUrl: string | undefined) => {
     while (true) {
         console.log(chalk.green(`[info] Deploy phase: ${deploy.phase}`))
-
         const getStrategy: () => Strategy<any> = () => {
             const segment = deploy.segments[deploy.segmentId];
             if (!_strategy) {
@@ -189,6 +186,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                         await user.metadataStore!.updateJSON(
                             join(
                                 canonicalPaths.deployDirectory("", deploy.env, deploy.name),
+                                `${deploy.segmentId}`,
                                 "foundry.run.json"
                             ),
                             sigRequest.forge?.runLatest
@@ -196,6 +194,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                         await user.metadataStore!.updateJSON(
                             join(
                                 canonicalPaths.deployDirectory("", deploy.env, deploy.name),
+                                `${deploy.segmentId}`,
                                 "foundry.deploy.json"
                             ),
                             sigRequest.forge?.deployLatest
@@ -216,6 +215,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                 const foundryDeploy = await user.metadataStore?.getJSONFile<any>(
                     join(
                         canonicalPaths.deployDirectory("", deploy.env, deploy.name),
+                        `${deploy.segmentId}`,
                         "foundry.deploy.json"
                     ),
                 );
@@ -249,9 +249,18 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
             case "multisig_start": {             
                 const script = join(deploy.upgradePath, deploy.segments[deploy.segmentId].filename);   
                 if (existsSync(script)) {
-                    const sigRequest = await getStrategy().requestNew(script);
-                    console.log(sigRequest);
-                    throw new Error('TODO: finish implementing queue step')
+                    const sigRequest = await getStrategy().requestNew(script) as TGnosisRequest;
+                    await user.metadataStore!.updateJSON(
+                        join(
+                            canonicalPaths.deployDirectory("", deploy.env, deploy.name),
+                            `${deploy.segmentId}`,
+                            "multisig.run.json"
+                        ),
+                        sigRequest,
+                    )
+
+                    advance(deploy);
+                    await saveDeploy(user.metadataStore!, deploy);
                 } else {
                     console.error(`Missing expected script: ${script}. Please check your local copy and try again.`)
                     return;

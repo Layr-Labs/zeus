@@ -1,8 +1,8 @@
-import * as SafeApiKit from "@safe-global/api-kit";
-import * as Safe from '@safe-global/protocol-kit'
+import SafeApiKit from "@safe-global/api-kit";
+import Safe from '@safe-global/protocol-kit'
 import { SafeTransaction } from '@safe-global/types-kit';
-import { Strategy, TSignatureRequest, Txn } from "../strategy.js";
-import { parseTuple, parseTuples } from "./utils.js";
+import { Strategy, TSignatureRequest, Txn } from "../strategy";
+import { parseTuple, parseTuples } from "./utils";
 
 type TGnosisBaseArgs = {
     safeAddress: string;
@@ -33,17 +33,16 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         const [to, value, data, op] = safeTxn;
         const {safeAddress, rpcUrl} = this.args;
 
-        // @ts-expect-error default imports are messed up with NodeNext
-        const apiKit = new SafeApiKit.default({
+        const apiKit = new SafeApiKit({
             chainId: 1n, // TODO:(multinetwork)
             txServiceUrl: 'https://safe-transaction-mainnet.safe.global', // TODO:(multinetwork)
         })
-        // @ts-expect-error default imports are messed up with NodeNext
-        const protocolKitOwner1 = await Safe.default.init({
+
+        const protocolKitOwner1 = await Safe.init({
             provider: rpcUrl,
             signer: await this.getSignerAddress(),
             safeAddress: safeAddress
-        })
+        });
 
         // TODO: we don't need to multi-encode this at the solidity level.
         const txn = await protocolKitOwner1.createTransaction({
@@ -57,12 +56,17 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             ],
         })
 
+        console.log(`creating txn hash...`);
         const hash = await protocolKitOwner1.getTransactionHash(txn)
+        console.log(hash);
         const version = await protocolKitOwner1.getContractVersion();
-
         const senderAddress = await this.getSignerAddress();
-        const senderSignature = await this.getSignature(version, txn)
 
+        console.log(`signing txn hash (${version})...`);
+        const senderSignature = await this.getSignature(version, txn)
+        console.log(senderSignature);
+
+        console.log(`proposing txn...`);
         await apiKit.proposeTransaction({
             safeAddress,
             safeTransactionData: txn.data,

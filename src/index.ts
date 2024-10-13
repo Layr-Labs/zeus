@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
 import { subcommands, run } from "cmd-ts";
-import deploy from './commands/deploy/deploy.js';
-import env from './commands/env/env.js';
-import upgrade from './commands/upgrade/upgrade.js';
+import deploy from './commands/deploy/deploy';
+import env from './commands/env/env';
+import upgrade from './commands/upgrade/upgrade';
 import chalk from 'chalk';
-import login from './commands/login/login.js';
+import login from './commands/login/login';
 import { load } from "./commands/inject.js";
-import runCmd from './commands/run.js';
-import testCmd from './commands/test.js';
-import initCmd from './commands/init.js';
+import runCmd from './commands/run';
+import testCmd from './commands/test';
+import initCmd from './commands/init';
 
 const main = async () => {
     const state = await load()

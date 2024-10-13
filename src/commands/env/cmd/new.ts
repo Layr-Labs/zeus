@@ -1,10 +1,10 @@
 import {command } from 'cmd-ts';
-import { loadExistingEnvs } from './list.js';
-import { inRepo, loggedIn, requires, TState } from '../../inject.js';
-import { question } from '../../utils.js';
-import { TDeployManifest, TEnvironmentManifest, TUpgradeManifest } from '../../../metadata/schema.js'
+import { loadExistingEnvs } from './list';
+import { inRepo, loggedIn, requires, TState } from '../../inject';
+import { question } from '../../utils';
+import { TDeployManifest, TEnvironmentManifest, TUpgradeManifest } from '../../../metadata/schema'
 import chalk from 'chalk';
-import { canonicalPaths } from '../../../metadata/paths.js';
+import { canonicalPaths } from '../../../metadata/paths';
 
 async function handler(user: TState, _: {}): Promise<void> {
     const gh = user.github!;

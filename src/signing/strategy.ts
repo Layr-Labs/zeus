@@ -1,11 +1,11 @@
 import chalk from 'chalk';
 import { spawn } from 'child_process';
-import { MetadataStore } from '../metadata/metadataStore.js';
-import { canonicalPaths } from '../metadata/paths.js';
+import { MetadataStore } from '../metadata/metadataStore';
+import { canonicalPaths } from '../metadata/paths';
 import tmp from 'tmp';
 import fs from 'fs';
 import ora from 'ora';
-import { TDeploy } from '../metadata/schema.js';
+import { TDeploy } from '../metadata/schema';
 
 tmp.setGracefulCleanup();
 

@@ -1,7 +1,7 @@
 import { privateKeyToAccount } from "viem/accounts";
-import { GnosisSigningStrategy } from "./gnosis.js";
+import { GnosisSigningStrategy } from "./gnosis";
 import { SafeTransaction } from '@safe-global/types-kit';
-import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index.js"
+import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 
 type TGnosisEOAArgs = {
     privateKey: string;
@@ -20,7 +20,7 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
 
     async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
         const account = privateKeyToAccount(this.args.privateKey! as `0x${string}`);
-        return await account.signTypedData({
+        const typedDataParameters = {
             types: getEip712TxTypes(version) as unknown as Record<string, unknown>,
             domain: {
                 verifyingContract: this.args.safeAddress as `0x${string}`
@@ -34,7 +34,8 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
                 gasPrice: txn.data.gasPrice,
                 nonce: txn.data.nonce
             }
-        })
+        };
+        return await account.signTypedData(typedDataParameters)
     }
 
     async getSignerAddress(): Promise<`0x${string}`> {

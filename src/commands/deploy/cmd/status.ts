@@ -1,8 +1,8 @@
 import { command, positional, string } from "cmd-ts";
-import {json} from '../../args.js';
-import { inRepo, loggedIn, requires, TState } from "../../inject.js";
-import { canonicalPaths } from "../../../metadata/paths.js";
-import { TDeployManifest } from "../../../metadata/schema.js";
+import {json} from '../../args';
+import { inRepo, loggedIn, requires, TState } from "../../inject";
+import { canonicalPaths } from "../../../metadata/paths";
+import { TDeployManifest } from "../../../metadata/schema";
 import chalk from "chalk";
 
 async function handler(user: TState, {env, json}: any) {

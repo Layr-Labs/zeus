@@ -1,7 +1,6 @@
-import chalk from 'chalk';
-import { configs } from '../commands/inject.js';
-import {login as loginToGithub} from './github.js';
-import { MetadataStore, TDirectory } from './metadataStore.js';
+import { configs } from '../commands/inject';
+import {login as loginToGithub} from './github';
+import { MetadataStore, TDirectory } from './metadataStore';
 import { Octokit } from 'octokit';
 
 export class GitMetadataStore implements MetadataStore {

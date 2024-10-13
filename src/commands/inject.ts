@@ -3,10 +3,10 @@ import os from 'os';
 import { Octokit } from 'octokit';
 import { execSync } from 'child_process';
 import chalk from 'chalk';
-import { Environment } from './environment.js';
-import { JSONBackedConfig } from './config.js';
-import { MetadataStore } from '../metadata/metadataStore.js';
-import { GitMetadataStore } from '../metadata/gitBackedMetadataStore.js';
+import { Environment } from './environment';
+import { JSONBackedConfig } from './config';
+import { MetadataStore } from '../metadata/metadataStore';
+import { GitMetadataStore } from '../metadata/gitBackedMetadataStore';
 
 export type TZeusConfig = {
     zeusHost: string,
