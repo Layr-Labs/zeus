@@ -5,25 +5,12 @@ import { getRepoRoot } from "../../commands/inject.js";
 import { basename } from "path";
 import { readFileSync } from "fs";
 import chalk from "chalk";
+import { parseTuples } from "./utils.js";
 
-// TODO: not hardcode this =[
 type TEOAArgs = {
     privateKey: string
     rpcUrl: string
 };
-
-function parseTuples(input: string): string[][] {
-    const tupleRegex = /\((\w+),\s(0x[a-fA-F0-9]+)\)/g;
-    const result: string[][] = [];
-    let match;
-
-    // Use regex to extract all tuples
-    while ((match = tupleRegex.exec(input)) !== null) {
-        result.push([match[1], match[2]]);
-    }
-
-    return result;
-}
 
 export default class EOASigningStrategy extends Strategy<TEOAArgs> {
     id = "eoa";

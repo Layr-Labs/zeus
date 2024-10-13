@@ -1,5 +1,5 @@
 import { GnosisSigningStrategy } from "./gnosis.js";
-import {SafeTransaction} from "@safe-global/safe-core-sdk-types";
+import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index.js"
 import { LedgerSigner } from "@ethers-ext/signer-ledger";
 import HIDTransport from "@ledgerhq/hw-transport-node-hid";
@@ -14,10 +14,6 @@ export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> 
 
     async forgeArgs(): Promise<string[]> {
         return ["--ledger"];
-    }
-
-    execute(path: string) {
-        // TODO:execute the forge script, get its output and sign it.
     }
 
     isValidSubCommandArgs(obj: any): obj is TGnosisEOAArgs {
@@ -50,8 +46,8 @@ export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> 
         ) as `0x${string}`
     }
 
-    async getSignerAddress(): Promise<string> {
+    async getSignerAddress(): Promise<`0x${string}`> {
         const signer = new LedgerSigner(HIDTransport, provider);
-        return signer.getAddress();
+        return await signer.getAddress() as `0x${string}`;
     }
 }

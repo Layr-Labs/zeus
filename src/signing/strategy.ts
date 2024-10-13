@@ -19,7 +19,7 @@ type TForgeOutput = {
     chainId: number | undefined
 }
 
-export interface TSignatureRequest {
+export interface TForgeRequest {
     forge?: {
         runLatest: any,
         deployLatest: any
@@ -32,6 +32,15 @@ export interface TSignatureRequest {
 
     ready: boolean,
 }
+
+export interface TGnosisRequest {
+    safeAddress: string,
+    safeTxHash: string,
+    senderAddress: `0x${string}`,
+    signature: `0x${string}`
+}
+
+export type TSignatureRequest = TForgeRequest | TGnosisRequest;
 
 type Result = {
     stdout: string;

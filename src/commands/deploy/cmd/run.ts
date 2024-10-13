@@ -5,7 +5,7 @@ import { getActiveDeploy, isTerminalPhase, advance } from "./utils.js";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
 import { all } from '../../../signing/strategies/strategies.js';
-import { Strategy } from "../../../signing/strategy.js";
+import { Strategy, TForgeRequest } from "../../../signing/strategy.js";
 import chalk from "chalk";
 import { canonicalPaths } from "../../../metadata/paths.js";
 import { MetadataStore } from "../../../metadata/metadataStore.js";
@@ -53,7 +53,7 @@ function formatNow() {
     return `${year}-${month}-${day}-${hours}-${minutes}`;
 }
 
-async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string, signingStrategy: string | undefined}) {
+async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string | undefined, signingStrategy: string | undefined}) {
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
@@ -62,10 +62,20 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
 
     const deploy = await getActiveDeploy(user, args.env);
     if (deploy) {
+        if (args.upgrade || !args.resume) {
+            console.error(`Existing deploy in progress. Please rerun with --resume (and not --upgrade, as the current upgrade is ${deploy.upgrade}).`)
+            return;
+        }
+
         console.log(`Resuming existing deploy... (began at ${deploy.startTime})`);
         const signingStrategyClass = args.signingStrategy ? all.find((strategy) => new strategy(deploy, args, user.metadataStore!).id === args.signingStrategy) : undefined;
         const signingStrategy = signingStrategyClass && new signingStrategyClass(deploy, args, user.metadataStore!);
         return await executeOrContinueDeploy(deploy, signingStrategy, user, args.rpcUrl);
+    }
+
+    if (!args.upgrade) {
+        console.error(`Must specify --upgrade <upgradeName>`);
+        return;
     }
 
     const upgradePath = normalize(join(getRepoRoot(), repoConfig.migrationDirectory, args.upgrade))
@@ -141,10 +151,11 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                 console.error(`This phase requires a signing strategy. Please rerun with --signingStrategy [${supportedSigners[segment.type]?.join(' | ')}]`)
                 process.exit(1);
             }
-            if (Object.keys(supportedSigners).includes(deploy.phase) && !supportedSigners[segment.type]?.includes(_strategy.id)) {
+            if (!Object.keys(supportedSigners).includes(segment.type) || !supportedSigners[segment.type]?.includes(_strategy.id)) {
                 console.error(`This deploy phase does not support this signingStrategy. Please rerun with --signingStrategy [${supportedSigners[segment.type]?.join(' | ')}] `)
                 process.exit(1);
             }
+
             return _strategy;
         }
 
@@ -171,7 +182,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                 if (existsSync(script)) {
                     // TODO: check whether this deploy already has forge documents uploaded from a previous run.
                     // (i.e that it bailed before advancing.)
-                    const sigRequest = await getStrategy().requestNew(script);
+                    const sigRequest = await getStrategy().requestNew(script) as TForgeRequest;
                     if (sigRequest?.ready) {
                         advance(deploy);
                         await saveDeploy(user.metadataStore!, deploy);
@@ -232,12 +243,11 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                 spinner.stopAndPersist();
                 advance(deploy);
                 await saveDeploy(user.metadataStore!, deploy);
-                console.log(chalk.bold(`To continue running this transaction, re-run with the requested signer.`))
+                console.log(chalk.bold(`To continue running this transaction, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
                 return;
-
             // multisig states.
-            case "multisig_start": {                
-                const script = join(canonicalPaths.deployDirectory("", deploy.env, deploy.name), deploy.segments[deploy.segmentId].filename);
+            case "multisig_start": {             
+                const script = join(deploy.upgradePath, deploy.segments[deploy.segmentId].filename);   
                 if (existsSync(script)) {
                     const sigRequest = await getStrategy().requestNew(script);
                     console.log(sigRequest);

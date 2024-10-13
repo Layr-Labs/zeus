@@ -1,6 +1,6 @@
 import { privateKeyToAccount } from "viem/accounts";
 import { GnosisSigningStrategy } from "./gnosis.js";
-import { SafeTransaction } from "@safe-global/safe-core-sdk-types";
+import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index.js"
 
 type TGnosisEOAArgs = {
@@ -18,12 +18,6 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
         return obj !== null && obj !== undefined && typeof obj.privateKey == 'string'; 
     }
 
-    execute(path: string) {
-        // TODO:execute the forge script, get its output and sign it.
-        const output = this.runForgeScript(path);
-        console.log(output);
-    }
-    
     async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
         const account = privateKeyToAccount(this.args.privateKey! as `0x${string}`);
         return await account.signTypedData({
@@ -43,7 +37,7 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
         })
     }
 
-    async getSignerAddress(): Promise<string> {
+    async getSignerAddress(): Promise<`0x${string}`> {
         return privateKeyToAccount(this.args.privateKey! as `0x${string}`).address;
     }
 }
