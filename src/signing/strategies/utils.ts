@@ -1,3 +1,5 @@
+export const SEPOLIA_CHAIN_ID = 11155111;
+
 export function parseTuples(input: string): string[][] {
     const tupleRegex = /\((\w+),\s(0x[a-fA-F0-9]+)\)/g;
     const result: string[][] = [];

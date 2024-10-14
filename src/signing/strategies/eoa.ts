@@ -15,20 +15,20 @@ type TEOAArgs = {
 export default class EOASigningStrategy extends Strategy<TEOAArgs> {
     id = "eoa";
 
-    isValidArgs(obj: any): obj is TEOAArgs {
+    assertValidArgs(obj: any): obj is TEOAArgs {
         if (obj.privateKey === undefined) {
-             return false;
+            throw new Error(`Missing --privateKey`)
         }
 
-        const pk = obj.privateKey?.startsWith("0x") ? obj : `0x${obj.privateKey}`;
+        const pk = obj.privateKey?.startsWith("0x") ? obj.privateKey : `0x${obj.privateKey}`;
         try {
             privateKeyToAccount(pk);
-        } catch {
-            return false;
+        } catch (e) {
+            throw new Error(`Invalid --privateKey: ${e}`)
         }
 
         if (!obj.rpcUrl) {
-            return false;
+            throw new Error(`Invalid --rpcUrl`)
         }
 
         return true;

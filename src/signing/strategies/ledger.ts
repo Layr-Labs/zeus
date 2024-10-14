@@ -6,7 +6,7 @@ export class LedgerSigningStrategy extends Strategy<TLedgerArgs> {
     id = "ledger";
 
     // coercion funciton for checking arg validity
-    isValidArgs(obj: any): obj is TLedgerArgs {
+    assertValidArgs(obj: any): obj is TLedgerArgs {
         return true;
     }
 

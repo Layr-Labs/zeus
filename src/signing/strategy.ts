@@ -64,10 +64,12 @@ export abstract class Strategy<TArgs> {
     readonly options: Record<string, any>;
 
     public get args(): TArgs {
-        if (!this.isValidArgs(this.options)) {
-            throw new Error(`Missing required arguments for signing strategy: ${this.constructor.name} ${this.usage() ? `(Usage: ${this.usage()})` : ''}`);
+        try {
+            this.assertValidArgs(this.options);
+        } catch (e) {
+            throw new Error(`Invalid arguments for --strategy ${this.id}: ${e}`);
         }
-        return this.options;
+        return this.options as TArgs;
     }
 
     usage(): string {
@@ -75,7 +77,7 @@ export abstract class Strategy<TArgs> {
     }
 
     // coercion funciton for checking arg validity
-    abstract isValidArgs(obj: any): obj is TArgs;
+    abstract assertValidArgs(obj: any): obj is TArgs;
 
     // name of the signing strategy. should be unique.
     abstract id: string;

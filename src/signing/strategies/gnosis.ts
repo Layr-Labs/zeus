@@ -2,7 +2,8 @@ import SafeApiKit from "@safe-global/api-kit";
 import Safe from '@safe-global/protocol-kit'
 import { SafeTransaction } from '@safe-global/types-kit';
 import { Strategy, TSignatureRequest, Txn } from "../strategy";
-import { parseTuple, parseTuples } from "./utils";
+import { parseTuple, parseTuples, SEPOLIA_CHAIN_ID } from "./utils";
+import ora from "ora";
 
 type TGnosisBaseArgs = {
     safeAddress: string;
@@ -13,10 +14,17 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
 
     abstract getSignature(safeVersion: string, txn: SafeTransaction): Promise<`0x${string}`>;
     abstract getSignerAddress(): Promise<`0x${string}`>;
-    abstract isValidSubCommandArgs(obj: any): obj is T;
+    abstract assertValidSubCommandArgs(obj: any): obj is T;
     
-    isValidArgs(obj: any): obj is TGnosisBaseArgs & T {
-        return obj !== null && obj !== undefined && typeof obj.safeAddress == 'string' && obj.safeAddress && typeof obj.rpcUrl == 'string' && this.isValidSubCommandArgs(obj); 
+    assertValidArgs(obj: any): obj is TGnosisBaseArgs & T {
+        this.assertValidSubCommandArgs(obj);
+        if (!obj.safeAddress) {
+            throw new Error(`Expected --safeAddress`);
+        }
+        if (!obj.rpcUrl) {
+            throw new Error(`Expected --rpcUrl`);
+        }
+        return true;
     }
 
     async forgeArgs(): Promise<string[]> {
@@ -34,8 +42,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         const {safeAddress, rpcUrl} = this.args;
 
         const apiKit = new SafeApiKit({
-            chainId: 1n, // TODO:(multinetwork)
-            txServiceUrl: 'https://safe-transaction-mainnet.safe.global', // TODO:(multinetwork)
+            chainId: BigInt(SEPOLIA_CHAIN_ID), // TODO:(multinetwork)
         })
 
         const protocolKitOwner1 = await Safe.init({
@@ -44,7 +51,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             safeAddress: safeAddress
         });
 
-        // TODO: we don't need to multi-encode this at the solidity level.
+        // TODO:(low-pri) we don't need to multi-encode this at the solidity level.
         const txn = await protocolKitOwner1.createTransaction({
             transactions: [
                 {
@@ -56,17 +63,22 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             ],
         })
 
-        console.log(`creating txn hash...`);
+        let prompt = ora(`Creating transaction...`);
+        let spinner = prompt.start();
+
         const hash = await protocolKitOwner1.getTransactionHash(txn)
-        console.log(hash);
         const version = await protocolKitOwner1.getContractVersion();
         const senderAddress = await this.getSignerAddress();
 
-        console.log(`signing txn hash (${version})...`);
-        const senderSignature = await this.getSignature(version, txn)
-        console.log(senderSignature);
+        spinner.stop();
 
-        console.log(`proposing txn...`);
+        prompt = ora(`Signing transaction...`);
+        spinner = prompt.start();
+        const senderSignature = await this.getSignature(version, txn)
+        spinner.stop();
+        
+        prompt = ora(`Sending transction to Gnosis SAFE UI...`);
+        spinner = prompt.start();
         await apiKit.proposeTransaction({
             safeAddress,
             safeTransactionData: txn.data,
@@ -74,6 +86,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             senderAddress,
             senderSignature,
         })
+        spinner.stop();
 
         return {
             safeAddress,

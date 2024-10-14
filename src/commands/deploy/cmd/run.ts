@@ -10,10 +10,14 @@ import chalk from "chalk";
 import { canonicalPaths } from "../../../metadata/paths";
 import { MetadataStore } from "../../../metadata/metadataStore";
 import { createPublicClient, http } from "viem";
-import { mainnet } from "viem/chains";
+import { mainnet, sepolia } from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
 import { Segment, TDeploy, TDeployManifest, TDeployPhase, TSegmentType } from "../../../metadata/schema";
+import SafeApiKit from "@safe-global/api-kit";
+import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
+import Safe from '@safe-global/protocol-kit'
+import { SEPOLIA_CHAIN_ID } from "../../../signing/strategies/utils";
 
 export const supportedSigners: Record<TSegmentType, string[]> = {
     "eoa": ["eoa", "ledger"],
@@ -71,6 +75,9 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
         const signingStrategyClass = args.signingStrategy ? all.find((strategy) => new strategy(deploy, args, user.metadataStore!).id === args.signingStrategy) : undefined;
         const signingStrategy = signingStrategyClass && new signingStrategyClass(deploy, args, user.metadataStore!);
         return await executeOrContinueDeploy(deploy, signingStrategy, user, args.rpcUrl);
+    } else if (args.resume) {
+        console.error(`Nothing to resume.`);
+        return;
     }
 
     if (!args.upgrade) {
@@ -126,7 +133,6 @@ const saveDeploy = async (metadataStore: MetadataStore, deploy: TDeploy) => {
         deployJsonPath,
         deploy
     );
-    console.log(chalk.green(`* updated deploy (${deployJsonPath})`))
 }
 
 const updateLatestDeploy = async (metadataStore: MetadataStore, env: string, deployName: string | undefined, forceOverride = false) => {
@@ -141,7 +147,7 @@ const updateLatestDeploy = async (metadataStore: MetadataStore, env: string, dep
 
 const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any> | undefined, user: TState, rpcUrl: string | undefined) => {
     while (true) {
-        console.log(chalk.green(`[info] Deploy phase: ${deploy.phase}`))
+        console.log(chalk.green(`[${deploy.segments[deploy.segmentId]?.filename ?? '<none>'}] ${deploy.phase}`))
         const getStrategy: () => Strategy<any> = () => {
             const segment = deploy.segments[deploy.segmentId];
             if (!_strategy) {
@@ -168,6 +174,11 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                 await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
                 await saveDeploy(user.metadataStore!, deploy);
                 return;
+            case "failed": {
+                console.error(`The deploy failed. Aborting deploy.`);
+                await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
+                return;
+            }
             case "cancelled":
                 console.log(`Deploy failed.`);
                 await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
@@ -225,7 +236,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
 
                 // TODO:multicain
                 const client = createPublicClient({
-                    chain: mainnet, 
+                    chain: sepolia, 
                     transport: http(rpcUrl),
                 })
 
@@ -267,15 +278,106 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                 }
                 break;
             }
-            case "multisig_wait_signers":
-                // TODO: check the gnosis api for whether the txns has enough sponsors.
+            case "multisig_wait_signers": {
+                const multisigDeploy = await user.metadataStore!.getJSONFile<TGnosisRequest>(
+                    join(
+                        canonicalPaths.deployDirectory("", deploy.env, deploy.name),
+                        `${deploy.segmentId}`,
+                        "multisig.run.json"
+                    )
+                )
+                const safeApi = new SafeApiKit({chainId: BigInt(SEPOLIA_CHAIN_ID)})
+                const txn = await safeApi.getTransaction(multisigDeploy!.safeTxHash);
+
+                if (txn.confirmations?.length === txn.confirmationsRequired) {
+                    console.log(chalk.green(`SafeTxn(${multisigDeploy!.safeTxHash}): ${txn.confirmations?.length}/${txn.confirmationsRequired} confirmations received!`))
+                    advance(deploy);
+                    await saveDeploy(user.metadataStore!, deploy);
+                } else {
+                    console.error(`Waiting on ${txn.confirmationsRequired - (txn.confirmations?.length ?? 0)} more confirmations. `)
+                    console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy!.safeAddress}`)
+                    console.error(`Re-run with --resume to continue.`);
+                    return;
+                }
                 break;
-            case "multisig_execute":
-                // TODO: check the gnosis api to see if the txn executed onchain. execute it. log the result / txn.
+            }
+            case "multisig_execute": {
+                const multisigDeploy = await user.metadataStore!.getJSONFile<TGnosisRequest>(
+                    join(
+                        canonicalPaths.deployDirectory("", deploy.env, deploy.name),
+                        `${deploy.segmentId}`,
+                        "multisig.run.json"
+                    )
+                )
+                const safeApi = new SafeApiKit({chainId: BigInt(SEPOLIA_CHAIN_ID)})
+                const txn = await safeApi.getTransaction(multisigDeploy!.safeTxHash);
+                if (txn) {
+                    await user.metadataStore!.updateJSON(
+                        join(
+                            canonicalPaths.deployDirectory("", deploy.env, deploy.name),
+                            `${deploy.segmentId}`,
+                            "multisig.transaction.json"
+                        ),
+                        txn,
+                    )
+                }
+
+                if (!txn.isExecuted) {
+                    console.log(chalk.cyan(`SafeTxn(${multisigDeploy!.safeTxHash}): still waiting for execution.`))
+                    console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy!.safeAddress}`)
+                    return;
+                } else if (!txn.isSuccessful) {
+                    console.log(chalk.red(`SafeTxn(${multisigDeploy!.safeTxHash}): failed onchain. Failing deploy.`))
+                    deploy.phase = 'failed';
+                    await saveDeploy(user.metadataStore!, deploy);
+                    continue;
+                } else {
+                    console.log(chalk.green(`SafeTxn(${multisigDeploy!.safeTxHash}): executed! ${txn.transactionHash}`))
+                    advance(deploy);
+                    await saveDeploy(user.metadataStore!, deploy);
+                }
                 break;
-            case "multisig_wait_confirm":
-                // TODO: check the gnosis api to see if the txn executed successfully.
+            }
+            case "multisig_wait_confirm": {
+                const multisigTxn = await user.metadataStore!.getJSONFile<SafeMultisigTransactionResponse>(
+                    join(
+                        canonicalPaths.deployDirectory("", deploy.env, deploy.name),
+                        `${deploy.segmentId}`,
+                        "multisig.transaction.json"
+                    )
+                )
+                if (!multisigTxn) {
+                    console.error(`Deploy missing multisig transaction data.`);
+                    return;
+                }
+
+                if (multisigTxn.executionDate && multisigTxn.transactionHash) {
+                    // check that the 
+                    const client = createPublicClient({
+                        chain: sepolia, 
+                        transport: http(rpcUrl),
+                    })
+                    try {
+                        const receipt = await client.getTransactionReceipt({hash: multisigTxn.transactionHash as `0x${string}`});
+                        if (receipt.status === 'success') {
+                            console.log(chalk.green(`SafeTxn(${multisigTxn.safeTxHash}): successful onchain (${receipt.transactionHash})`))
+                            advance(deploy);
+                            await saveDeploy(user.metadataStore!, deploy);
+                            return;
+                        } else {
+                            console.log(chalk.green(`SafeTxn(${multisigTxn.safeTxHash}): reverted onchain (${receipt.transactionHash})`))
+                            deploy.phase = 'failed';
+                            await saveDeploy(user.metadataStore!, deploy);
+                            return;
+                        } 
+                    } catch (e) {
+                        console.error(`Multisig Transaction (${multisigTxn.transactionHash}) hasn't landed in a block yet.`)
+                        console.error(e);
+                        return;
+                    }
+                }   
                 break;
+            }
             default:
                 console.error(`Deploy is in unknown phase: ${deploy.phase}. Make sure your zeus is up-to-date.`);
                 return;

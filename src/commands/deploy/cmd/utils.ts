@@ -3,6 +3,7 @@ import { canonicalPaths } from "../../../metadata/paths";
 import { TDeployManifest, TDeployPhase } from "../../../metadata/schema";
 import { join } from "path";
 import { TDeploy } from "../../../metadata/schema";
+import chalk from "chalk";
 
 export const advanceSegment = (deploy: TDeploy) => {
     if (deploy.segments[deploy.segmentId]?.type === "eoa") {
@@ -15,7 +16,6 @@ export const advanceSegment = (deploy: TDeploy) => {
 }
 
 export const advance = (deploy: TDeploy) => {
-    const before = deploy.phase;
     switch (deploy.phase) {
         case "":
             advanceSegment(deploy);
@@ -38,6 +38,7 @@ export const advance = (deploy: TDeploy) => {
             deploy.phase = "multisig_wait_confirm";
             break;
         case "multisig_wait_confirm":
+            deploy.segmentId++;
             advanceSegment(deploy);
             break;
         case "complete":
@@ -47,7 +48,8 @@ export const advance = (deploy: TDeploy) => {
         default:
             throw new Error(`Deploy in unknown phase: ${deploy.phase}`);
     }
-    console.log(`Updated phase: ${before ?? '<uninitialized>'} -> ${deploy.phase}`);
+
+    console.log(chalk.cyan(`![${deploy.segments[deploy.segmentId]?.filename ?? '<none>'}]: ${deploy.phase}`));
 }
 
 export function isTerminalPhase(state: TDeployPhase): boolean {

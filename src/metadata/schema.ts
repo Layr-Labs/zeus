@@ -11,7 +11,8 @@ export type TDeployPhase = (
     TEOAPhase |
     TMultisigPhase |
      "complete" | 
-     "cancelled"
+     "cancelled" | 
+     "failed" 
 )
 
 // - "eoa_start" -- [eoa] the `create` phase has been run and is submitted to the network.

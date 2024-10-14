@@ -16,7 +16,7 @@ export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> 
         return ["--ledger"];
     }
 
-    isValidSubCommandArgs(obj: any): obj is TGnosisEOAArgs {
+    assertValidSubCommandArgs(obj: any): obj is TGnosisEOAArgs {
         return true;
     }
     
