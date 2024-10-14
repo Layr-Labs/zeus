@@ -4,6 +4,7 @@ import { SafeTransaction } from '@safe-global/types-kit';
 import { Strategy, TSignatureRequest, Txn } from "../strategy";
 import { parseTuple, parseTuples, SEPOLIA_CHAIN_ID } from "./utils";
 import ora from "ora";
+import { TDeploy } from "../../metadata/schema";
 
 type TGnosisBaseArgs = {
     safeAddress: string;
@@ -31,7 +32,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         return ['--sig', `execute(string)`, await this.pathToDeployParamters()];
     }
 
-    async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
+    async requestNew(pathToUpgrade: string, deploy: TDeploy): Promise<TSignatureRequest | undefined> {
         const output = await this.runForgeScript(pathToUpgrade) as any;
         const safeTxn = parseTuple(output.output.returns['0'].value);
         if (safeTxn.length != 4) {

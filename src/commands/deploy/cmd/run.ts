@@ -1,7 +1,7 @@
 import { command } from "cmd-ts";
 import * as allArgs from '../../args';
 import { TState, configs, getRepoRoot, requires, loggedIn } from "../../inject";
-import { getActiveDeploy, isTerminalPhase, advance } from "./utils";
+import { getActiveDeploy, updateLatestDeploy, advance } from "./utils";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
 import { all } from '../../../signing/strategies/strategies';
@@ -29,7 +29,7 @@ process.on("unhandledRejection", (error) => {
     throw error; // Following best practices re-throw error and let the process exit with error code
   });
 
-const blankDeploy = (args: {env: string, upgrade: string, upgradePath: string, name: string, segments: Segment[]}) => {
+const blankDeploy = (args: {env: string, chainId: number, upgrade: string, upgradePath: string, name: string, segments: Segment[]}) => {
     const start = new Date();
     const deploy: TDeploy = {
         name: args.name,
@@ -40,6 +40,7 @@ const blankDeploy = (args: {env: string, upgrade: string, upgradePath: string, n
         upgrade: args.upgrade,
         upgradePath: args.upgradePath,
         phase: "" as TDeployPhase,
+        chainId: args.chainId,
         startTime: start.toString(),
         startTimestamp: start.getTime() / 1000,
     };
@@ -108,7 +109,7 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
             }
         }
     });
-    const newDeploy = blankDeploy({name: blankDeployName, env: args.env, upgrade: args.upgrade, upgradePath, segments});
+    const newDeploy = blankDeploy({name: blankDeployName, chainId: SEPOLIA_CHAIN_ID, env: args.env, upgrade: args.upgrade, upgradePath, segments});
     const signingStrategyClass = all.find((strategy) => new strategy(newDeploy, args, user!.metadataStore!).id === args.signingStrategy);
     
     const deployJsonPath = join(canonicalPaths.deployDirectory('', args.env, blankDeployName), "deploy.json");
@@ -133,16 +134,6 @@ const saveDeploy = async (metadataStore: MetadataStore, deploy: TDeploy) => {
         deployJsonPath,
         deploy
     );
-}
-
-const updateLatestDeploy = async (metadataStore: MetadataStore, env: string, deployName: string | undefined, forceOverride = false) => {
-    const deployManifestPath = canonicalPaths.deploysManifest(env);
-    const deployManifest = await metadataStore.getJSONFile<TDeployManifest>(deployManifestPath) ?? {};
-    if (deployManifest.inProgressDeploy && !forceOverride) {
-        throw new Error('unexpected - deploy already in progress.');
-    }    
-    deployManifest.inProgressDeploy = deployName;
-    await metadataStore.updateJSON<TDeployManifest>(deployManifestPath, deployManifest!);
 }
 
 const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any> | undefined, user: TState, rpcUrl: string | undefined) => {
@@ -190,7 +181,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                 if (existsSync(script)) {
                     // TODO: check whether this deploy already has forge documents uploaded from a previous run.
                     // (i.e that it bailed before advancing.)
-                    const sigRequest = await getStrategy().requestNew(script) as TForgeRequest;
+                    const sigRequest = await getStrategy().requestNew(script, deploy) as TForgeRequest;
                     if (sigRequest?.ready) {
                         advance(deploy);
                         await saveDeploy(user.metadataStore!, deploy);
@@ -244,11 +235,13 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                 const spinner = prompt.start();
 
                 for (let txn of foundryDeploy.transactions) {
-                    const receipt = await client.getTransactionReceipt({hash: txn.hash});
-                    if (receipt.status !== "success") {
-                        console.error(`Transaction(${txn}) did not succeed: ${receipt.status}`)
-                        return;
-                        // TODO: what is the step forward here for the user?
+                    if (txn?.hash) {
+                        const receipt = await client.getTransactionReceipt({hash: txn.hash});
+                        if (receipt.status !== "success") {
+                            console.error(`Transaction(${txn}) did not succeed: ${receipt.status}`)
+                            return;
+                            // TODO: what is the step forward here for the user?
+                        }
                     }
                 }
                 spinner.stopAndPersist();
@@ -260,7 +253,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
             case "multisig_start": {             
                 const script = join(deploy.upgradePath, deploy.segments[deploy.segmentId].filename);   
                 if (existsSync(script)) {
-                    const sigRequest = await getStrategy().requestNew(script) as TGnosisRequest;
+                    const sigRequest = await getStrategy().requestNew(script, deploy) as TGnosisRequest;
                     await user.metadataStore!.updateJSON(
                         join(
                             canonicalPaths.deployDirectory("", deploy.env, deploy.name),

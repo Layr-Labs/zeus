@@ -16,7 +16,6 @@ export type Txn = {
 
 type TForgeOutput = {
     output: any
-    chainId: number | undefined
 }
 
 export interface TForgeRequest {
@@ -89,7 +88,7 @@ export abstract class Strategy<TArgs> {
     //      - (e.g in the case of an EOA deploy, the literal deploy).
     //
     //      Any state produced from this should be checked in.
-    abstract requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined>;
+    abstract requestNew(pathToUpgrade: string, deploy: TDeploy): Promise<TSignatureRequest | undefined>;
 
     // lets sub-scripts inject args.
     //  e.g the EOA will run '-s', 
@@ -144,7 +143,6 @@ export abstract class Strategy<TArgs> {
     async runForgeScript(path: string): Promise<TForgeOutput> {
         return new Promise(async (resolve, reject) => {
             try {
-                var chainId: number | undefined = undefined;
                 const args = ['script', path, ...await this.forgeArgs(), '--json'];
 
                 const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...this.redactInOutput())}`)}`);
@@ -158,15 +156,11 @@ export abstract class Strategy<TArgs> {
 
                 // Search for the first line that begins with '{' (--json output)
                 const lines = stdout.split('\n');
-                const chainLine = lines.find(line => line.trim().startsWith('Chain'));
-                if (chainLine) {
-                    chainId = parseInt(chainLine.split(' ')[1])
-                }
                 const jsonLine = lines.find(line => line.trim().startsWith('{'));
                 if (jsonLine) {
                     try {
                         const parsedJson = JSON.parse(jsonLine);
-                        return resolve({output: parsedJson, chainId});
+                        return resolve({output: parsedJson});
                     } catch (e) {
                         return reject(new Error(`Failed to parse JSON: ${e}`));
                     }

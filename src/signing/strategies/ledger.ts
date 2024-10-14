@@ -1,3 +1,4 @@
+import { TDeploy } from "../../metadata/schema";
 import { Strategy, TSignatureRequest, Txn } from "../strategy";
 
 type TLedgerArgs = {};
@@ -10,7 +11,7 @@ export class LedgerSigningStrategy extends Strategy<TLedgerArgs> {
         return true;
     }
 
-    async requestNew(path: string): Promise<TSignatureRequest | undefined> {
+    async requestNew(path: string, deploy: TDeploy): Promise<TSignatureRequest | undefined> {
         const output = await this.runForgeScript(path);
         console.log(output);
         // TODO: parse the output.

@@ -67,6 +67,7 @@ export type TDeploy = {
     env: string;
     upgrade: string;
 
+    chainId: number;
     upgradePath: string; // the name of the upgrade directory used.
 
     phase: TDeployPhase; // the current unfinished state of the deploy. this phase is local to the `segment`, unless "" | "cancelled" | "completed".
