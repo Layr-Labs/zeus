@@ -33,7 +33,7 @@ export const loadExistingEnvs = async (user: TState) => {
 };
 
 async function handler(user: TState, args: {json: boolean |undefined}): Promise<void> {
-    let envs = await loadExistingEnvs(user);
+    const envs = await loadExistingEnvs(user);
 
     if (args.json) {
         console.log(JSON.stringify(envs));

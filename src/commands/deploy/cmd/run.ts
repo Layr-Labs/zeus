@@ -234,7 +234,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                 const prompt = ora(`Verifying ${foundryDeploy.transactions.length} transactions...`);
                 const spinner = prompt.start();
 
-                for (let txn of foundryDeploy.transactions) {
+                for (const txn of foundryDeploy.transactions) {
                     if (txn?.hash) {
                         const receipt = await client.getTransactionReceipt({hash: txn.hash});
                         if (receipt.status !== "success") {

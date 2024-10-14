@@ -27,7 +27,7 @@ async function handler(user: TState, _: {}): Promise<void> {
         errorMessage: "failed to create environment"
     });
 
-    var latestCommitSha: string;
+    let latestCommitSha: string;
     try {
         const { data: baseBranchData } = await gh!.rest.repos.getBranch({
             ...zeusRepo,

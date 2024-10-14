@@ -10,8 +10,8 @@ export const question = (args: {
     maxAttempts: number
     errorMessage: string
 }) => {
-    var attempt = 0;
-    var response: string = '';
+    let attempt = 0;
+    let response: string = '';
     while (attempt < (args.maxAttempts || defaultMaxAttempts)) {
         response = ask(args.text + ': ')
         if (args.isValid(response)) {

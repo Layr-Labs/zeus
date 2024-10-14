@@ -112,7 +112,7 @@ export class GitMetadataStore implements MetadataStore {
     }
 
     async updateFile(path: string, contents: string): Promise<void> {
-        var response: any;
+        let response: any;
         try {
             response = await this.octokit!.rest.repos.getContent({
                 owner: this.owner,

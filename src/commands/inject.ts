@@ -45,9 +45,9 @@ export async function load(args?: {env: string}): Promise<TState> {
     const zeusProfile = await configs.zeusProfile.load();
     const zeusRepo = await configs.zeus.load();
 
-    var zeusHostOwner: string | undefined;
-    var zeusHostRepo: string | undefined;
-    var metadataStore: MetadataStore | undefined;
+    let zeusHostOwner: string | undefined;
+    let zeusHostRepo: string | undefined;
+    let metadataStore: MetadataStore | undefined;
     
     if (zeusRepo) {
         try {
@@ -85,7 +85,7 @@ type Predicate = () => Promise<void>
 export function requires<Args extends any[], T, Returns>(fn: (user: TState, cliArgs: T, ...args: Args) => Promise<Returns>, ...predicates: Predicate[]) {
     return async (cliArgs: T, ..._args: Args) => {
         const state = await load();
-        for (let predicate of predicates) {
+        for (const predicate of predicates) {
             await predicate();
         }
         await fn(state, cliArgs, ..._args);

@@ -49,7 +49,7 @@ type Result = {
 
 function redact(haystack: string, ...needles: string[]) {
     let out = haystack;
-    for (let needle of needles) {
+    for (const needle of needles) {
         out = out.replaceAll(needle, chalk.bold('<redacted>'));
     }
     return out;
