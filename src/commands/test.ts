@@ -1,8 +1,9 @@
 import {command, option} from 'cmd-ts';
 import {json} from './args';
-import { loggedIn, requires, TState } from './inject';
+import { loggedIn, requires } from './inject';
 
-const handler = async function(user: TState, args: {json: boolean, command: string, env: string}) {
+// user: TState, args: {json: boolean, command: string, env: string}
+const handler = async function() {
     // TODO:(milestone1): run the test with environment injected.
     //  see: code for Strategy.pathTo
 };

@@ -35,7 +35,10 @@ export class GitMetadataStore implements MetadataStore {
             if (this.accessToken) {
                 this.octokit = new Octokit({auth: this.accessToken});
             }
-        } catch {}
+        } catch (e) {
+            console.error(`Failed initializing metadata.`)
+            throw e;
+        }
     }
 
     async isLoggedIn(): Promise<boolean> {
@@ -43,7 +46,7 @@ export class GitMetadataStore implements MetadataStore {
         try {
             await client.rest.users.getAuthenticated();
             return true;
-        } catch (e) {
+        } catch {
             return false;
         }
     }
@@ -112,7 +115,10 @@ export class GitMetadataStore implements MetadataStore {
     }
 
     async updateFile(path: string, contents: string): Promise<void> {
-        let response: any;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const getContent = this.octokit!.rest.repos.getContent;
+
+        let response: Awaited<ReturnType<typeof getContent>> | undefined;
         try {
             response = await this.octokit!.rest.repos.getContent({
                 owner: this.owner,

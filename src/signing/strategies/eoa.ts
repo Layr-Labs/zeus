@@ -16,12 +16,12 @@ type TEOAArgs = {
 export default class EOASigningStrategy extends Strategy<TEOAArgs> {
     id = "eoa";
 
-    assertValidArgs(obj: any): obj is TEOAArgs {
+    assertValidArgs(obj: Record<string, unknown>): obj is TEOAArgs {
         if (obj.privateKey === undefined) {
             throw new Error(`Missing --privateKey`)
         }
 
-        const pk = obj.privateKey?.startsWith("0x") ? obj.privateKey : `0x${obj.privateKey}`;
+        const pk = ((obj.privateKey as string)?.startsWith("0x") ? obj.privateKey : `0x${obj.privateKey}`) as `0x${string}`;
         try {
             privateKeyToAccount(pk);
         } catch (e) {
@@ -53,7 +53,16 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
             throw new Error(`Forge output was missing: (chainId=${deploy.chainId},output=${output})`);
         }
 
-        const deployedContracts = parseTuples(output.returns['0'].value).map((tuple) => {
+        // TODO: code location
+        type ForgeExpectedOutput = {
+            returns: {
+                '0': {
+                    value: string;
+                }
+            }
+        }
+
+        const deployedContracts = parseTuples((output as ForgeExpectedOutput).returns['0'].value).map((tuple) => {
             return {name: tuple[0], address: tuple[1] as `0x${string}`}
         })
         const wallet = privateKeyToAccount(this.args.privateKey.startsWith('0x') ? this.args.privateKey as `0x${string}` : `0x${this.args.privateKey}`)

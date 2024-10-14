@@ -10,13 +10,12 @@ import chalk from "chalk";
 import { canonicalPaths } from "../../../metadata/paths";
 import { MetadataStore } from "../../../metadata/metadataStore";
 import { createPublicClient, http } from "viem";
-import { mainnet, sepolia } from "viem/chains";
+import { sepolia } from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
-import { Segment, TDeploy, TDeployManifest, TDeployPhase, TSegmentType } from "../../../metadata/schema";
+import { Segment, TDeploy, TDeployPhase, TSegmentType } from "../../../metadata/schema";
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
-import Safe from '@safe-global/protocol-kit'
 import { SEPOLIA_CHAIN_ID } from "../../../signing/strategies/utils";
 
 export const supportedSigners: Record<TSegmentType, string[]> = {
@@ -136,10 +135,10 @@ const saveDeploy = async (metadataStore: MetadataStore, deploy: TDeploy) => {
     );
 }
 
-const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any> | undefined, user: TState, rpcUrl: string | undefined) => {
+const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<unknown> | undefined, user: TState, rpcUrl: string | undefined) => {
     while (true) {
         console.log(chalk.green(`[${deploy.segments[deploy.segmentId]?.filename ?? '<none>'}] ${deploy.phase}`))
-        const getStrategy: () => Strategy<any> = () => {
+        const getStrategy: () => Strategy<unknown> = () => {
             const segment = deploy.segments[deploy.segmentId];
             if (!_strategy) {
                 console.error(`This phase requires a signing strategy. Please rerun with --signingStrategy [${supportedSigners[segment.type]?.join(' | ')}]`)
@@ -176,7 +175,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                 await saveDeploy(user.metadataStore!, deploy);
                 return;
             // eoa states
-            case "eoa_start":
+            case "eoa_start": {
                 const script = join(deploy.upgradePath, deploy.segments[deploy.segmentId].filename);
                 if (existsSync(script)) {
                     // TODO: check whether this deploy already has forge documents uploaded from a previous run.
@@ -212,9 +211,16 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                     return;
                 }
                 break;
-            case "eoa_wait_confirm":
+            }
+            case "eoa_wait_confirm": {
                 // check the transactions created by the previous step.
-                const foundryDeploy = await user.metadataStore?.getJSONFile<any>(
+                type TFoundryDeploy  = {
+                    transactions: {
+                        hash: `0x${string}`
+                    }[]
+                }
+
+                const foundryDeploy = await user.metadataStore?.getJSONFile<TFoundryDeploy>(
                     join(
                         canonicalPaths.deployDirectory("", deploy.env, deploy.name),
                         `${deploy.segmentId}`,
@@ -230,10 +236,8 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                     chain: sepolia, 
                     transport: http(rpcUrl),
                 })
-
                 const prompt = ora(`Verifying ${foundryDeploy.transactions.length} transactions...`);
                 const spinner = prompt.start();
-
                 for (const txn of foundryDeploy.transactions) {
                     if (txn?.hash) {
                         const receipt = await client.getTransactionReceipt({hash: txn.hash});
@@ -244,11 +248,13 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<any>
                         }
                     }
                 }
+
                 spinner.stopAndPersist();
                 advance(deploy);
                 await saveDeploy(user.metadataStore!, deploy);
                 console.log(chalk.bold(`To continue running this transaction, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
                 return;
+            }
             // multisig states.
             case "multisig_start": {             
                 const script = join(deploy.upgradePath, deploy.segments[deploy.segmentId].filename);   

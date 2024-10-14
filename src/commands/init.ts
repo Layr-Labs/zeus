@@ -1,11 +1,11 @@
 import {command} from 'cmd-ts';
-import { getRepoRoot, requires, TState, configs} from './inject';
+import { getRepoRoot, requires, configs} from './inject';
 import { question } from './utils';
 import path from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import chalk from 'chalk';
 
-const handler = async function(user: TState, args: {}) {
+const handler = async function() {
     const repoConfig = await configs.zeus.load();
 
     if (repoConfig !== undefined) {

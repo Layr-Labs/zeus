@@ -1,9 +1,9 @@
 import {command, option, optional, string} from 'cmd-ts';
 import {json} from './args';
-import { loggedIn, requires, TState } from './inject';
+import { loggedIn, requires } from './inject';
 import * as allArgs from './args';
-
-const handler = async function(user: TState, args: {json: boolean, contract: string | undefined, env: string}) {
+// user: TState, args: {json: boolean, contract: string | undefined, env: string}
+const handler = async function() {
     // load the latest contract addresses for `args.env`.
     //
 

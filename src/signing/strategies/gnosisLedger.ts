@@ -7,7 +7,7 @@ import { getDefaultProvider } from 'ethers'
  
 const provider = getDefaultProvider() // TODO(multinetwork)
 
-type TGnosisEOAArgs = {} // no additional args here.
+type TGnosisEOAArgs = Record<string, unknown>; // no additional args here.
 
 export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
     id: string = "gnosis.ledger";
@@ -16,7 +16,7 @@ export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> 
         return ["--ledger"];
     }
 
-    assertValidSubCommandArgs(obj: any): obj is TGnosisEOAArgs {
+    assertValidSubCommandArgs(obj: unknown): obj is TGnosisEOAArgs {
         return true;
     }
     

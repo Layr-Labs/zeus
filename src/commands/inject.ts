@@ -82,7 +82,7 @@ export async function load(args?: {env: string}): Promise<TState> {
 
 type Predicate = () => Promise<void>
 
-export function requires<Args extends any[], T, Returns>(fn: (user: TState, cliArgs: T, ...args: Args) => Promise<Returns>, ...predicates: Predicate[]) {
+export function requires<Args extends unknown[], T, Returns>(fn: (user: TState, cliArgs: T, ...args: Args) => Promise<Returns>, ...predicates: Predicate[]) {
     return async (cliArgs: T, ..._args: Args) => {
         const state = await load();
         for (const predicate of predicates) {

@@ -6,16 +6,8 @@ import { TDeployManifest, TEnvironmentManifest, TUpgradeManifest } from '../../.
 import chalk from 'chalk';
 import { canonicalPaths } from '../../../metadata/paths';
 
-async function handler(user: TState, _: {}): Promise<void> {
-    const gh = user.github!;
+async function handler(user: TState): Promise<void> {
     const existingEnvs = await loadExistingEnvs(user);
-    const zeusRepo = {
-        owner: user.zeusHostOwner!,
-        repo: user.zeusHostRepo!,
-    }
-    const { data: repoData } = await gh.rest.repos.get(zeusRepo);
-    const defaultBranch = repoData.default_branch;
-
     const envName = await question({
         text: "Environment name?",
         isValid: (text: string) => {
@@ -26,22 +18,6 @@ async function handler(user: TState, _: {}): Promise<void> {
         maxAttempts: 5,
         errorMessage: "failed to create environment"
     });
-
-    let latestCommitSha: string;
-    try {
-        const { data: baseBranchData } = await gh!.rest.repos.getBranch({
-            ...zeusRepo,
-            branch: defaultBranch, // default branch
-        });
-
-        latestCommitSha = baseBranchData.commit.sha;
-    } catch (e) {
-        if (`${e}`.includes('Branch not found')) {
-            throw new Error(`ZEUS_HOST is uninitialized. Please push a blank commit to it. Thanks!`);
-        } else {
-            throw e;
-        }
-    }
 
     // Step 2: Create a new folder in the default branch
     const envManifestContent = {

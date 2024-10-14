@@ -15,13 +15,13 @@ export type Txn = {
 }
 
 type TForgeOutput = {
-    output: any
+    output: unknown
 }
 
 export interface TForgeRequest {
     forge?: {
-        runLatest: any,
-        deployLatest: any
+        runLatest: unknown,
+        deployLatest: unknown
     }
     // Any RLP encoded signed-txns
     signedTransactions?: `0x${string}`[] | undefined,
@@ -60,7 +60,7 @@ function redact(haystack: string, ...needles: string[]) {
 export abstract class Strategy<TArgs> {
     readonly deploy: TDeploy;
     readonly metadata: MetadataStore;
-    readonly options: Record<string, any>;
+    readonly options: Record<string, unknown>;
 
     public get args(): TArgs {
         try {
@@ -76,7 +76,7 @@ export abstract class Strategy<TArgs> {
     }
 
     // coercion funciton for checking arg validity
-    abstract assertValidArgs(obj: any): obj is TArgs;
+    abstract assertValidArgs(obj: unknown): obj is TArgs;
 
     // name of the signing strategy. should be unique.
     abstract id: string;
@@ -141,43 +141,37 @@ export abstract class Strategy<TArgs> {
     }
 
     async runForgeScript(path: string): Promise<TForgeOutput> {
-        return new Promise(async (resolve, reject) => {
+        const args = ['script', path, ...await this.forgeArgs(), '--json'];
+
+        const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...this.redactInOutput())}`)}`);
+        const spinner = prompt.start();
+
+        const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args);
+        spinner.stop();
+        if (code !== 0) {
+            throw new Error(`Forge script failed with code ${code}: ${stderr}`);
+        }
+
+        // Search for the first line that begins with '{' (--json output)
+        const lines = stdout.split('\n');
+        const jsonLine = lines.find(line => line.trim().startsWith('{'));
+        if (jsonLine) {
             try {
-                const args = ['script', path, ...await this.forgeArgs(), '--json'];
-
-                const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...this.redactInOutput())}`)}`);
-                const spinner = prompt.start();
-
-                const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args);
-                spinner.stop();
-                if (code !== 0) {
-                    return reject(new Error(`Forge script failed with code ${code}: ${stderr}`));
-                }
-
-                // Search for the first line that begins with '{' (--json output)
-                const lines = stdout.split('\n');
-                const jsonLine = lines.find(line => line.trim().startsWith('{'));
-                if (jsonLine) {
-                    try {
-                        const parsedJson = JSON.parse(jsonLine);
-                        return resolve({output: parsedJson});
-                    } catch (e) {
-                        return reject(new Error(`Failed to parse JSON: ${e}`));
-                    }
-                } else {
-                    return reject(new Error('No JSON output found.'));
-                }
+                const parsedJson = JSON.parse(jsonLine);
+                return {output: parsedJson};
             } catch (e) {
-                reject(e);
+                throw new Error(`Failed to parse JSON: ${e}`);
             }
-        });
+        } else {
+            throw new Error('No JSON output found.');
+        }
     }
 
     // pollable method to check whether the latest requested signature completed or not. if it completed,
     // returns the signed value. `poll()`
     abstract latest(): Promise<TSignatureRequest | undefined>;
 
-    constructor(deploy: TDeploy, options: Record<string, any>, metadataStore: MetadataStore) {
+    constructor(deploy: TDeploy, options: Record<string, unknown>, metadataStore: MetadataStore) {
         this.deploy = deploy;
         this.metadata = metadataStore;
         this.options = options;

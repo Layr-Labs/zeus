@@ -1,10 +1,9 @@
 import SafeApiKit from "@safe-global/api-kit";
 import Safe from '@safe-global/protocol-kit'
 import { SafeTransaction } from '@safe-global/types-kit';
-import { Strategy, TSignatureRequest, Txn } from "../strategy";
-import { parseTuple, parseTuples, SEPOLIA_CHAIN_ID } from "./utils";
+import { Strategy, TSignatureRequest } from "../strategy";
+import { parseTuple, SEPOLIA_CHAIN_ID } from "./utils";
 import ora from "ora";
-import { TDeploy } from "../../metadata/schema";
 
 type TGnosisBaseArgs = {
     safeAddress: string;
@@ -15,14 +14,15 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
 
     abstract getSignature(safeVersion: string, txn: SafeTransaction): Promise<`0x${string}`>;
     abstract getSignerAddress(): Promise<`0x${string}`>;
-    abstract assertValidSubCommandArgs(obj: any): obj is T;
+    abstract assertValidSubCommandArgs(obj: unknown): obj is T;
     
-    assertValidArgs(obj: any): obj is TGnosisBaseArgs & T {
-        this.assertValidSubCommandArgs(obj);
-        if (!obj.safeAddress) {
+    assertValidArgs(obj: unknown): obj is TGnosisBaseArgs & T {
+        const args = obj as Record<string, unknown>;
+        this.assertValidSubCommandArgs(args);
+        if (!args.safeAddress) {
             throw new Error(`Expected --safeAddress`);
         }
-        if (!obj.rpcUrl) {
+        if (!args.rpcUrl) {
             throw new Error(`Expected --rpcUrl`);
         }
         return true;
@@ -32,12 +32,21 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         return ['--sig', `execute(string)`, await this.pathToDeployParamters()];
     }
 
-    async requestNew(pathToUpgrade: string, deploy: TDeploy): Promise<TSignatureRequest | undefined> {
-        const output = await this.runForgeScript(pathToUpgrade) as any;
-        const safeTxn = parseTuple(output.output.returns['0'].value);
+    async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
+        const {output} = await this.runForgeScript(pathToUpgrade);
+        // TODO: code cleanup
+        type ForgeExpectedOutput = {
+            returns: {
+                '0': {
+                    value: string;
+                }
+            }
+        }
+
+        const safeTxn = parseTuple((output as ForgeExpectedOutput).returns['0'].value);
         if (safeTxn.length != 4) {
             // sanity check
-            throw new Error(`Got invalid output from forge. Expected 4 members, got ${safeTxn?.length}.`, output);
+            throw new Error(`Got invalid output from forge. Expected 4 members, got ${safeTxn?.length}.`);
         }
         const [to, value, data, op] = safeTxn;
         const {safeAddress, rpcUrl} = this.args;

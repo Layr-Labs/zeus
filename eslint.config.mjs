@@ -9,7 +9,10 @@ export default tseslint.config(
   {
     ignores: [
         'dist',
-        'node_modules'
+        'node_modules',
+        'webpack.config.cjs',
+        'eslint.config.mjs',
+        'src/tests',
     ]
   }
 );

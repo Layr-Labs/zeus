@@ -14,8 +14,9 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
         return ["--private-key", this.args.privateKey, ...await super.forgeArgs()];
     }
 
-    assertValidSubCommandArgs(obj: any): obj is TGnosisEOAArgs {
-        if (typeof obj.privateKey !== 'string' || !obj.privateKey) {
+    assertValidSubCommandArgs(obj: unknown): obj is TGnosisEOAArgs {
+        const args = (obj as Record<string, unknown>);
+        if (typeof args.privateKey !== 'string' || !args.privateKey) {
             throw new Error(`Expected --privateKey`);
         }
 

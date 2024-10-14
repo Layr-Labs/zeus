@@ -3,7 +3,7 @@ import { inRepo, loggedIn, requires, TState } from "../../inject";
 import { getActiveDeploy, updateLatestDeploy } from "./utils";
 import * as allArgs from '../../args';
 
-async function handler(user: TState, {env}: any) {
+async function handler(user: TState, {env}: {env: string}) {
     const deploy = await getActiveDeploy(user, env);
     if (!deploy) {
         console.error(`No active deploy for environment '${env}'.`);

@@ -3,7 +3,6 @@ import { canonicalPaths } from "../../../metadata/paths";
 import { TDeployManifest, TDeployPhase } from "../../../metadata/schema";
 import { join } from "path";
 import { TDeploy } from "../../../metadata/schema";
-import chalk from "chalk";
 import { MetadataStore } from "../../../metadata/metadataStore";
 
 export const advanceSegment = (deploy: TDeploy) => {

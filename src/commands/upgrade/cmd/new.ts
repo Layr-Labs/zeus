@@ -1,9 +1,9 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
-import { loggedIn, requires, TState } from '../../inject';
+import { loggedIn, requires } from '../../inject';
 import { select } from '@inquirer/prompts';
 
-const handler = async function(user: TState, args: {json: boolean}) {
+const handler = async function() {
     const answer = await select({
         message: 'Select an upgrade strategy',
         choices: [
@@ -23,8 +23,10 @@ const handler = async function(user: TState, args: {json: boolean}) {
       switch (answer) {
         case 'viem':
             // TODO: codegen a new Upgrade for this.
+            break;
         case 'forge':
             // TODO: codegen a new forge script for this.
+            break;
         default:
             throw new Error(`${answer} unsupported.`);
       }

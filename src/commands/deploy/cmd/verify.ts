@@ -1,6 +1,10 @@
 import { command, positional, string } from "cmd-ts";
 import {json} from '../../args';
 
+async function handler() {
+    // TODO: implement
+}
+
 const cmd = command({
     name: 'verify',
     description: '',
@@ -9,9 +13,7 @@ const cmd = command({
         env: positional({ type: string, displayName: 'env' }),
         json,
     },
-    handler: async function({env, json}: any) {
-        // TODO: implement
-    },
+    handler: handler,
 })
 
 export default cmd;
