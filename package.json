@@ -11,7 +11,7 @@
     "lint": "eslint",
     "prepack": "build-binary",
     "lint-fix": "eslint --fix",
-    "build-binary": "webpack -c webpack.config.cjs",
+    "watch": "webpack -c webpack.config.cjs",
     "bun-start": "bun dist/index.ts"
   },
   "bin": {
