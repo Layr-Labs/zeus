@@ -14,9 +14,7 @@ async function handler(user: TState): Promise<void> {
             const isValidRegex = /^[a-zA-Z0-9-]+$/.test(text);
             const isNotTaken = existingEnvs.filter(e => e === text).length == 0;
             return isValidRegex && isNotTaken;
-        },
-        maxAttempts: 5,
-        errorMessage: "failed to create environment"
+        }
     });
 
     // Step 2: Create a new folder in the default branch

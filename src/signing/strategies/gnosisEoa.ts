@@ -3,33 +3,35 @@ import { GnosisSigningStrategy } from "./gnosis";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 import { SEPOLIA_CHAIN_ID } from "./utils";
+import { privateKey } from "../../commands/prompts";
 type TGnosisEOAArgs = {
     privateKey: string;
 }
 
 export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
     id: string = "gnosis.eoa";
+    description: string = "Gnosis SAFE - signing w/ private key";
     
     async forgeArgs(): Promise<string[]> {
-        return ["--private-key", this.args.privateKey, ...await super.forgeArgs()];
+        const args = await this.args();
+        return ["--private-key", args.privateKey, ...await super.forgeArgs()];
     }
 
-    assertValidSubCommandArgs(obj: unknown): obj is TGnosisEOAArgs {
-        const args = (obj as Record<string, unknown>);
-        if (typeof args.privateKey !== 'string' || !args.privateKey) {
-            throw new Error(`Expected --privateKey`);
+    public async promptSubStrategyArgs(): Promise<TGnosisEOAArgs> {
+        const pk = await privateKey();
+        return {
+            privateKey: pk!
         }
-
-        return true;
     }
 
     async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
-        const account = privateKeyToAccount(this.args.privateKey! as `0x${string}`);
+        const args = await this.args();
+        const account = privateKeyToAccount(args.privateKey! as `0x${string}`);
         const types = getEip712TxTypes(version);
         const typedDataParameters = {
             types: types as unknown as Record<string, unknown>,
             domain: {
-                verifyingContract: this.args.safeAddress as `0x${string}`,
+                verifyingContract: args.safeAddress as `0x${string}`,
                 chainId: SEPOLIA_CHAIN_ID,
             },
             primaryType: 'SafeTx',
@@ -47,6 +49,7 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
     }
 
     async getSignerAddress(): Promise<`0x${string}`> {
-        return privateKeyToAccount(this.args.privateKey! as `0x${string}`).address;
+        const args = await this.args();
+        return privateKeyToAccount(args.privateKey! as `0x${string}`).address;
     }
 }

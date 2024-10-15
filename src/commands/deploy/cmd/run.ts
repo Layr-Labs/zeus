@@ -1,6 +1,7 @@
 import { command } from "cmd-ts";
 import * as allArgs from '../../args';
-import { TState, configs, getRepoRoot, requires, loggedIn } from "../../inject";
+import { TState, requires, loggedIn } from "../../inject";
+import { configs, getRepoRoot } from '../../configs';
 import { getActiveDeploy, updateLatestDeploy, advance } from "./utils";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
@@ -17,6 +18,7 @@ import { Segment, TDeploy, TDeployPhase, TSegmentType } from "../../../metadata/
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
 import { SEPOLIA_CHAIN_ID } from "../../../signing/strategies/utils";
+import { pickStrategy } from '../../prompts';
 
 export const supportedSigners: Record<TSegmentType, string[]> = {
     "eoa": ["eoa", "ledger"],
@@ -57,7 +59,7 @@ function formatNow() {
     return `${year}-${month}-${day}-${hours}-${minutes}`;
 }
 
-async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string | undefined, signingStrategy: string | undefined}) {
+async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string | undefined}) {
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
@@ -72,9 +74,7 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
         }
 
         console.log(`Resuming existing deploy... (began at ${deploy.startTime})`);
-        const signingStrategyClass = args.signingStrategy ? all.find((strategy) => new strategy(deploy, args, user.metadataStore!).id === args.signingStrategy) : undefined;
-        const signingStrategy = signingStrategyClass && new signingStrategyClass(deploy, args, user.metadataStore!);
-        return await executeOrContinueDeploy(deploy, signingStrategy, user, args.rpcUrl);
+        return await executeOrContinueDeploy(deploy, user, args.rpcUrl);
     } else if (args.resume) {
         console.error(`Nothing to resume.`);
         return;
@@ -109,10 +109,8 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
         }
     });
     const newDeploy = blankDeploy({name: blankDeployName, chainId: SEPOLIA_CHAIN_ID, env: args.env, upgrade: args.upgrade, upgradePath, segments});
-    const signingStrategyClass = all.find((strategy) => new strategy(newDeploy, args, user!.metadataStore!).id === args.signingStrategy);
     
     const deployJsonPath = join(canonicalPaths.deployDirectory('', args.env, blankDeployName), "deploy.json");
-    const signingStrategy = signingStrategyClass && new signingStrategyClass(newDeploy, args, user.metadataStore!); 
     // create the new deploy.
     await user!.metadataStore?.updateFile(
         deployJsonPath, 
@@ -121,7 +119,7 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
     console.log(chalk.green(`+ creating deploy: ${deployJsonPath}`));
     console.log(chalk.green('+ started deploy'));
 
-    await executeOrContinueDeploy(newDeploy, signingStrategy, user, args.rpcUrl);
+    await executeOrContinueDeploy(newDeploy, user, args.rpcUrl);
 }
 
 const saveDeploy = async (metadataStore: MetadataStore, deploy: TDeploy) => {
@@ -135,21 +133,21 @@ const saveDeploy = async (metadataStore: MetadataStore, deploy: TDeploy) => {
     );
 }
 
-const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<unknown> | undefined, user: TState, rpcUrl: string | undefined) => {
+const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: string | undefined) => {
     while (true) {
         console.log(chalk.green(`[${deploy.segments[deploy.segmentId]?.filename ?? '<none>'}] ${deploy.phase}`))
-        const getStrategy: () => Strategy<unknown> = () => {
+        const getStrategy: () => Promise<Strategy<unknown>> = async () => {
             const segment = deploy.segments[deploy.segmentId];
-            if (!_strategy) {
-                console.error(`This phase requires a signing strategy. Please rerun with --signingStrategy [${supportedSigners[segment.type]?.join(' | ')}]`)
-                process.exit(1);
-            }
-            if (!Object.keys(supportedSigners).includes(segment.type) || !supportedSigners[segment.type]?.includes(_strategy.id)) {
-                console.error(`This deploy phase does not support this signingStrategy. Please rerun with --signingStrategy [${supportedSigners[segment.type]?.join(' | ')}] `)
-                process.exit(1);
-            }
-
-            return _strategy;
+            const supportedStrategies = supportedSigners[segment.type]
+                .filter(strategyId => {
+                    return !!all.find(s => new s(deploy, user.metadataStore!).id === strategyId);
+                })
+                .map(strategyId => {
+                    const strategyClass = all.find(s => new s(deploy, user.metadataStore!).id === strategyId);
+                    return new strategyClass!(deploy, user.metadataStore!);
+                });
+            const strategyId = await pickStrategy(supportedStrategies)      
+            return supportedStrategies.find(s => s.id === strategyId)!;      
         }
 
         switch (deploy.phase) {
@@ -180,7 +178,8 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<unkn
                 if (existsSync(script)) {
                     // TODO: check whether this deploy already has forge documents uploaded from a previous run.
                     // (i.e that it bailed before advancing.)
-                    const sigRequest = await getStrategy().requestNew(script, deploy) as TForgeRequest;
+                    const strategy =  await getStrategy();
+                    const sigRequest = await strategy.requestNew(script, deploy) as TForgeRequest;
                     if (sigRequest?.ready) {
                         advance(deploy);
                         await saveDeploy(user.metadataStore!, deploy);
@@ -252,14 +251,18 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<unkn
                 spinner.stopAndPersist();
                 advance(deploy);
                 await saveDeploy(user.metadataStore!, deploy);
-                console.log(chalk.bold(`To continue running this transaction, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
-                return;
+                if (deploy.segments[deploy.segmentId]) {
+                    console.log(chalk.bold(`To continue running this transaction, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
+                    return;
+                }
+                break;
             }
             // multisig states.
             case "multisig_start": {             
                 const script = join(deploy.upgradePath, deploy.segments[deploy.segmentId].filename);   
                 if (existsSync(script)) {
-                    const sigRequest = await getStrategy().requestNew(script, deploy) as TGnosisRequest;
+                    const strategy =  await getStrategy();
+                    const sigRequest = await strategy.requestNew(script, deploy) as TGnosisRequest;
                     await user.metadataStore!.updateJSON(
                         join(
                             canonicalPaths.deployDirectory("", deploy.env, deploy.name),
@@ -362,15 +365,20 @@ const executeOrContinueDeploy = async (deploy: TDeploy, _strategy: Strategy<unkn
                             console.log(chalk.green(`SafeTxn(${multisigTxn.safeTxHash}): successful onchain (${receipt.transactionHash})`))
                             advance(deploy);
                             await saveDeploy(user.metadataStore!, deploy);
-                            return;
+                            if (deploy.segments[deploy.segmentId]) {
+                                console.log(chalk.bold(`To continue running this transaction, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
+                                return;
+                            }
+                            break;
                         } else {
                             console.log(chalk.green(`SafeTxn(${multisigTxn.safeTxHash}): reverted onchain (${receipt.transactionHash})`))
                             deploy.phase = 'failed';
                             await saveDeploy(user.metadataStore!, deploy);
-                            return;
+                            break;
                         } 
                     } catch (e) {
                         console.error(`Multisig Transaction (${multisigTxn.transactionHash}) hasn't landed in a block yet.`)
+                        console.error(`Re-run to check status later.`)
                         console.error(e);
                         return;
                     }
@@ -392,10 +400,8 @@ export default command({
         env: allArgs.env,
         upgrade: allArgs.upgrade,
         resume: allArgs.resume,
-        signingStrategy: allArgs.signingStrategy,
         json: allArgs.json,
         rpcUrl: allArgs.rpcUrl,
-        ...allArgs.signingStrategyFlags,
     },
     handler: requires(handler, loggedIn),
 })

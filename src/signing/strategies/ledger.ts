@@ -4,10 +4,10 @@ type TLedgerArgs = unknown;
 
 export class LedgerSigningStrategy extends Strategy<TLedgerArgs> {
     id = "ledger";
+    description: string = "Signing w/ ledger";
 
-    // coercion funciton for checking arg validity
-    assertValidArgs(obj: unknown): obj is TLedgerArgs {
-        return true;
+    async promptArgs(): Promise<TLedgerArgs> {
+        return {};
     }
 
     async requestNew(path: string): Promise<TSignatureRequest | undefined> {

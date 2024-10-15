@@ -1,24 +1,55 @@
 
-import p from 'prompt-sync';
+import { select as inquirerSelect, Separator, input, password as inquirerPassword } from '@inquirer/prompts';
 
-const ask = p({sigint: true});
-const defaultMaxAttempts = 5;
 
-export const question = (args: {
+type Choice<T> = {
+    name: string;
+    value: T;
+    description?: string;
+}
+
+export const select = async (args: {
+    prompt: string,
+    choices: (Choice<string> | Separator)[]
+
+}) => {
+  return await inquirerSelect({
+    message: args.prompt,
+    choices: args.choices,
+  });
+}
+
+export const password = async (args: {
     text: string, 
     isValid: (text: string) => boolean
-    maxAttempts: number
-    errorMessage: string
 }) => {
-    let attempt = 0;
-    let response: string = '';
-    while (attempt < (args.maxAttempts || defaultMaxAttempts)) {
-        response = ask(args.text + ': ')
-        if (args.isValid(response)) {
-            return response.trim();
-        }
-        attempt++;
-    }
+    return await inquirerPassword({
+        message: args.text,
+        validate: args.isValid,
+    });
+};
 
-    throw new Error(args.errorMessage);
+export const privateKey = async (args: {
+    text: string, 
+    isValid: (text: string) => boolean
+}) => {
+    const res = await inquirerPassword({
+        message: args.text,
+        validate: args.isValid,
+        mask: '*'
+    });
+    if (res.startsWith('$')) {
+        return process.env[res.substring(1)];
+    }
+    if (!res.startsWith('0x')) {
+        return `0x${res}`;
+    }
+    return res;
+};
+
+export const question = async (args: {
+    text: string, 
+    isValid: (text: string) => boolean
+}) => {
+    return await input({ message: args.text, validate: args.isValid });
 };

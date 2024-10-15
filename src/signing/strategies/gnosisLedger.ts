@@ -6,26 +6,28 @@ import HIDTransport from "@ledgerhq/hw-transport-node-hid";
 import { getDefaultProvider } from 'ethers'
  
 const provider = getDefaultProvider() // TODO(multinetwork)
+type TGnosisLedgerArgs = unknown;
 
-type TGnosisEOAArgs = Record<string, unknown>; // no additional args here.
-
-export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
+export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisLedgerArgs> {
     id: string = "gnosis.ledger";
+    description: string = "Gnosis SAFE - signing w/ ledger";
 
     async forgeArgs(): Promise<string[]> {
         return ["--ledger"];
     }
 
-    assertValidSubCommandArgs(obj: unknown): obj is TGnosisEOAArgs {
-        return true;
+
+    public async promptSubStrategyArgs(): Promise<TGnosisLedgerArgs> {
+        return {};
     }
     
     async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
         const signer = new LedgerSigner(HIDTransport, provider);
+        const args = await this.args();
         const typedDataArgs = {
             types: getEip712TxTypes(version),
             domain: {
-                verifyingContract: this.args.safeAddress as `0x${string}`
+                verifyingContract: args.safeAddress as `0x${string}`
             },
             primaryType: 'SafeTx',
             message: {

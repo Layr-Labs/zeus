@@ -5,7 +5,7 @@ import EOASigningStrategy from './eoa';
 import { GnosisEOAStrategy } from './gnosisEoa';
 import { LedgerSigningStrategy } from './ledger';
 
-export const all: (new (deploy: TDeploy, options: Record<string, unknown>, metadataStore: MetadataStore) => Strategy<unknown>)[] = [
+export const all: (new (deploy: TDeploy, metadataStore: MetadataStore) => Strategy<unknown>)[] = [
     EOASigningStrategy,
     LedgerSigningStrategy,
     GnosisEOAStrategy,

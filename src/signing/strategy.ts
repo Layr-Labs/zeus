@@ -60,26 +60,25 @@ function redact(haystack: string, ...needles: string[]) {
 export abstract class Strategy<TArgs> {
     readonly deploy: TDeploy;
     readonly metadata: MetadataStore;
-    readonly options: Record<string, unknown>;
 
-    public get args(): TArgs {
-        try {
-            this.assertValidArgs(this.options);
-        } catch (e) {
-            throw new Error(`Invalid arguments for --strategy ${this.id}: ${e}`);
+    public abstract promptArgs(): Promise<TArgs>;
+    private _args: TArgs | undefined;
+
+    public async args(): Promise<TArgs> {
+        if (this._args === undefined) {
+            this._args = await this.promptArgs();
         }
-        return this.options as TArgs;
+
+        return this._args;
     }
 
     usage(): string {
         return '';
     }
 
-    // coercion funciton for checking arg validity
-    abstract assertValidArgs(obj: unknown): obj is TArgs;
-
     // name of the signing strategy. should be unique.
     abstract id: string;
+    abstract description: string;
 
     // trigger the signing process for the given upgrade script.
     //
@@ -95,7 +94,7 @@ export abstract class Strategy<TArgs> {
     abstract forgeArgs(): Promise<string[]>;
 
     // any important data to redact in output.
-    redactInOutput(): string[] {
+    async redactInOutput(): Promise<string[]> {
         return [];
     }
 
@@ -143,7 +142,7 @@ export abstract class Strategy<TArgs> {
     async runForgeScript(path: string): Promise<TForgeOutput> {
         const args = ['script', path, ...await this.forgeArgs(), '--json'];
 
-        const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...this.redactInOutput())}`)}`);
+        const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...await this.redactInOutput())}`)}`);
         const spinner = prompt.start();
 
         const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args);
@@ -171,9 +170,8 @@ export abstract class Strategy<TArgs> {
     // returns the signed value. `poll()`
     abstract latest(): Promise<TSignatureRequest | undefined>;
 
-    constructor(deploy: TDeploy, options: Record<string, unknown>, metadataStore: MetadataStore) {
+    constructor(deploy: TDeploy, metadataStore: MetadataStore) {
         this.deploy = deploy;
         this.metadata = metadataStore;
-        this.options = options;
     } 
 }

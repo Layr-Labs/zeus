@@ -1,4 +1,4 @@
-import { configs } from '../commands/inject';
+import { configs } from '../commands/configs';
 import {login as loginToGithub} from './github';
 import { MetadataStore, TDirectory } from './metadataStore';
 import { Octokit } from 'octokit';

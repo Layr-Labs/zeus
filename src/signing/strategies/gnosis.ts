@@ -4,6 +4,7 @@ import { SafeTransaction } from '@safe-global/types-kit';
 import { Strategy, TSignatureRequest } from "../strategy";
 import { parseTuple, SEPOLIA_CHAIN_ID } from "./utils";
 import ora from "ora";
+import * as prompts from '../../commands/prompts';
 
 type TGnosisBaseArgs = {
     safeAddress: string;
@@ -14,18 +15,20 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
 
     abstract getSignature(safeVersion: string, txn: SafeTransaction): Promise<`0x${string}`>;
     abstract getSignerAddress(): Promise<`0x${string}`>;
-    abstract assertValidSubCommandArgs(obj: unknown): obj is T;
-    
-    assertValidArgs(obj: unknown): obj is TGnosisBaseArgs & T {
-        const args = obj as Record<string, unknown>;
-        this.assertValidSubCommandArgs(args);
-        if (!args.safeAddress) {
-            throw new Error(`Expected --safeAddress`);
-        }
-        if (!args.rpcUrl) {
-            throw new Error(`Expected --rpcUrl`);
-        }
-        return true;
+    abstract promptSubStrategyArgs(): Promise<T>;
+
+    public async promptArgs(): Promise<TGnosisBaseArgs & T> {
+        const rpcUrl = await prompts.rpcUrl();
+        const safeAddress = await prompts.safeAddress();
+        const baseArgs: TGnosisBaseArgs = {
+            safeAddress: safeAddress!,
+            rpcUrl: rpcUrl!,
+        };
+        const subcommandArgs = await this.promptSubStrategyArgs();
+        return {
+            ...baseArgs,
+            ...subcommandArgs
+        };
     }
 
     async forgeArgs(): Promise<string[]> {
@@ -49,7 +52,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             throw new Error(`Got invalid output from forge. Expected 4 members, got ${safeTxn?.length}.`);
         }
         const [to, value, data, op] = safeTxn;
-        const {safeAddress, rpcUrl} = this.args;
+        const {safeAddress, rpcUrl} = await this.args();
 
         const apiKit = new SafeApiKit({
             chainId: BigInt(SEPOLIA_CHAIN_ID), // TODO:(multinetwork)

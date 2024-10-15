@@ -1,12 +1,13 @@
 import { privateKeyToAccount } from "viem/accounts";
 import { Strategy, TSignatureRequest } from "../strategy";
 import { canonicalPaths } from "../../metadata/paths";
-import { getRepoRoot } from "../../commands/inject";
+import { getRepoRoot } from '../../commands/configs';
 import { basename } from "path";
 import { readFileSync } from "fs";
 import chalk from "chalk";
 import { parseTuples } from "./utils";
 import { TDeploy } from "../../metadata/schema";
+import * as prompts from '../../commands/prompts';
 
 type TEOAArgs = {
     privateKey: string
@@ -15,24 +16,15 @@ type TEOAArgs = {
 
 export default class EOASigningStrategy extends Strategy<TEOAArgs> {
     id = "eoa";
+    description: string = "Signing w/ private key";
 
-    assertValidArgs(obj: Record<string, unknown>): obj is TEOAArgs {
-        if (obj.privateKey === undefined) {
-            throw new Error(`Missing --privateKey`)
+    async promptArgs(): Promise<TEOAArgs> {
+        const pk = await prompts.privateKey();
+        const rpcUrl = await prompts.rpcUrl();
+        return {
+            privateKey: pk!,
+            rpcUrl: rpcUrl!,
         }
-
-        const pk = ((obj.privateKey as string)?.startsWith("0x") ? obj.privateKey : `0x${obj.privateKey}`) as `0x${string}`;
-        try {
-            privateKeyToAccount(pk);
-        } catch (e) {
-            throw new Error(`Invalid --privateKey: ${e}`)
-        }
-
-        if (!obj.rpcUrl) {
-            throw new Error(`Invalid --rpcUrl`)
-        }
-
-        return true;
     }
 
     usage(): string {
@@ -40,14 +32,16 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
     }
 
     async forgeArgs(): Promise<string[]> {
-        return ["--private-key", this.args.privateKey, '--broadcast', '--rpc-url', this.args.rpcUrl, '--sig', `deploy(string)`, await this.pathToDeployParamters()];
+        const args = await this.args();
+        return ["--private-key", args.privateKey, '--broadcast', '--rpc-url', args.rpcUrl, '--sig', `deploy(string)`, await this.pathToDeployParamters()];
     }
 
-    redactInOutput(): string[] {
-        return [this.args.privateKey];
+    async redactInOutput(): Promise<string[]> {
+        return [(await this.args()).privateKey];
     }
 
     async requestNew(pathToUpgrade: string, deploy: TDeploy): Promise<TSignatureRequest | undefined> {
+        const args = await this.args();
         const {output} = await this.runForgeScript(pathToUpgrade);
         if (!output) {
             throw new Error(`Forge output was missing: (chainId=${deploy.chainId},output=${output})`);
@@ -65,7 +59,7 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
         const deployedContracts = parseTuples((output as ForgeExpectedOutput).returns['0'].value).map((tuple) => {
             return {name: tuple[0], address: tuple[1] as `0x${string}`}
         })
-        const wallet = privateKeyToAccount(this.args.privateKey.startsWith('0x') ? this.args.privateKey as `0x${string}` : `0x${this.args.privateKey}`)
+        const wallet = privateKeyToAccount(args.privateKey.startsWith('0x') ? args.privateKey as `0x${string}` : `0x${args.privateKey}`)
         console.log(chalk.italic(`Using wallet: ${wallet.address}`));
 
         const deployLatest = JSON.parse(readFileSync(canonicalPaths.forgeDeployLatestMetadata(getRepoRoot(), basename(pathToUpgrade), deploy.chainId!), {encoding: 'utf-8'}))

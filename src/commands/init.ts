@@ -1,5 +1,6 @@
 import {command} from 'cmd-ts';
-import { getRepoRoot, requires, configs} from './inject';
+import {requires } from './inject';
+import { configs, getRepoRoot } from './configs';
 import { question } from './utils';
 import path from 'path';
 import { existsSync, mkdirSync } from 'fs';
@@ -15,8 +16,6 @@ const handler = async function() {
 
     const zeusHost = await question({
         text: `Where is your zeus metadata repo located? ${chalk.italic('NOTE: You must have the zeus app installed on this repo.')} (e.g https://github.com/my-org/project.git)`,
-        maxAttempts: 5,
-        errorMessage: "invalid metadata repo path",
         isValid: (t) => {
             try {
                 new URL(t);
@@ -30,8 +29,6 @@ const handler = async function() {
 
     const migrationDirectory = await question({
         text: 'Upgrade scripts directory',
-        maxAttempts: 5,
-        errorMessage: "invalid upgrade scripts path.",
         isValid: (t) => {
             const root = getRepoRoot();
             const dirPath = path.join(root, t)
