@@ -63,6 +63,7 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
     if (deploy) {
         if (args.upgrade || !args.resume) {
             console.error(`Existing deploy in progress. Please rerun with --resume (and not --upgrade, as the current upgrade is ${deploy.upgrade}).`)
+            console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`)
             return;
         }
 
@@ -183,7 +184,8 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                     }
                 } else {
                     console.error(`Missing expected script: ${script}`);
-                    console.error(`Fix your local copy and continue with --resume`);
+                    console.error(`Fix your local copy and continue with: `);
+                    console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`)
                     return;
                 }
                 break;
@@ -231,6 +233,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 await saveDeploy(user.metadataStore!, deploy);
                 if (deploy.segments[deploy.segmentId]) {
                     console.log(chalk.bold(`To continue running this transaction, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
+                    console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
                     return;
                 }
                 break;
@@ -285,7 +288,8 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 } else {
                     console.error(`Waiting on ${txn.confirmationsRequired - (txn.confirmations?.length ?? 0)} more confirmations. `)
                     console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy!.safeAddress}`)
-                    console.error(`Re-run with --resume to continue.`);
+                    console.error(`Run the following to continue: `);
+                    console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
                     return;
                 }
                 break;
@@ -314,6 +318,8 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 if (!txn.isExecuted) {
                     console.log(chalk.cyan(`SafeTxn(${multisigDeploy!.safeTxHash}): still waiting for execution.`))
                     console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy!.safeAddress}`)
+                    console.error(`Resume deploy with: `)
+                    console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
                     return;
                 } else if (!txn.isSuccessful) {
                     console.log(chalk.red(`SafeTxn(${multisigDeploy!.safeTxHash}): failed onchain. Failing deploy.`))
@@ -321,7 +327,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                     await saveDeploy(user.metadataStore!, deploy);
                     continue;
                 } else {
-                    console.log(chalk.green(`SafeTxn(${multisigDeploy!.safeTxHash}): executed! ${txn.transactionHash}`))
+                    console.log(chalk.green(`SafeTxn(${multisigDeploy!.safeTxHash}): executed (${txn.transactionHash})`))
                     advance(deploy);
                     await saveDeploy(user.metadataStore!, deploy);
                 }
@@ -355,6 +361,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                             await saveDeploy(user.metadataStore!, deploy);
                             if (deploy.segments[deploy.segmentId]) {
                                 console.log(chalk.bold(`To continue running this transaction, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
+                                console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
                                 return;
                             }
                             break;
@@ -366,7 +373,8 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                         } 
                     } catch (e) {
                         console.error(`Multisig Transaction (${multisigTxn.transactionHash}) hasn't landed in a block yet.`)
-                        console.error(`Re-run to check status later.`)
+                        console.error(`Re-run to check status:`)
+                        console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
                         console.error(e);
                         return;
                     }

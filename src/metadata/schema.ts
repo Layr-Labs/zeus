@@ -18,18 +18,24 @@ export type TDeployPhase = (
 // - "eoa_start" -- [eoa] the `create` phase has been run and is submitted to the network.
 //    * CLI should confirm that etherscan has ABIs for contracts.
 // - "eoa_wait_confirm" -- we are waiting for the confirmation of the associated transactions from deploy.
-export type TEOAPhase = (
-    "eoa_start" | "eoa_wait_confirm"
-)
+export enum EOAPhase {
+    START = "eoa_start",
+    WAIT = "eoa_wait_confirm"
+}
+export type TEOAPhase = `${EOAPhase}`;
 
 // - "multisig_start" - We're awaiting the execution of a script that uses MultisigBuilder, submitting the results to gnosis safe.
 // - "multisig_submit" - We're awaiting the submission of a transaction to the gnosis safe API.
 // - "multisig_wait_signers" - We're awaiting signers on the gnosis safe transaction.
 // - "multisig_execute" - We're waiting for the safe transaction to be executed.
 // - "multisig_wait_confirm" - We're waiting for the safe transaction to be confirmed.
-export type TMultisigPhase = (
-    "multisig_start" | "multisig_wait_signers" | "multisig_execute" | "multisig_wait_confirm"
-)
+export enum MultisigPhase {
+    START = "multisig_start",
+    WAIT = "multisig_wait_signers",
+    EXECUTE = "multisig_execute",
+    CONFIRM = "multisig_wait_confirm"
+}
+export type TMultisigPhase = `${MultisigPhase}`;
 
 export type Deployment = {
     contract: string; // the contract name
