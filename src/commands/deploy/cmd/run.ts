@@ -158,17 +158,17 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 await updateLatestDeploy(user.metadataStore!, deploy.env, deploy.name);
                 break;
             case "complete":
-                console.log(`Deploy completed successfully!`);
+                console.log(`Deploy completed. ✅`);
                 await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
                 await saveDeploy(user.metadataStore!, deploy);
                 return;
             case "failed": {
-                console.error(`The deploy failed. Aborting deploy.`);
+                console.error(`The deploy failed. ❌`);
                 await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
                 return;
             }
             case "cancelled":
-                console.log(`Deploy failed.`);
+                console.log(`Deploy was cancelled. ❌`);
                 await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
                 await saveDeploy(user.metadataStore!, deploy);
                 return;

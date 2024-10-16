@@ -19,7 +19,6 @@ export const privateKey = async () => {
             return false;
         }
     }})
-    console.log(resp);
     return resp;
 }
 

@@ -24,6 +24,11 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
         }
     }
 
+    async redactInOutput(): Promise<string[]> {
+        const args = await this.args();
+        return [args.privateKey];
+    }
+
     async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
         const args = await this.args();
         const account = privateKeyToAccount(args.privateKey! as `0x${string}`);
