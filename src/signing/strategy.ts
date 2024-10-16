@@ -6,6 +6,7 @@ import tmp from 'tmp';
 import fs from 'fs';
 import ora from 'ora';
 import { TDeploy } from '../metadata/schema';
+import { TState } from '../commands/inject';
 
 tmp.setGracefulCleanup();
 
@@ -15,7 +16,13 @@ export type Txn = {
 }
 
 type TForgeOutput = {
-    output: unknown
+    output: {
+        returns: {
+            '0': {
+                value: string;
+            }
+        }
+    }
 }
 
 export interface TForgeRequest {
@@ -23,18 +30,20 @@ export interface TForgeRequest {
         runLatest: unknown,
         deployLatest: unknown
     }
+
+    signer: `0x${string}`
     // Any RLP encoded signed-txns
     signedTransactions?: `0x${string}`[] | undefined,
 
     // any contracts known to have been deployed by this operation.
-    deployedContracts?: {name: string, address: `0x${string}`}[] | undefined,
+    deployedContracts?: {contract: string, address: `0x${string}`}[] | undefined,
 
     ready: boolean,
 }
 
 export interface TGnosisRequest {
-    safeAddress: string,
-    safeTxHash: string,
+    safeAddress: `0x${string}`,
+    safeTxHash: `0x${string}`,
     senderAddress: `0x${string}`,
     signature: `0x${string}`
 }
@@ -88,6 +97,10 @@ export abstract class Strategy<TArgs> {
     //
     //      Any state produced from this should be checked in.
     abstract requestNew(pathToUpgrade: string, deploy: TDeploy): Promise<TSignatureRequest | undefined>;
+
+    // try to cancel a deploy. not all strategies are cancellable.
+    //
+    abstract cancel(deploy: TDeploy, user: TState): Promise<void>;
 
     // lets sub-scripts inject args.
     //  e.g the EOA will run '-s', 
@@ -165,10 +178,6 @@ export abstract class Strategy<TArgs> {
             throw new Error('No JSON output found.');
         }
     }
-
-    // pollable method to check whether the latest requested signature completed or not. if it completed,
-    // returns the signed value. `poll()`
-    abstract latest(): Promise<TSignatureRequest | undefined>;
 
     constructor(deploy: TDeploy, metadataStore: MetadataStore) {
         this.deploy = deploy;

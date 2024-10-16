@@ -40,6 +40,10 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
         return [(await this.args()).privateKey];
     }
 
+    async cancel(): Promise<void> {
+        throw new Error('EOA deploys cannot be cancelled.');
+    }
+
     async requestNew(pathToUpgrade: string, deploy: TDeploy): Promise<TSignatureRequest | undefined> {
         const args = await this.args();
         const {output} = await this.runForgeScript(pathToUpgrade);
@@ -47,17 +51,8 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
             throw new Error(`Forge output was missing: (chainId=${deploy.chainId},output=${output})`);
         }
 
-        // TODO: code location
-        type ForgeExpectedOutput = {
-            returns: {
-                '0': {
-                    value: string;
-                }
-            }
-        }
-
-        const deployedContracts = parseTuples((output as ForgeExpectedOutput).returns['0'].value).map((tuple) => {
-            return {name: tuple[0], address: tuple[1] as `0x${string}`}
+        const deployedContracts = parseTuples(output.returns['0'].value).map((tuple) => {
+            return {contract: tuple[0], address: tuple[1] as `0x${string}`}
         })
         const wallet = privateKeyToAccount(args.privateKey.startsWith('0x') ? args.privateKey as `0x${string}` : `0x${args.privateKey}`)
         console.log(chalk.italic(`Using wallet: ${wallet.address}`));
@@ -70,12 +65,9 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
                 runLatest,
                 deployLatest
             },
+            signer: wallet.address,
             deployedContracts,
             ready: true,
         }
-    }
-
-    latest(): Promise<TSignatureRequest | undefined> {
-        throw new Error('unimplemented');
     }
 }

@@ -34,7 +34,7 @@ export type TMultisigPhase = (
 export type Deployment = {
     contract: string; // the contract name
     address: `0x${string}`; // the contract onchain address.
-    name: string; // if singleton'd in the repo, this is the singleton's name.
+    name?: string; // if singleton'd in the repo, this is the singleton's name.
 }
 
 export type TSegmentType = "eoa" | "multisig";
@@ -52,8 +52,10 @@ export type MultisigMetadata = {
     signer: `0x${string}`, // the signatory to the multisig transaction.
     signerType: "eoa" | "ledger",
     gnosisTransactionHash: `0x${string}`, // for later referencing the transaction.
-    gnosisCalldata: `0x${string}`, // for later executing the transaction
+    gnosisCalldata?: `0x${string}`, // for later executing the transaction
+    multisig: `0x${string}`
     confirmed: boolean,
+    cancellationTransactionHash: `0x${string}` | undefined;
 }
 
 export type Segment = {
@@ -96,6 +98,8 @@ export type TUpgradeManifest = {
 
 export interface TEnvironmentManifest {
     id: string;                                 // "testnet"
+
+    chainId: number;
 
     /**
      * The envirnoment that this environment promotes to.

@@ -2,28 +2,21 @@ import { command } from "cmd-ts";
 import * as allArgs from '../../args';
 import { TState, requires, loggedIn } from "../../inject";
 import { configs, getRepoRoot } from '../../configs';
-import { getActiveDeploy, updateLatestDeploy, advance } from "./utils";
+import { getActiveDeploy, updateLatestDeploy, saveDeploy, advance, promptForStrategy } from "./utils";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
-import { all } from '../../../signing/strategies/strategies';
-import { Strategy, TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
+import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
 import chalk from "chalk";
 import { canonicalPaths } from "../../../metadata/paths";
-import { MetadataStore } from "../../../metadata/metadataStore";
 import { createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
-import { Segment, TDeploy, TDeployPhase, TSegmentType } from "../../../metadata/schema";
+import { Segment, TDeploy, TDeployPhase } from "../../../metadata/schema";
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
 import { SEPOLIA_CHAIN_ID } from "../../../signing/strategies/utils";
-import { pickStrategy } from '../../prompts';
-
-export const supportedSigners: Record<TSegmentType, string[]> = {
-    "eoa": ["eoa", "ledger"],
-    "multisig": ["gnosis.eoa", "gnosis.ledger"],
-}
+import { GnosisEOAStrategy } from "../../../signing/strategies/gnosisEoa";
 
 process.on("unhandledRejection", (error) => {
     console.error(error); // This prints error with stack included (as for normal errors)
@@ -122,34 +115,11 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
     await executeOrContinueDeploy(newDeploy, user, args.rpcUrl);
 }
 
-const saveDeploy = async (metadataStore: MetadataStore, deploy: TDeploy) => {
-    const deployJsonPath = join(
-        canonicalPaths.deployDirectory('', deploy.env, deploy.name),
-        "deploy.json"
-    );
-    await metadataStore.updateJSON<TDeploy>(
-        deployJsonPath,
-        deploy
-    );
-}
-
 const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: string | undefined) => {
+
     while (true) {
         console.log(chalk.green(`[${deploy.segments[deploy.segmentId]?.filename ?? '<none>'}] ${deploy.phase}`))
-        const getStrategy: () => Promise<Strategy<unknown>> = async () => {
-            const segment = deploy.segments[deploy.segmentId];
-            const supportedStrategies = supportedSigners[segment.type]
-                .filter(strategyId => {
-                    return !!all.find(s => new s(deploy, user.metadataStore!).id === strategyId);
-                })
-                .map(strategyId => {
-                    const strategyClass = all.find(s => new s(deploy, user.metadataStore!).id === strategyId);
-                    return new strategyClass!(deploy, user.metadataStore!);
-                });
-            const strategyId = await pickStrategy(supportedStrategies)      
-            return supportedStrategies.find(s => s.id === strategyId)!;      
-        }
-
+        
         switch (deploy.phase) {
             // global states
             case "":
@@ -178,9 +148,16 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 if (existsSync(script)) {
                     // TODO: check whether this deploy already has forge documents uploaded from a previous run.
                     // (i.e that it bailed before advancing.)
-                    const strategy =  await getStrategy();
+                    const strategy =  await promptForStrategy(deploy, user.metadataStore!);
                     const sigRequest = await strategy.requestNew(script, deploy) as TForgeRequest;
                     if (sigRequest?.ready) {
+                        deploy.metadata[deploy.segmentId] = {
+                            type: "eoa",
+                            signer: sigRequest.signer, // the signatory to the multisig transaction.
+                            transactions: sigRequest.signedTransactions ?? [],
+                            deployments: sigRequest.deployedContracts!,
+                            confirmed: false
+                        }
                         advance(deploy);
                         await saveDeploy(user.metadataStore!, deploy);
                         await user.metadataStore!.updateJSON(
@@ -249,6 +226,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 }
 
                 spinner.stopAndPersist();
+                deploy.metadata[deploy.segmentId].confirmed = true;
                 advance(deploy);
                 await saveDeploy(user.metadataStore!, deploy);
                 if (deploy.segments[deploy.segmentId]) {
@@ -261,8 +239,18 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
             case "multisig_start": {             
                 const script = join(deploy.upgradePath, deploy.segments[deploy.segmentId].filename);   
                 if (existsSync(script)) {
-                    const strategy =  await getStrategy();
+                    const strategy =  await promptForStrategy(deploy, user.metadataStore!);
                     const sigRequest = await strategy.requestNew(script, deploy) as TGnosisRequest;
+                    deploy.metadata[deploy.segmentId] = {
+                        type: "multisig",
+                        signer: sigRequest.senderAddress,
+                        signerType: strategy instanceof GnosisEOAStrategy ? 'eoa' : 'ledger', // TODO: fragile
+                        gnosisTransactionHash: sigRequest.safeTxHash as `0x${string}`,
+                        gnosisCalldata: undefined, // ommitting this so that a third party can't execute immediately.
+                        multisig: sigRequest.safeAddress,
+                        confirmed: false,
+                        cancellationTransactionHash: undefined
+                    };
                     await user.metadataStore!.updateJSON(
                         join(
                             canonicalPaths.deployDirectory("", deploy.env, deploy.name),
@@ -271,7 +259,6 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                         ),
                         sigRequest,
                     )
-
                     advance(deploy);
                     await saveDeploy(user.metadataStore!, deploy);
                 } else {
@@ -363,6 +350,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                         const receipt = await client.getTransactionReceipt({hash: multisigTxn.transactionHash as `0x${string}`});
                         if (receipt.status === 'success') {
                             console.log(chalk.green(`SafeTxn(${multisigTxn.safeTxHash}): successful onchain (${receipt.transactionHash})`))
+                            deploy.metadata[deploy.segmentId].confirmed = true;
                             advance(deploy);
                             await saveDeploy(user.metadataStore!, deploy);
                             if (deploy.segments[deploy.segmentId]) {

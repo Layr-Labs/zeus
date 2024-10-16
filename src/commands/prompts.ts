@@ -48,9 +48,9 @@ type TStrategyModel = {
     description: string
 }
 
-export const pickStrategy = async (strategies: TStrategyModel[]) => {
+export const pickStrategy = async (strategies: TStrategyModel[], overridePrompt?: string) => {
     const id = await select({
-        prompt: "How would you like to perform this upgrade?",
+        prompt: overridePrompt ?? "How would you like to perform this upgrade?",
         choices: strategies.map(s => {
             return {
                 name: s.id,

@@ -1,7 +1,7 @@
 import {command } from 'cmd-ts';
 import { loadExistingEnvs } from './list';
 import { inRepo, loggedIn, requires, TState } from '../../inject';
-import { question } from '../../utils';
+import { question, select } from '../../utils';
 import { TDeployManifest, TEnvironmentManifest, TUpgradeManifest } from '../../../metadata/schema'
 import chalk from 'chalk';
 import { canonicalPaths } from '../../../metadata/paths';
@@ -17,22 +17,32 @@ async function handler(user: TState): Promise<void> {
         }
     });
 
+    const chainId = await select({
+        prompt: "Chain?",
+        choices: [
+            {name: 'Sepolia', value: 0xaa36a7, description: "ETH Sepolia Testnet"},
+            {name: 'Holesky', value: 0x4268, description: "ETH Holesky Testnet"},
+            {name: 'Mainnet', value: 0x1,  description: "ETH Mainnet"},
+        ]
+    });
+
     // Step 2: Create a new folder in the default branch
-    const envManifestContent = {
+    const envManifestContent: TEnvironmentManifest = {
         id: `${envName}`,
         precedes: '',
         contractAddresses: {},     
         signingStrategy: '',       
         latestDeployedCommit: '',
-    } as TEnvironmentManifest;
+        chainId
+    };
 
-    const deployManifestContent = {
+    const deployManifestContent: TDeployManifest = {
         inProgressDeploy: '',
-    } as TDeployManifest;
+    };
 
-    const upgradesManifestContent = {
+    const upgradesManifestContent: TUpgradeManifest = {
         upgrades: [],
-    } as TUpgradeManifest; 
+    };
 
     // Create a new file in the repository (which effectively creates the folder)
     try {

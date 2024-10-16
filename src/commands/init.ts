@@ -18,8 +18,11 @@ const handler = async function() {
         text: `Where is your zeus metadata repo located? ${chalk.italic('NOTE: You must have the zeus app installed on this repo.')} (e.g https://github.com/my-org/project.git)`,
         isValid: (t) => {
             try {
-                new URL(t);
-                // TODO: we could check whether this is a valid repo.
+                const url = new URL(t);
+                if (!(url.origin === 'https://github.com')) {
+                    return false;
+                }
+                // TODO: check whether the user can access this repo...
                 return true;
             } catch {
                 return false;

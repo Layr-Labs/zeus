@@ -8,10 +8,9 @@ type Choice<T> = {
     description?: string;
 }
 
-export const select = async (args: {
+export const select = async <T>(args: {
     prompt: string,
-    choices: (Choice<string> | Separator)[]
-
+    choices: (Choice<T> | Separator)[]
 }) => {
   return await inquirerSelect({
     message: args.prompt,

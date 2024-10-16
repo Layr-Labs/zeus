@@ -4,6 +4,7 @@ import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 import { SEPOLIA_CHAIN_ID } from "./utils";
 import { privateKey } from "../../commands/prompts";
+
 type TGnosisEOAArgs = {
     privateKey: string;
 }

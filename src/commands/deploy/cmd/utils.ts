@@ -1,9 +1,11 @@
 import { TState } from "../../inject";
 import { canonicalPaths } from "../../../metadata/paths";
-import { TDeployManifest, TDeployPhase } from "../../../metadata/schema";
+import { TDeployManifest, TDeployPhase, TSegmentType } from "../../../metadata/schema";
 import { join } from "path";
 import { TDeploy } from "../../../metadata/schema";
 import { MetadataStore } from "../../../metadata/metadataStore";
+import { all } from "../../../signing/strategies/strategies";
+import { pickStrategy } from "../../prompts";
 
 export const advanceSegment = (deploy: TDeploy) => {
     if (deploy.segments[deploy.segmentId]?.type === "eoa") {
@@ -52,6 +54,37 @@ export const advance = (deploy: TDeploy) => {
 
 export function isTerminalPhase(state: TDeployPhase): boolean {
     return state === "complete" || state === "cancelled";
+}
+
+
+export const saveDeploy = async (metadataStore: MetadataStore, deploy: TDeploy) => {
+    const deployJsonPath = join(
+        canonicalPaths.deployDirectory('', deploy.env, deploy.name),
+        "deploy.json"
+    );
+    await metadataStore.updateJSON<TDeploy>(
+        deployJsonPath,
+        deploy
+    );
+}
+
+export const supportedSigners: Record<TSegmentType, string[]> = {
+    "eoa": ["eoa", "ledger"],
+    "multisig": ["gnosis.eoa", "gnosis.ledger"],
+}
+
+export const promptForStrategy = async (deploy: TDeploy, metadataStore: MetadataStore, overridePrompt?: string) => {
+    const segment = deploy.segments[deploy.segmentId];
+    const supportedStrategies = supportedSigners[segment.type]
+        .filter(strategyId => {
+            return !!all.find(s => new s(deploy, metadataStore!).id === strategyId);
+        })
+        .map(strategyId => {
+            const strategyClass = all.find(s => new s(deploy, metadataStore!).id === strategyId);
+            return new strategyClass!(deploy, metadataStore!);
+        });
+    const strategyId = await pickStrategy(supportedStrategies, overridePrompt)      
+    return supportedStrategies.find(s => s.id === strategyId)!;      
 }
 
 export const updateLatestDeploy = async (metadataStore: MetadataStore, env: string, deployName: string | undefined, forceOverride = false) => {

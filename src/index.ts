@@ -10,6 +10,7 @@ import { load } from "./commands/inject.js";
 import runCmd from './commands/run';
 import testCmd from './commands/test';
 import initCmd from './commands/init';
+import which from './commands/which';
 
 const main = async () => {
     const state = await load()
@@ -25,7 +26,7 @@ const main = async () => {
         metadata: ${hasZeusHost ? chalk.green(zeusHost) : chalk.red(zeusHost)}
         ${isLoggedIn ? chalk.green('logged in!') : chalk.red('logged out')}
         `,
-        cmds: { deploy, env, upgrade, login, run: runCmd, test: testCmd, init: initCmd},
+        cmds: { deploy, env, upgrade, login, run: runCmd, test: testCmd, init: initCmd, which },
     });
     run(zeus, process.argv.slice(2));
 }

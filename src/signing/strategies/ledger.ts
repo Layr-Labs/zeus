@@ -23,11 +23,11 @@ export class LedgerSigningStrategy extends Strategy<TLedgerArgs> {
         }
     }
 
-    async forgeArgs(): Promise<string[]> {
-        return ["--ledger", "--sig", `"deploy()"`, "./deploy.json",];
+    async cancel(): Promise<void> {
+        throw new Error('Ledger deploys cannot be cancelled.');
     }
 
-    latest(): Promise<TSignatureRequest | undefined> {
-        throw new Error('unimplemented');
+    async forgeArgs(): Promise<string[]> {
+        return ["--ledger", "--sig", `"deploy()"`, "./deploy.json",];
     }
 }

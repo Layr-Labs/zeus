@@ -4,10 +4,8 @@ import { loggedIn, requires } from './inject';
 import * as allArgs from './args';
 // user: TState, args: {json: boolean, contract: string | undefined, env: string}
 const handler = async function() {
-    // load the latest contract addresses for `args.env`.
-    //
-
-
+    //TODO:(milestone1) - implement which.
+    throw new Error('unimplemented.');
 };
 
 const cmd = command({
