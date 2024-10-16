@@ -21,7 +21,7 @@ import { GnosisEOAStrategy } from "../../../signing/strategies/gnosisEoa";
 process.on("unhandledRejection", (error) => {
     console.error(error); // This prints error with stack included (as for normal errors)
     throw error; // Following best practices re-throw error and let the process exit with error code
-  });
+});
 
 const blankDeploy = (args: {env: string, chainId: number, upgrade: string, upgradePath: string, name: string, segments: Segment[]}) => {
     const start = new Date();
@@ -356,7 +356,9 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                         const receipt = await client.getTransactionReceipt({hash: multisigTxn.transactionHash as `0x${string}`});
                         if (receipt.status === 'success') {
                             console.log(chalk.green(`SafeTxn(${multisigTxn.safeTxHash}): successful onchain (${receipt.transactionHash})`))
-                            deploy.metadata[deploy.segmentId].confirmed = true;
+                            if (deploy.metadata[deploy.segmentId]) {
+                                deploy.metadata[deploy.segmentId].confirmed = true;
+                            }
                             advance(deploy);
                             await saveDeploy(user.metadataStore!, deploy);
                             if (deploy.segments[deploy.segmentId]) {
