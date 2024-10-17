@@ -132,6 +132,8 @@ export interface TEnvironmentManifest {
 
     chainId: number;
 
+    deployedVersion: string;                    // '1.0.0'
+
     /**
      * The envirnoment that this environment promotes to.
      */

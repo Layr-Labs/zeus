@@ -30,6 +30,7 @@ async function handler(user: TState): Promise<void> {
     const envManifestContent: TEnvironmentManifest = {
         id: `${envName}`,
         precedes: '',
+        deployedVersion: '0.0.0',
         contractAddresses: {},     
         signingStrategy: '',       
         latestDeployedCommit: '',

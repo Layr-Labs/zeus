@@ -1,6 +1,7 @@
 import { subcommands } from "cmd-ts";
 import newCmd from './cmd/new';
 import listCmd from './cmd/list';
+import envCmd from './cmd/env';
 
 export default subcommands({
     name: 'upgrade',
@@ -8,6 +9,7 @@ export default subcommands({
     version: '1.0.0',
     cmds: {
         "new": newCmd,
-        "list": listCmd
+        "list": listCmd,
+        "env": envCmd
     }
 });
