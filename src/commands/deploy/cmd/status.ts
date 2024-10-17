@@ -16,11 +16,12 @@ async function handler(user: TState, {env}: {env: string}) {
             const isCompleteSegment = deploy.segmentId > i;
             const wrapSegment = (() => {
                 if (isActiveSegment) {
-                    return chalk.black;
+                    return chalk.bold.italic.bgAnsi256(188);
                 } else if (isCompleteSegment) {
-                    return chalk.bgGreen.white;
+                    // see: https://www.ditig.com/publications/256-colors-cheat-sheet
+                    return chalk.bgAnsi256(188).black;
                 } else {
-                    return chalk.gray;
+                    return chalk.black;
                 }
             })()
             console.log(wrapSegment(`- [${i+1}/${deploy.segments.length}] ${deploy.segments[i].filename}`))
@@ -34,20 +35,20 @@ async function handler(user: TState, {env}: {env: string}) {
 
                 const textColor = (() => {
                     if (isActivePhase) { 
-                        return chalk.black;
+                        return chalk.bgBlack.white;
                     } else if (isPhaseComplete) {
-                        return chalk.bgGreen.white;
+                        return chalk.bgAnsi256(188).black;
                     } else {
-                        return chalk.gray;
+                        return chalk.black;
                     }
                 })();
 
-                console.log(`\t- ${textColor(phase)}${isActivePhase ? '          ⬅️    (current step)' : ''}`)
+                console.log(textColor(`\t- ${phase}${isActivePhase ? '                 ⬅️' : ''}`))
                 if (isActivePhase) {
                     const metadata = deploy.metadata[deploy.segmentId];
                     if (metadata) {
                         for (const key of Object.keys(metadata)) {
-                            console.log(`\t\t${key} => ${(metadata as Record<string, unknown>)[key]}`)
+                            console.log(chalk.italic(`\t\t${key} => ${(metadata as Record<string, unknown>)[key]}`))
                         }
                     } else {
                             console.log(chalk.italic(`\n\t\t<no metadata available>\n`))
