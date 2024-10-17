@@ -1,5 +1,5 @@
 export type TDirectory = {
-    type: string;
+    type: 'dir' | 'file' | unknown;
     name: string;
 }[];
 

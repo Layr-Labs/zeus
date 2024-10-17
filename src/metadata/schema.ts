@@ -1,3 +1,5 @@
+import semver from 'semver';
+
 export type TDeployManifest = {
     inProgressDeploy?: string;
 }
@@ -93,10 +95,33 @@ export type TDeploy = {
 
 export type TUpgrade = {
     name: string;
-    fromSemver: string;
-    to: string;
-    phases: string[];
+    from: string; // a semver range, "^0.0.1"
+    to: string; // the target to upgrade to. "0.0.2".
+    phases?: string[];
 }
+
+export function isUpgrade(_obj: unknown): _obj is TUpgrade {
+    if (typeof _obj !== 'object') {
+        console.error(`invalid upgrade.json -- must be a JSON object.`);
+        return false;
+    }
+    const obj = _obj as Record<string, string>;
+    if (!obj.name || obj.name.length > 20 || !/^[a-zA-Z0-9.-]+$/.test(obj.name)){ 
+        console.error('invalid upgrade name.');
+        return false;
+    }
+    if (!semver.validRange(obj.from)) {
+        console.error('invalid `from` constraint.');
+        return false;
+    }
+    if (!semver.valid(obj.to)) {
+        console.error('invalid `to` constraint.');
+        return false;
+    }
+
+    return true;
+}
+
 
 export type TUpgradeManifest = {
     upgrades: TUpgrade[];

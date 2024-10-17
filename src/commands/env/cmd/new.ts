@@ -2,7 +2,7 @@ import {command } from 'cmd-ts';
 import { loadExistingEnvs } from './list';
 import { inRepo, loggedIn, requires, TState } from '../../inject';
 import { question, select } from '../../utils';
-import { TDeployManifest, TEnvironmentManifest, TUpgradeManifest } from '../../../metadata/schema'
+import { TDeployManifest, TEnvironmentManifest } from '../../../metadata/schema'
 import chalk from 'chalk';
 import { canonicalPaths } from '../../../metadata/paths';
 
@@ -40,10 +40,6 @@ async function handler(user: TState): Promise<void> {
         inProgressDeploy: '',
     };
 
-    const upgradesManifestContent: TUpgradeManifest = {
-        upgrades: [],
-    };
-
     // Create a new file in the repository (which effectively creates the folder)
     try {
         await user.metadataStore?.updateJSON(
@@ -53,10 +49,6 @@ async function handler(user: TState): Promise<void> {
         await user.metadataStore?.updateJSON(
             canonicalPaths.deploysManifest(envName),
             deployManifestContent,
-        );
-        await user.metadataStore?.updateJSON(
-            canonicalPaths.ugradesManifest(envName),
-            upgradesManifestContent
         );
         console.log(`${chalk.green('+')} created environment`);
     } catch (e) {

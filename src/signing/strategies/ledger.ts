@@ -20,6 +20,7 @@ export class LedgerSigningStrategy extends Strategy<TLedgerArgs> {
             signedTransactions: [],
             deployedContracts: [],
             ready: false,
+            signer: '0x0'
         }
     }
 

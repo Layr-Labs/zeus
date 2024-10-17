@@ -156,8 +156,8 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         spinner.stop();
 
         return {
-            safeAddress,
-            safeTxHash: hash,
+            safeAddress: safeAddress as `0x${string}`,
+            safeTxHash: hash as `0x${string}`,
             senderAddress,
             signature: senderSignature,
         }

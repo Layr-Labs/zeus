@@ -18,5 +18,7 @@ export const canonicalPaths = {
 
     environmentManifest: (envName: string) => `environment/${envName}/manifest.json`,
     deploysManifest: (envName: string) => `environment/${envName}/deploys/deploys.json`,
-    ugradesManifest: (envName: string) => `environment/${envName}/upgrades/upgrades.json`,
+
+    allUpgrades: () => `upgrade`,
+    upgradeManifest: (upgradeName: string) => `upgrade/${upgradeName}/manifest.json`,
 }
