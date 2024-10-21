@@ -7,9 +7,13 @@ import * as allArgs from '../../args';
 import { findUpgradePaths } from '../utils';
 import { wouldYouLikeToContinue } from '../../prompts';
 import chalk from 'chalk';
+import { SavebleDocument } from '../../../metadata/metadataStore';
 
 const handler = async function(user: TState, args: {version: string, env: string}) {
-    const upgrades = await user.metadataStore!.getDirectory(canonicalPaths.allUpgrades());
+    const metaTxn = await user.metadataStore!.begin();
+    
+
+    const upgrades = await metaTxn.getDirectory(canonicalPaths.allUpgrades());
     if (!upgrades) {
         console.error(`No upgrades have been registered. Register one with 'zeus upgrade new'`);
         return;
@@ -17,13 +21,13 @@ const handler = async function(user: TState, args: {version: string, env: string
     const upgradesAndManifests = await Promise.all(upgrades.filter(entry => entry.type === 'dir').map(async upgradeDir => {
         return {
             name: upgradeDir,
-            manifest: await user.metadataStore!.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(upgradeDir.name))
+            manifest: await metaTxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(upgradeDir.name))
         }
     }));
-    const availableUpgrades = upgradesAndManifests.filter(up => up.manifest !== undefined).map(up => up.manifest) as TUpgrade[];
-    const environment = await user.metadataStore!.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
-    const version = environment?.deployedVersion ?? '0.0.0';
-    const path = findUpgradePaths(version, args.version, availableUpgrades);
+    const availableUpgrades = upgradesAndManifests.filter(up => up.manifest !== undefined).map(up => up.manifest) as SavebleDocument<TUpgrade>[];
+    const environment = await metaTxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
+    const version = environment?._?.deployedVersion ?? '0.0.0';
+    const path = findUpgradePaths(version, args.version, availableUpgrades.map(e => e._));
     const upgradePath = path ? path[0] : undefined;
     
     if (!upgradePath) {
@@ -35,9 +39,9 @@ const handler = async function(user: TState, args: {version: string, env: string
     let prev = version;
     for (let i = 0; i < upgradePath.length; i++) {
         const plan = upgradePath[i];
-        const upgrade = availableUpgrades.find(up => up.name === plan);
-        console.log(`\t• ${upgrade?.name}: ${prev} -> ${upgrade!.to}`);
-        prev = upgrade!.to;
+        const upgrade = availableUpgrades.find(up => up._.name === plan);
+        console.log(`\t• ${upgrade?._.name}: ${prev} -> ${upgrade!._.to}`);
+        prev = upgrade!._.to;
     }
 
     if (!await wouldYouLikeToContinue('This will start a series of deploys. Would you like to continue?')) {

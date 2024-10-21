@@ -2,6 +2,10 @@ import { Transaction, SavebleDocument, TDirectory } from "../metadataStore";
 import { Octokit } from 'octokit';
 import { GithubJsonDocument } from "./GithubJsonDocument";
 
+/**
+ * TODO: subsequent reads during a single transaction are inconsistent without commit.
+ *  We should be returning the cached `file` from `_files` instead of fetching again from the base commit.
+ */
 export class GithubTransaction implements Transaction {
     //  the commit that all changes are being made against
     baseCommitHash: string = '';
@@ -68,7 +72,7 @@ export class GithubTransaction implements Transaction {
         this._files = []; // reset staged changes.
     }
 
-    async getFile(path: string): Promise<SavebleDocument<string> | undefined> {
+    async getFile(path: string): Promise<SavebleDocument<string>> {
         const contents = await this.getFileContents(path);
         const file = new GithubJsonDocument(contents! ?? '', path, true, {
             owner: this.owner!,
@@ -103,7 +107,7 @@ export class GithubTransaction implements Transaction {
         }
     } 
 
-    async getDirectory(path: string): Promise<TDirectory | undefined> {
+    async getDirectory(path: string): Promise<TDirectory> {
         try {
             const response = await this.octokit!.rest.repos.getContent({
                 owner: this.owner,
@@ -126,11 +130,11 @@ export class GithubTransaction implements Transaction {
             }
         } catch (error) {
             console.error(`Failed to get directory contents for path: ${path}`, error);
-            return undefined;
+            throw error;
         }
     }
 
-    async getJSONFile<T>(path: string): Promise<SavebleDocument<T> | undefined> {
+    async getJSONFile<T>(path: string): Promise<SavebleDocument<T>> {
         const contents = await this.getFileContents(path);
         const file = new GithubJsonDocument(JSON.parse(contents! ?? '{}'), path, true, { octokit: this.octokit!, owner: this.owner!, repo: this.repo!, branch: this.branch!});
         this._files.push(file);

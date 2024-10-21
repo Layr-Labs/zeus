@@ -1,12 +1,11 @@
 import chalk from 'chalk';
 import { spawn } from 'child_process';
-import { MetadataStore } from '../metadata/metadataStore';
+import { SavebleDocument, Transaction } from '../metadata/metadataStore';
 import { canonicalPaths } from '../metadata/paths';
 import tmp from 'tmp';
 import fs from 'fs';
 import ora from 'ora';
 import { TDeploy } from '../metadata/schema';
-import { TState } from '../commands/inject';
 
 tmp.setGracefulCleanup();
 
@@ -67,8 +66,8 @@ function redact(haystack: string, ...needles: string[]) {
 
 // TODO: signing strategy should inject node / publicClient
 export abstract class Strategy<TArgs> {
-    readonly deploy: TDeploy;
-    readonly metadata: MetadataStore;
+    readonly deploy: SavebleDocument<TDeploy>;
+    readonly metatxn: Transaction;
 
     public abstract promptArgs(): Promise<TArgs>;
     private _args: TArgs | undefined;
@@ -100,7 +99,7 @@ export abstract class Strategy<TArgs> {
 
     // try to cancel a deploy. not all strategies are cancellable.
     //
-    abstract cancel(deploy: TDeploy, user: TState): Promise<void>;
+    abstract cancel(deploy: SavebleDocument<TDeploy>): Promise<void>;
 
     // lets sub-scripts inject args.
     //  e.g the EOA will run '-s', 
@@ -114,9 +113,9 @@ export abstract class Strategy<TArgs> {
     async pathToDeployParamters(): Promise<string> {
         const paramsPath = canonicalPaths.deployParameters(
             '',
-            this.deploy.env,
+            this.deploy._.env,
         );
-        const deployParametersContents = await this.metadata.getJSONFile(paramsPath) ?? {}
+        const deployParametersContents = await this.metatxn.getJSONFile<Record<string, unknown>>(paramsPath) ?? {}
         const tmpFile = tmp.fileSync({dir: './', postfix: '.json', mode: 0o600});
         fs.writeFileSync(tmpFile.fd, JSON.stringify(deployParametersContents));
         return tmpFile.name;
@@ -179,8 +178,8 @@ export abstract class Strategy<TArgs> {
         }
     }
 
-    constructor(deploy: TDeploy, metadataStore: MetadataStore) {
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction) {
         this.deploy = deploy;
-        this.metadata = metadataStore;
+        this.metatxn = transaction;
     } 
 }

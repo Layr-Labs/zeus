@@ -24,24 +24,26 @@ function isCancelleable(deploy: TDeploy): boolean {
 }
 
 async function handler(user: TState, {env}: {env: string}) {
-    const deploy = await getActiveDeploy(user, env);
+    const txn = await user.metadataStore!.begin();
+    const deploy = await getActiveDeploy(txn, env);
     if (!deploy) {
         console.error(`No active deploy for environment '${env}'.`);
         return;
     }
 
-    if (!isCancelleable(deploy)) {
-        console.error(`Deploy ${deploy.name} cannot be cancelled.`)
+    if (!isCancelleable(deploy._)) {
+        console.error(`Deploy ${deploy._.name} cannot be cancelled.`)
         return;
     }
 
-    const strategy =  await promptForStrategy(deploy, user.metadataStore!, "Cancelling this deploy requires submitting another multisig transaction, with the same nonce, to replace the outstanding one. How would you like to sign this?");
+    const strategy =  await promptForStrategy(deploy!, txn, "Cancelling this deploy requires submitting another multisig transaction, with the same nonce, to replace the outstanding one. How would you like to sign this?");
     try {
-        await strategy.cancel(deploy, user);
-        await updateLatestDeploy(user.metadataStore!, env, undefined, true);
-        console.log(`Cancelled ${deploy.name}.`);
+        await strategy.cancel(deploy);
+        await updateLatestDeploy(txn, env, undefined, true);
+        await txn.commit(`Cancelled deploy ${deploy._.name}`);
+        console.log(`Cancelled ${deploy._.name}.`);
     } catch (e) {
-        console.error(`Cancel deploy: ${deploy.name} - failed.`)
+        console.error(`Cancel deploy: ${deploy._.name} - failed.`)
         console.error(e);
         return;
     }

@@ -7,6 +7,11 @@ export const canonicalPaths = {
     // specific directory for a given deploy.
     deployDirectory: (repoRoot: string, env: string, deployName: string) => join(canonicalPaths.allDeploysDirectory(repoRoot, env), deployName),
 
+    deployStatus: (args: {env: string, name: string}) => join(
+        canonicalPaths.deployDirectory('', args.env, args.name),
+        "deploy.json"
+    ),
+
     // parameters.json
     deployParameters: (repoRoot: string, env: string) => join(canonicalPaths.allDeploysDirectory(repoRoot, env), "parameters.json"),
 
@@ -21,4 +26,25 @@ export const canonicalPaths = {
 
     allUpgrades: () => `upgrade`,
     upgradeManifest: (upgradeName: string) => `upgrade/${upgradeName}/manifest.json`,
+
+    multisigRun: (args: {deployEnv: string, deployName: string, segmentId: number}) => join(
+        canonicalPaths.deployDirectory("", args.deployEnv, args.deployName),
+        `${args.segmentId}`,
+        "multisig.run.json"
+    ),
+    multisigTransaction: (args: {deployEnv: string, deployName: string, segmentId: number}) => join(
+        canonicalPaths.deployDirectory("", args.deployEnv, args.deployName),
+        `${args.segmentId}`,
+        "multisig.transaction.json"
+    ),
+    foundryRun: (args: {deployEnv: string, deployName: string, segmentId: number}) => join(
+        canonicalPaths.deployDirectory("", args.deployEnv, args.deployName),
+        `${args.segmentId}`,
+        "foundry.run.json"
+    ),
+    foundryDeploy: (args: {deployEnv: string, deployName: string, segmentId: number}) => join(
+        canonicalPaths.deployDirectory("", args.deployEnv, args.deployName),
+        `${args.segmentId}`,
+        "foundry.deploy.json"
+    )
 }

@@ -22,7 +22,7 @@ export class GithubJsonDocument<T> implements SavebleDocument<T> {
             return;
         }
 
-        await this.updateFile(this.path, this.nextSave);
+        await this.updateFile(this.path, this.pendingSaveableContents());
     }
 
     get dirty(): boolean {

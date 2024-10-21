@@ -7,6 +7,8 @@ import chalk from 'chalk';
 import { canonicalPaths } from '../../../metadata/paths';
 
 async function handler(user: TState): Promise<void> {
+    const txn = await user.metadataStore!.begin();
+
     const existingEnvs = await loadExistingEnvs(user);
     const envName = await question({
         text: "Environment name?",
@@ -39,16 +41,17 @@ async function handler(user: TState): Promise<void> {
         inProgressDeploy: '',
     };
 
+
+    const envManifest = await txn.getJSONFile(canonicalPaths.environmentManifest(envName));
+    const deployManifest = await txn.getJSONFile(canonicalPaths.deploysManifest(envName));
+
+    envManifest._ = envManifestContent;
+    deployManifest._ = deployManifestContent
+
+
     // Create a new file in the repository (which effectively creates the folder)
     try {
-        await user.metadataStore?.updateJSON(
-            canonicalPaths.environmentManifest(envName),
-            envManifestContent,
-        );
-        await user.metadataStore?.updateJSON(
-            canonicalPaths.deploysManifest(envName),
-            deployManifestContent,
-        );
+        await txn.commit(`Created environment: ${envName}`);
         console.log(`${chalk.green('+')} created environment`);
     } catch (e) {
         throw new Error(`Failed to create environment folder: ${e}`);

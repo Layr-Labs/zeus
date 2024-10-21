@@ -11,6 +11,7 @@ import { isUpgrade, TUpgrade } from '../../../metadata/schema';
 import chalk from 'chalk';
 
 const handler = async function(user: TState) {
+  const metaTxn = await user.metadataStore!.begin();
   const zeusConfig = (await configs.zeus.load())!;
   const migrationDirectory: string = await search({
     message: 'Upgrade directory name?',
@@ -54,11 +55,11 @@ const handler = async function(user: TState) {
   const migrationName = path.basename(migrationDirectory);
 
   // check to see if this repo has an existing upgrade registered for this.
-  const manifest = await user.metadataStore!.getJSONFile<TUpgrade>(
+  const manifest = await metaTxn.getJSONFile<TUpgrade>(
     canonicalPaths.upgradeManifest(migrationName)
   );
   if (manifest !== undefined) {
-    console.error(`The upgrade '${migrationName}' (${manifest.name}) already exists.`)
+    console.error(`The upgrade '${migrationName}' (${manifest._.name}) already exists.`)
     return;
   }
 
@@ -129,10 +130,10 @@ const handler = async function(user: TState) {
     return;
   }
 
-  await user.metadataStore!.updateJSON(
-    canonicalPaths.upgradeManifest(migrationName),
-    upgrade
-  );
+  const upgradeManifestPersist = await metaTxn.getJSONFile(canonicalPaths.upgradeManifest(migrationName));
+  upgradeManifestPersist._ = upgrade;
+  upgradeManifestPersist.save();
+  await metaTxn.commit(`Created upgrade ${upgrade.name}`);
 
   console.log(chalk.green(`+ created upgrade (${upgrade.name})`));
 };
