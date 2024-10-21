@@ -142,7 +142,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
         switch (deploy._.phase) {
             // global states
             case "":
-                advance(deploy);
+                await advance(deploy);
                 await deploy.save()
                 await updateLatestDeploy(txn, deploy._.env, deploy._.name);
                 break;
@@ -200,7 +200,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                             deployments: sigRequest.deployedContracts!,
                             confirmed: false
                         }
-                        advance(deploy);
+                        await advance(deploy);
                         await deploy.save();
 
                         const foundryRun = await txn.getJSONFile(canonicalPaths.foundryRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}));
@@ -211,6 +211,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
 
                         await foundryRun.save();
                         await foundryDeploy.save();
+                        await txn.commit(`[deploy ${deploy._.name}] eoa transaction`);
 
                         console.log(chalk.green(`+ uploaded metadata`));
                     } else {
@@ -254,8 +255,9 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
 
                 spinner.stopAndPersist();
                 deploy._.metadata[deploy._.segmentId].confirmed = true;
-                advance(deploy);
+                await advance(deploy);
                 await deploy.save();
+                await txn.commit(`[deploy ${deploy._.name}] eoa transaction confirmed`);
                 if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
                     console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
                     console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
@@ -285,6 +287,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                     await multisigRun.save();
                     await advance(deploy);
                     await deploy.save();
+                    await txn.commit(`[deploy ${deploy._.name}] multisig transaction started`);
                 } else {
                     console.error(`Missing expected script: ${script}. Please check your local copy and try again.`)
                     return;
@@ -300,8 +303,9 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
 
                 if (multisigTxn.confirmations?.length === multisigTxn.confirmationsRequired) {
                     console.log(chalk.green(`SafeTxn(${multisigDeploy!._.safeTxHash}): ${multisigTxn.confirmations?.length}/${multisigTxn.confirmationsRequired} confirmations received!`))
-                    advance(deploy);
+                    await advance(deploy);
                     await deploy.save();
+                    await txn.commit(`[deploy ${deploy._.name}] multisig transaction signers found`);
                 } else {
                     console.error(`Waiting on ${multisigTxn.confirmationsRequired - (multisigTxn.confirmations?.length ?? 0)} more confirmations. `)
                     console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy!._.safeAddress}`)
@@ -327,15 +331,18 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                     console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy!._.safeAddress}`)
                     console.error(`Resume deploy with: `)
                     console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
+                    await txn.commit(`[deploy ${deploy._.name}] multisig transaction awaiting execution`);
                     return;
                 } else if (!multisigTxn.isSuccessful) {
                     console.log(chalk.red(`SafeTxn(${multisigDeploy!._.safeTxHash}): failed onchain. Failing deploy.`))
                     deploy._.phase = 'failed';
                     await deploy.save();
+                    await txn.commit(`[deploy ${deploy._.name}] multisig transaction failed`);
                     continue;
                 } else {
                     console.log(chalk.green(`SafeTxn(${multisigDeploy!._.safeTxHash}): executed (${multisigTxn.transactionHash})`))
-                    advance(deploy);
+                    await advance(deploy);
+                    await txn.commit(`[deploy ${deploy._.name}] multisig transaction executed`);
                     await deploy.save();
                 }
                 break;
@@ -363,12 +370,13 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                             if (deploy._.metadata[deploy._.segmentId]) {
                                 deploy._.metadata[deploy._.segmentId].confirmed = true;
                             }
-                            advance(deploy);
+                            await advance(deploy);
                             await deploy.save();
                             
                             if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
                                 console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
                                 console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
+                                await txn.commit(`[deploy ${deploy._.name}] multisig transaction success`);
                                 return;
                             }
                             break;
@@ -376,6 +384,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                             console.log(chalk.green(`SafeTxn(${multisigTxn._.safeTxHash}): reverted onchain (${receipt.transactionHash})`))
                             deploy._.phase = 'failed';
                             await deploy.save();
+                            await txn.commit(`[deploy ${deploy._.name}] multisig transaction failed`);
                             break;
                         } 
                     } catch (e) {
