@@ -29,10 +29,8 @@ async function handler(user: TState): Promise<void> {
     // Step 2: Create a new folder in the default branch
     const envManifestContent: TEnvironmentManifest = {
         id: `${envName}`,
-        precedes: '',
         deployedVersion: '0.0.0',
-        contractAddresses: {},     
-        signingStrategy: '',       
+        contractAddresses: {},
         latestDeployedCommit: '',
         chainId
     };

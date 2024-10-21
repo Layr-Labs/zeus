@@ -62,6 +62,20 @@ export const pickStrategy = async (strategies: TStrategyModel[], overridePrompt?
     return id;
 }
 
+export const wouldYouLikeToContinue = async (overridePrompt?: string) : Promise<boolean> => {
+    const res = await select({
+        prompt: overridePrompt ?? "Would you like to continue?",
+        choices: [{
+            name: 'yes',
+            value: 'yes',
+        }, {
+            name: 'no',
+            value: 'no'
+        }]
+    });
+    return res === 'yes';
+}
+
 export const safeAddress = async () => {
     const res = await question({text: "Enter the address of your Gnosis Multisig SAFE (or $ENV_VAR)",
         isValid: (text) => isAddress(text) || (text.startsWith('$') && isAddress(process.env[text.substring(1)]!)),

@@ -8,26 +8,32 @@ import { all } from "../../../signing/strategies/strategies";
 import { pickStrategy } from "../../prompts";
 
 export const advanceSegment = (deploy: TDeploy) => {
+    const hasNextSegment = deploy.segments[deploy.segmentId+1] !== undefined;
+    if (!hasNextSegment) {
+        deploy.phase = 'complete';
+        return;
+    }
+
+    deploy.segmentId++;
     if (deploy.segments[deploy.segmentId]?.type === "eoa") {
         deploy.phase = "eoa_start";
     } else if (deploy.segments[deploy.segmentId]?.type === "multisig") {
         deploy.phase = "multisig_start";
     } else {
-        deploy.phase = "complete";
+        throw new Error(`failed to advance deploy.`);
     }
 }
 
 export const advance = (deploy: TDeploy) => {
     switch (deploy.phase) {
         case "":
+            deploy.segmentId = -1; // set back to -1.
             advanceSegment(deploy);
             break;
         case "eoa_start":
             deploy.phase = "eoa_wait_confirm";
             break;
         case "eoa_wait_confirm":
-            // check what the next type is.    
-            deploy.segmentId++;
             advanceSegment(deploy);
             break;
         case "multisig_start":
@@ -40,7 +46,6 @@ export const advance = (deploy: TDeploy) => {
             deploy.phase = "multisig_wait_confirm";
             break;
         case "multisig_wait_confirm":
-            deploy.segmentId++;
             advanceSegment(deploy);
             break;
         case "complete":

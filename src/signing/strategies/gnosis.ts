@@ -89,9 +89,10 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                 (deploy.metadata[deploy.segmentId] as MultisigMetadata).cancellationTransactionHash = hash;
                 await saveDeploy(user.metadataStore!, deploy); 
                 await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true); // cancel the deploy.
-                break;
+                return;
             }
             case "multisig_wait_confirm":
+                throw new Error('transaction is already awaiting confirmation. cannot be cancelled.');
             default:
                 break;
         }

@@ -79,10 +79,16 @@ const handler = async function(user: TState) {
     console.error(e);
     return;
   }
+  if (!upgrade) {
+    console.error('abort');
+    return;
+  }
 
-  const currentCommit = execSync('git rev-parse HEAD')
+  const currentCommit = execSync('git rev-parse HEAD').toString('utf-8').trim();
   const defaultBranch = execSync('git rev-parse --abbrev-ref origin/HEAD').toString('utf-8').trim();
   const currentBranch = execSync('git branch --show').toString('utf-8').trim();
+
+  upgrade.commit = currentCommit;
 
   if (defaultBranch !== currentBranch) {
     console.warn(`Warning: You are currently on (${currentBranch}), while the default branch is ${defaultBranch}. Creating an upgrade from here means that anyone applying in the future will need to checkout this non-default branch. Are you sure you want to continue?`)

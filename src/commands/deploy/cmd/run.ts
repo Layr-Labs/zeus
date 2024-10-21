@@ -2,7 +2,7 @@ import { command } from "cmd-ts";
 import * as allArgs from '../../args';
 import { TState, requires, loggedIn } from "../../inject";
 import { configs, getRepoRoot } from '../../configs';
-import { getActiveDeploy, updateLatestDeploy, saveDeploy, advance, promptForStrategy } from "./utils";
+import { getActiveDeploy, updateLatestDeploy, saveDeploy, advance, promptForStrategy, isTerminalPhase } from "./utils";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
 import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
@@ -12,11 +12,12 @@ import { createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
-import { Segment, TDeploy, TDeployPhase } from "../../../metadata/schema";
+import { Segment, TDeploy, TDeployPhase, TEnvironmentManifest, TUpgrade } from "../../../metadata/schema";
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
 import { SEPOLIA_CHAIN_ID } from "../../../signing/strategies/utils";
 import { GnosisEOAStrategy } from "../../../signing/strategies/gnosisEoa";
+import semver from 'semver';
 
 process.on("unhandledRejection", (error) => {
     console.error(error); // This prints error with stack included (as for normal errors)
@@ -53,6 +54,8 @@ function formatNow() {
 }
 
 async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string | undefined}) {
+    const metadata = await user.metadataStore!.begin();
+
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
@@ -110,14 +113,21 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
         deployJsonPath, 
         '{}',
     )
+    const upgradeManifest = await user!.metadataStore?.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(args.upgrade));
+    const envManifest = await user!.metadataStore?.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
+
+    if (!semver.satisfies(envManifest?.deployedVersion ?? '0.0.0', upgradeManifest!.from)) {
+        console.error(`Unsupported upgrade. ${deploy!.name} requires an environment pass (${upgradeManifest?.from})`);
+        return;
+    }
+
     console.log(chalk.green(`+ creating deploy: ${deployJsonPath}`));
-    console.log(chalk.green('+ started deploy'));
+    console.log(chalk.green(`+ started deploy (${envManifest?.deployedVersion}) => (${upgradeManifest!.to}) (requires: ${upgradeManifest!.from})`));
 
     await executeOrContinueDeploy(newDeploy, user, args.rpcUrl);
 }
 
 const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: string | undefined) => {
-
     while (true) {
         console.log(chalk.green(`[${deploy.segments[deploy.segmentId]?.filename ?? '<none>'}] ${deploy.phase}`))
         
@@ -128,11 +138,31 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 await saveDeploy(user.metadataStore!, deploy);
                 await updateLatestDeploy(user.metadataStore!, deploy.env, deploy.name);
                 break;
-            case "complete":
+            case "complete": {
                 console.log(`Deploy completed. ✅`);
                 await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
+
+                // update deployed version in the environment.
+                const envManifest = await user.metadataStore!.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(deploy.env));
+                if (!envManifest) {
+                    console.error(`Corrupted env manifest.`);
+                    return;
+                }
+
+                const upgrade = await user.metadataStore!.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(deploy.upgrade));
+                if (!upgrade) {
+                    console.error(`No upgrade manifest for '${deploy.upgrade}' found.`);
+                    return;
+                }
+
+                envManifest.deployedVersion = upgrade!.to;
+                envManifest.latestDeployedCommit = upgrade!.commit;
+
+                // TODO:(milestone1) how/where do contract addresses get updated...
+                await user.metadataStore!.updateJSON(canonicalPaths.environmentManifest(deploy.env), envManifest);
                 await saveDeploy(user.metadataStore!, deploy);
                 return;
+            }
             case "failed": {
                 console.error(`The deploy failed. ❌`);
                 await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
@@ -231,8 +261,8 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 deploy.metadata[deploy.segmentId].confirmed = true;
                 advance(deploy);
                 await saveDeploy(user.metadataStore!, deploy);
-                if (deploy.segments[deploy.segmentId]) {
-                    console.log(chalk.bold(`To continue running this transaction, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
+                if (deploy.segments[deploy.segmentId] && !isTerminalPhase(deploy.phase)) {
+                    console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
                     console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
                     return;
                 }
@@ -361,8 +391,8 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                             }
                             advance(deploy);
                             await saveDeploy(user.metadataStore!, deploy);
-                            if (deploy.segments[deploy.segmentId]) {
-                                console.log(chalk.bold(`To continue running this transaction, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
+                            if (deploy.segments[deploy.segmentId] && !isTerminalPhase(deploy.phase)) {
+                                console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
                                 console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
                                 return;
                             }

@@ -6,10 +6,13 @@ type TPartialRoute = {
     upgradePath: string[] // all upgradesApplied
 }
 
+type Path = string[]
+
 /**
  * Identify the path of sequential upgrades that results in promoting an environment from "$from" to "$to" version.
  */
-export function findUpgradePath(from: string, to: string, allUpgrades: TUpgrade[]): string[] | undefined {
+export function findUpgradePaths(from: string, to: string, allUpgrades: TUpgrade[]): Path[] | undefined {
+    const allPaths: Path[] = [];
     const availableRoutes: TPartialRoute[] = 
         allUpgrades
             .filter(upgrade => semver.satisfies(from, upgrade.from))
@@ -22,7 +25,8 @@ export function findUpgradePath(from: string, to: string, allUpgrades: TUpgrade[
     while (availableRoutes.length > 0) {
         const route = availableRoutes.pop()!;
         if (route.version === to) {
-            return route.upgradePath;
+            allPaths.push(route.upgradePath);
+            continue;
         }
 
         // see what upgrades we have available.
@@ -36,4 +40,5 @@ export function findUpgradePath(from: string, to: string, allUpgrades: TUpgrade[
             })
             .forEach(upgradePath => availableRoutes.push(upgradePath));
     }
+    return allPaths;
 }
