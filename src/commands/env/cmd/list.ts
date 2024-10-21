@@ -1,46 +1,29 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
 import { loggedIn, requires, TState } from '../../inject';
+import { Transaction } from '../../../metadata/metadataStore';
+import { TEnvironmentManifest } from '../../../metadata/schema';
+import { canonicalPaths } from '../../../metadata/paths';
 
-export const loadExistingEnvs = async (user: TState) => {
-    const gh = user.github!;
-    const zeusRepo = {
-        owner: user.zeusHostOwner!,
-        repo: user.zeusHostRepo!,
-    };
-
-    try {
-        // List the contents of the 'environment' directory
-        const { data: directoryContents } = await gh.rest.repos.getContent({
-            ...zeusRepo,
-            path: 'environment',
-        });
-
-        // Filter to only keep directories
-        const existingEnvs = Array.isArray(directoryContents)
-            ? directoryContents.filter(item => item.type === 'dir').map(item => item.name)
-            : [];
-
-        return existingEnvs;
-    } catch (e) {
-        if (`${e}`.includes('Not Found')) {
-            // If the 'environment' folder does not exist yet, return an empty list
-            return [];
-        } else {
-            throw e;
-        }
-    }
+export const loadExistingEnvs = async (txn: Transaction) => {
+    const environments = await txn.getDirectory('environment');
+    return environments.filter(e => e.type === 'dir');
 };
 
 async function handler(user: TState, args: {json: boolean |undefined}): Promise<void> {
-    const envs = await loadExistingEnvs(user);
+    const txn = await user.metadataStore!.begin();
+    const envs = await loadExistingEnvs(txn);
 
     if (args.json) {
         console.log(JSON.stringify(envs));
     } else {
         if (envs && envs.length > 0) {
             console.log(`Found ${envs.length} environment${envs.length > 1 ? 's' : ''}:`)
-            envs.forEach((env) => console.log(`\t- ${env}`));
+            const manifests = await Promise.all(envs.map(async e => await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(e.name))))
+            const entries = envs.map((e, index) => {
+                return {name: e.name, version: manifests[index]._.deployedVersion ?? '0.0.0'}
+            });
+            console.table(entries);
         } else {
             console.log(`No environments yet. Create one with 'zeus env new'`);
         }

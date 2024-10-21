@@ -10,7 +10,7 @@ export class GithubJsonDocument<T> implements SavebleDocument<T> {
         if (typeof this._ != 'object') {
             this._toSave = `${this._}`;
         } else {
-            this._toSave = JSON.stringify(this._);
+            this._toSave = JSON.stringify(this._, null, 2);
         }
     }
 

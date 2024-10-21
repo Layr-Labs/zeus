@@ -58,7 +58,7 @@ const handler = async function(user: TState) {
   const manifest = await metaTxn.getJSONFile<TUpgrade>(
     canonicalPaths.upgradeManifest(migrationName)
   );
-  if (manifest !== undefined) {
+  if (manifest._?.name !== undefined) {
     console.error(`The upgrade '${migrationName}' (${manifest._.name}) already exists.`)
     return;
   }

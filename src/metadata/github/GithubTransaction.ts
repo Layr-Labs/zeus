@@ -28,6 +28,10 @@ export class GithubTransaction implements Transaction {
 
     async commit(log: string): Promise<void> {
         const changedFiles = this._files.filter(f => f.dirty);
+        if (!changedFiles || changedFiles.length === 0) {
+            return;
+        }
+
         const ghArgs = {owner: this.owner, repo: this.repo};
         const { data: refData } = await this.octokit.rest.git.getRef({
             ...ghArgs,

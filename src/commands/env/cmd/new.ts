@@ -9,12 +9,12 @@ import { canonicalPaths } from '../../../metadata/paths';
 async function handler(user: TState): Promise<void> {
     const txn = await user.metadataStore!.begin();
 
-    const existingEnvs = await loadExistingEnvs(user);
+    const existingEnvs = await loadExistingEnvs(txn);
     const envName = await question({
         text: "Environment name?",
         isValid: (text: string) => {
             const isValidRegex = /^[a-zA-Z0-9-]+$/.test(text);
-            const isNotTaken = existingEnvs.filter(e => e === text).length == 0;
+            const isNotTaken = existingEnvs.filter(e => e.name === text).length == 0;
             return isValidRegex && isNotTaken;
         }
     });
