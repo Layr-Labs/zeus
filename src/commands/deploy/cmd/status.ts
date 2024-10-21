@@ -6,14 +6,16 @@ import { getActiveDeploy } from "./utils";
 import { EOAPhase, MultisigPhase } from "../../../metadata/schema";
 
 async function handler(user: TState, {env}: {env: string}) {
-    const deploy = await getActiveDeploy(user,env);
-    if (deploy) {
-        console.log(`${chalk.bold(`Deploy in progress:`)} - ${deploy.name}`)
-        console.log(chalk.italic(`\tStarted: ${deploy.startTime}\n`));
+    const metatxn = await user.metadataStore!.begin();
 
-        for (let i = 0; i < deploy.segments.length; i++) {
-            const isActiveSegment = deploy.segmentId === i;
-            const isCompleteSegment = deploy.segmentId > i;
+    const deploy = await getActiveDeploy(metatxn, env);
+    if (deploy) {
+        console.log(`${chalk.bold(`Deploy in progress:`)} - ${deploy._.name}`)
+        console.log(chalk.italic(`\tStarted: ${deploy._.startTime}\n`));
+
+        for (let i = 0; i < deploy._.segments.length; i++) {
+            const isActiveSegment = deploy._.segmentId === i;
+            const isCompleteSegment = deploy._.segmentId > i;
             const wrapSegment = (() => {
                 if (isActiveSegment) {
                     return chalk.bold.italic.bgAnsi256(188);
@@ -24,13 +26,13 @@ async function handler(user: TState, {env}: {env: string}) {
                     return chalk.black;
                 }
             })()
-            console.log(wrapSegment(`- [${i+1}/${deploy.segments.length}] ${deploy.segments[i].filename}`))
-            const phases = deploy.segments[i].type === 'eoa' ? EOAPhase : MultisigPhase;
+            console.log(wrapSegment(`- [${i+1}/${deploy._.segments.length}] ${deploy._.segments[i].filename}`))
+            const phases = deploy._.segments[i].type === 'eoa' ? EOAPhase : MultisigPhase;
             Object.values(phases).forEach(phase => {
-                const deployPhaseIndex = Object.values(phases).indexOf(deploy.phase);
+                const deployPhaseIndex = Object.values(phases).indexOf(deploy._.phase);
                 const currentPhaseIndex = Object.values(phases).indexOf(phase);
                 const isPhaseComplete = ((currentPhaseIndex < deployPhaseIndex) && isActiveSegment) || isCompleteSegment;
-                const phaseMatches = deploy.phase === phase;
+                const phaseMatches = deploy._.phase === phase;
                 const isActivePhase = phaseMatches && isActiveSegment;
 
                 const textColor = (() => {
@@ -45,7 +47,7 @@ async function handler(user: TState, {env}: {env: string}) {
 
                 console.log(textColor(`\t- ${phase}${isActivePhase ? '                 ⬅️' : ''}`))
                 if (isActivePhase) {
-                    const metadata = deploy.metadata[deploy.segmentId];
+                    const metadata = deploy._.metadata[deploy._.segmentId];
                     if (metadata) {
                         for (const key of Object.keys(metadata)) {
                             console.log(chalk.italic(`\t\t${key} => ${(metadata as Record<string, unknown>)[key]}`))

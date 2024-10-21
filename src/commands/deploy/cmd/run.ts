@@ -2,7 +2,7 @@ import { command } from "cmd-ts";
 import * as allArgs from '../../args';
 import { TState, requires, loggedIn } from "../../inject";
 import { configs, getRepoRoot } from '../../configs';
-import { getActiveDeploy, updateLatestDeploy, saveDeploy, advance, promptForStrategy } from "./utils";
+import { getActiveDeploy, updateLatestDeploy, advance, promptForStrategy, isTerminalPhase } from "./utils";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
 import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
@@ -12,16 +12,26 @@ import { createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
-import { Segment, TDeploy, TDeployPhase } from "../../../metadata/schema";
+import { Segment, TDeploy, TDeployPhase, TEnvironmentManifest, TUpgrade } from "../../../metadata/schema";
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
 import { SEPOLIA_CHAIN_ID } from "../../../signing/strategies/utils";
 import { GnosisEOAStrategy } from "../../../signing/strategies/gnosisEoa";
+import semver from 'semver';
+import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 
 process.on("unhandledRejection", (error) => {
     console.error(error); // This prints error with stack included (as for normal errors)
     throw error; // Following best practices re-throw error and let the process exit with error code
 });
+
+
+// check the transactions created by the previous step.
+type TFoundryDeploy  = {
+    transactions: {
+        hash: `0x${string}`
+    }[]
+}
 
 const blankDeploy = (args: {env: string, chainId: number, upgrade: string, upgradePath: string, name: string, segments: Segment[]}) => {
     const start = new Date();
@@ -53,22 +63,24 @@ function formatNow() {
 }
 
 async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string | undefined}) {
+    const metaTxn = await user.metadataStore!.begin();
+
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
         return;
     }
 
-    const deploy = await getActiveDeploy(user, args.env);
+    const deploy = await getActiveDeploy(metaTxn, args.env);
     if (deploy) {
         if (args.upgrade || !args.resume) {
-            console.error(`Existing deploy in progress. Please rerun with --resume (and not --upgrade, as the current upgrade is ${deploy.upgrade}).`)
-            console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`)
+            console.error(`Existing deploy in progress. Please rerun with --resume (and not --upgrade, as the current upgrade is ${deploy._.upgrade}).`)
+            console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`)
             return;
         }
 
-        console.log(`Resuming existing deploy... (began at ${deploy.startTime})`);
-        return await executeOrContinueDeploy(deploy, user, args.rpcUrl);
+        console.log(`Resuming existing deploy... (began at ${deploy._.startTime})`);
+        return await executeOrContinueDeploy(deploy, user, metaTxn, args.rpcUrl);
     } else if (args.resume) {
         console.error(`Nothing to resume.`);
         return;
@@ -103,80 +115,108 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
         }
     });
     const newDeploy = blankDeploy({name: blankDeployName, chainId: SEPOLIA_CHAIN_ID, env: args.env, upgrade: args.upgrade, upgradePath, segments});
-    
-    const deployJsonPath = join(canonicalPaths.deployDirectory('', args.env, blankDeployName), "deploy.json");
-    // create the new deploy.
-    await user!.metadataStore?.updateFile(
-        deployJsonPath, 
-        '{}',
-    )
-    console.log(chalk.green(`+ creating deploy: ${deployJsonPath}`));
-    console.log(chalk.green('+ started deploy'));
+    const deployJsonPath = canonicalPaths.deployStatus({env: args.env, name: blankDeployName});
 
-    await executeOrContinueDeploy(newDeploy, user, args.rpcUrl);
+    const deployJson = await metaTxn.getJSONFile<TDeploy>(deployJsonPath);
+    deployJson._ = newDeploy;
+    await deployJson.save();
+
+    const upgradeManifest = await metaTxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(args.upgrade));
+    const envManifest = await metaTxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
+
+    if (!semver.satisfies(envManifest!._.deployedVersion ?? '0.0.0', upgradeManifest!._.from)) {
+        console.error(`Unsupported upgrade. ${deployJson!._.name} requires an environment meet the following version criteria: (${upgradeManifest!._.from})`);
+        console.error(`Environment ${deployJson!._.env} is currently deployed at '${envManifest!._.deployedVersion}'`);
+        return;
+    }
+
+    console.log(chalk.green(`+ creating deploy: ${deployJsonPath}`));
+    console.log(chalk.green(`+ started deploy (${envManifest?._.deployedVersion}) => (${upgradeManifest!._.to}) (requires: ${upgradeManifest!._.from})`));
+
+    await executeOrContinueDeploy(deployJson, user, metaTxn, args.rpcUrl);
 }
 
-const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: string | undefined) => {
+const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: TState, _txn: Transaction, rpcUrl: string | undefined) => {
+    let metatxn = _txn;
 
     while (true) {
-        console.log(chalk.green(`[${deploy.segments[deploy.segmentId]?.filename ?? '<none>'}] ${deploy.phase}`))
+        console.log(chalk.green(`[${deploy._.segments[deploy._.segmentId]?.filename ?? '<none>'}] ${deploy._.phase}`))
         
-        switch (deploy.phase) {
+        switch (deploy._.phase) {
             // global states
             case "":
-                advance(deploy);
-                await saveDeploy(user.metadataStore!, deploy);
-                await updateLatestDeploy(user.metadataStore!, deploy.env, deploy.name);
+                await advance(deploy);
+                await deploy.save()
+                await updateLatestDeploy(metatxn, deploy._.env, deploy._.name);
                 break;
-            case "complete":
+            case "complete": {
                 console.log(`Deploy completed. ✅`);
-                await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
-                await saveDeploy(user.metadataStore!, deploy);
+                await updateLatestDeploy(metatxn, deploy._.env, undefined, true);
+
+                // update deployed version in the environment.
+                const envManifest = await metatxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(deploy._.env));
+                if (!envManifest) {
+                    console.error(`Corrupted env manifest.`);
+                    return;
+                }
+
+                const upgrade = await metatxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(deploy._.upgrade));
+                if (!upgrade) {
+                    console.error(`No upgrade manifest for '${deploy._.upgrade}' found.`);
+                    return;
+                }
+
+                envManifest._.deployedVersion = upgrade!._.to;
+                envManifest._.latestDeployedCommit = upgrade!._.commit;
+
+                // TODO:(milestone1) how/where do contract addresses get updated...
+                envManifest.save();
+                deploy.save();
+                await metatxn.commit(`Deploy ${deploy._.name} completed!`);
                 return;
+            }
             case "failed": {
                 console.error(`The deploy failed. ❌`);
-                await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
+                await updateLatestDeploy(metatxn, deploy._.env, undefined, true);
+                await metatxn.commit(`Deploy ${deploy._.name} failed.`);
                 return;
             }
             case "cancelled":
                 console.log(`Deploy was cancelled. ❌`);
-                await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true);
-                await saveDeploy(user.metadataStore!, deploy);
+                await updateLatestDeploy(metatxn, deploy._.env, undefined, true);
+                await deploy.save();
+                await metatxn.commit(`Deploy ${deploy._.name} cancelled.`);
                 return;
             // eoa states
             case "eoa_start": {
-                const script = join(deploy.upgradePath, deploy.segments[deploy.segmentId].filename);
+                const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
                 if (existsSync(script)) {
                     // TODO: check whether this deploy already has forge documents uploaded from a previous run.
                     // (i.e that it bailed before advancing.)
-                    const strategy =  await promptForStrategy(deploy, user.metadataStore!);
-                    const sigRequest = await strategy.requestNew(script, deploy) as TForgeRequest;
+                    const strategy =  await promptForStrategy(deploy, metatxn);
+                    const sigRequest = await strategy.requestNew(script, deploy._) as TForgeRequest;
                     if (sigRequest?.ready) {
-                        deploy.metadata[deploy.segmentId] = {
+                        deploy._.metadata[deploy._.segmentId] = {
                             type: "eoa",
                             signer: sigRequest.signer, // the signatory to the multisig transaction.
                             transactions: sigRequest.signedTransactions ?? [],
                             deployments: sigRequest.deployedContracts!,
                             confirmed: false
                         }
-                        advance(deploy);
-                        await saveDeploy(user.metadataStore!, deploy);
-                        await user.metadataStore!.updateJSON(
-                            join(
-                                canonicalPaths.deployDirectory("", deploy.env, deploy.name),
-                                `${deploy.segmentId}`,
-                                "foundry.run.json"
-                            ),
-                            sigRequest.forge?.runLatest
-                        )
-                        await user.metadataStore!.updateJSON(
-                            join(
-                                canonicalPaths.deployDirectory("", deploy.env, deploy.name),
-                                `${deploy.segmentId}`,
-                                "foundry.deploy.json"
-                            ),
-                            sigRequest.forge?.deployLatest
-                        )
+                        await advance(deploy);
+                        await deploy.save();
+
+                        const foundryRun = await metatxn.getJSONFile(canonicalPaths.foundryRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}));
+                        const foundryDeploy = await metatxn.getJSONFile<TFoundryDeploy>(canonicalPaths.foundryDeploy({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}));
+                        
+                        foundryRun._ = sigRequest.forge?.runLatest;
+                        foundryDeploy._ = sigRequest.forge?.deployLatest as TFoundryDeploy;
+
+                        await foundryRun.save();
+                        await foundryDeploy.save();
+                        await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction`);
+                        metatxn = await user!.metadataStore!.begin();
+
                         console.log(chalk.green(`+ uploaded metadata`));
                     } else {
                         console.error(`Deploy failed with ready=false. Please try again.`);
@@ -185,38 +225,28 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 } else {
                     console.error(`Missing expected script: ${script}`);
                     console.error(`Fix your local copy and continue with: `);
-                    console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`)
+                    console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`)
                     return;
                 }
                 break;
             }
             case "eoa_wait_confirm": {
-                // check the transactions created by the previous step.
-                type TFoundryDeploy  = {
-                    transactions: {
-                        hash: `0x${string}`
-                    }[]
-                }
-
-                const foundryDeploy = await user.metadataStore?.getJSONFile<TFoundryDeploy>(
-                    join(
-                        canonicalPaths.deployDirectory("", deploy.env, deploy.name),
-                        `${deploy.segmentId}`,
-                        "foundry.deploy.json"
-                    ),
+                const foundryDeploy = await metatxn.getJSONFile<TFoundryDeploy>(
+                    canonicalPaths.foundryDeploy({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})    
                 );
+
                 if (!foundryDeploy) {
                     throw new Error('foundry.deploy.json was corrupted.');
                 }
 
-                // TODO:multicain
+                // TODO:multichain
                 const client = createPublicClient({
                     chain: sepolia, 
                     transport: http(rpcUrl),
                 })
-                const prompt = ora(`Verifying ${foundryDeploy.transactions.length} transactions...`);
+                const prompt = ora(`Verifying ${foundryDeploy._.transactions.length} transactions...`);
                 const spinner = prompt.start();
-                for (const txn of foundryDeploy.transactions) {
+                for (const txn of foundryDeploy._.transactions) {
                     if (txn?.hash) {
                         const receipt = await client.getTransactionReceipt({hash: txn.hash});
                         if (receipt.status !== "success") {
@@ -228,23 +258,26 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 }
 
                 spinner.stopAndPersist();
-                deploy.metadata[deploy.segmentId].confirmed = true;
-                advance(deploy);
-                await saveDeploy(user.metadataStore!, deploy);
-                if (deploy.segments[deploy.segmentId]) {
-                    console.log(chalk.bold(`To continue running this transaction, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
-                    console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
+                deploy._.metadata[deploy._.segmentId].confirmed = true;
+                await advance(deploy);
+                await deploy.save();
+                await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction confirmed`);
+                metatxn = await user!.metadataStore!.begin();
+
+                if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
+                    console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
+                    console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
                     return;
                 }
                 break;
             }
             // multisig states.
             case "multisig_start": {             
-                const script = join(deploy.upgradePath, deploy.segments[deploy.segmentId].filename);   
+                const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);   
                 if (existsSync(script)) {
-                    const strategy =  await promptForStrategy(deploy, user.metadataStore!);
-                    const sigRequest = await strategy.requestNew(script, deploy) as TGnosisRequest;
-                    deploy.metadata[deploy.segmentId] = {
+                    const strategy =  await promptForStrategy(deploy, metatxn);
+                    const sigRequest = await strategy.requestNew(script, deploy._) as TGnosisRequest;
+                    deploy._.metadata[deploy._.segmentId] = {
                         type: "multisig",
                         signer: sigRequest.senderAddress,
                         signerType: strategy instanceof GnosisEOAStrategy ? 'eoa' : 'ledger', // TODO: fragile
@@ -254,16 +287,13 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                         confirmed: false,
                         cancellationTransactionHash: undefined
                     };
-                    await user.metadataStore!.updateJSON(
-                        join(
-                            canonicalPaths.deployDirectory("", deploy.env, deploy.name),
-                            `${deploy.segmentId}`,
-                            "multisig.run.json"
-                        ),
-                        sigRequest,
-                    )
-                    advance(deploy);
-                    await saveDeploy(user.metadataStore!, deploy);
+                    const multisigRun = await metatxn.getJSONFile<TGnosisRequest>(canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
+                    multisigRun._ = sigRequest;
+                    await multisigRun.save();
+                    await advance(deploy);
+                    await deploy.save();
+                    await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction started`);
+                    metatxn = await user!.metadataStore!.begin();
                 } else {
                     console.error(`Missing expected script: ${script}. Please check your local copy and try again.`)
                     return;
@@ -271,112 +301,106 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 break;
             }
             case "multisig_wait_signers": {
-                const multisigDeploy = await user.metadataStore!.getJSONFile<TGnosisRequest>(
-                    join(
-                        canonicalPaths.deployDirectory("", deploy.env, deploy.name),
-                        `${deploy.segmentId}`,
-                        "multisig.run.json"
-                    )
+                const multisigDeploy = await metatxn.getJSONFile<TGnosisRequest>(
+                    canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})
                 )
                 const safeApi = new SafeApiKit({chainId: BigInt(SEPOLIA_CHAIN_ID)})
-                const txn = await safeApi.getTransaction(multisigDeploy!.safeTxHash);
+                const multisigTxn = await safeApi.getTransaction(multisigDeploy!._.safeTxHash);
 
-                if (txn.confirmations?.length === txn.confirmationsRequired) {
-                    console.log(chalk.green(`SafeTxn(${multisigDeploy!.safeTxHash}): ${txn.confirmations?.length}/${txn.confirmationsRequired} confirmations received!`))
-                    advance(deploy);
-                    await saveDeploy(user.metadataStore!, deploy);
+                if (multisigTxn.confirmations?.length === multisigTxn.confirmationsRequired) {
+                    console.log(chalk.green(`SafeTxn(${multisigDeploy!._.safeTxHash}): ${multisigTxn.confirmations?.length}/${multisigTxn.confirmationsRequired} confirmations received!`))
+                    await advance(deploy);
+                    await deploy.save();
+                    await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction signers found`);
+                    metatxn = await user!.metadataStore!.begin();
                 } else {
-                    console.error(`Waiting on ${txn.confirmationsRequired - (txn.confirmations?.length ?? 0)} more confirmations. `)
-                    console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy!.safeAddress}`)
+                    console.error(`Waiting on ${multisigTxn.confirmationsRequired - (multisigTxn.confirmations?.length ?? 0)} more confirmations. `)
+                    console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy!._.safeAddress}`)
                     console.error(`Run the following to continue: `);
-                    console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
+                    console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
                     return;
                 }
                 break;
             }
             case "multisig_execute": {
-                const multisigDeploy = await user.metadataStore!.getJSONFile<TGnosisRequest>(
-                    join(
-                        canonicalPaths.deployDirectory("", deploy.env, deploy.name),
-                        `${deploy.segmentId}`,
-                        "multisig.run.json"
-                    )
+                const multisigDeploy = await metatxn.getJSONFile<TGnosisRequest>(
+                    canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})
                 )
                 const safeApi = new SafeApiKit({chainId: BigInt(SEPOLIA_CHAIN_ID)})
-                const txn = await safeApi.getTransaction(multisigDeploy!.safeTxHash);
-                if (txn) {
-                    await user.metadataStore!.updateJSON(
-                        join(
-                            canonicalPaths.deployDirectory("", deploy.env, deploy.name),
-                            `${deploy.segmentId}`,
-                            "multisig.transaction.json"
-                        ),
-                        txn,
-                    )
-                }
+                const multisigTxn = await safeApi.getTransaction(multisigDeploy!._.safeTxHash);
 
-                if (!txn.isExecuted) {
-                    console.log(chalk.cyan(`SafeTxn(${multisigDeploy!.safeTxHash}): still waiting for execution.`))
-                    console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy!.safeAddress}`)
+                const multisigTxnPersist = await metatxn.getJSONFile(canonicalPaths.multisigTransaction({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
+                multisigTxnPersist._ = multisigTxn;
+                await multisigTxnPersist.save();
+                
+                if (!multisigTxn.isExecuted) {
+                    console.log(chalk.cyan(`SafeTxn(${multisigDeploy!._.safeTxHash}): still waiting for execution.`))
+                    console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy!._.safeAddress}`)
                     console.error(`Resume deploy with: `)
-                    console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
+                    console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
+                    await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction awaiting execution`);
                     return;
-                } else if (!txn.isSuccessful) {
-                    console.log(chalk.red(`SafeTxn(${multisigDeploy!.safeTxHash}): failed onchain. Failing deploy.`))
-                    deploy.phase = 'failed';
-                    await saveDeploy(user.metadataStore!, deploy);
+                } else if (!multisigTxn.isSuccessful) {
+                    console.log(chalk.red(`SafeTxn(${multisigDeploy!._.safeTxHash}): failed onchain. Failing deploy.`))
+                    deploy._.phase = 'failed';
+                    await deploy.save();
+                    await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction failed`);
+                    metatxn = await user!.metadataStore!.begin();
                     continue;
                 } else {
-                    console.log(chalk.green(`SafeTxn(${multisigDeploy!.safeTxHash}): executed (${txn.transactionHash})`))
-                    advance(deploy);
-                    await saveDeploy(user.metadataStore!, deploy);
+                    console.log(chalk.green(`SafeTxn(${multisigDeploy!._.safeTxHash}): executed (${multisigTxn.transactionHash})`))
+                    await advance(deploy);
+                    await deploy.save();
+                    await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction executed`);
+                    metatxn = await user!.metadataStore!.begin();
                 }
                 break;
             }
             case "multisig_wait_confirm": {
-                const multisigTxn = await user.metadataStore!.getJSONFile<SafeMultisigTransactionResponse>(
-                    join(
-                        canonicalPaths.deployDirectory("", deploy.env, deploy.name),
-                        `${deploy.segmentId}`,
-                        "multisig.transaction.json"
-                    )
+                const multisigTxn = await metatxn.getJSONFile<SafeMultisigTransactionResponse>(
+                    canonicalPaths.multisigTransaction({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})
                 )
-                if (!multisigTxn) {
+
+                if (!multisigTxn || !multisigTxn._) {
                     console.error(`Deploy missing multisig transaction data.`);
                     return;
                 }
 
-                if (multisigTxn.executionDate && multisigTxn.transactionHash) {
+                if (multisigTxn._.executionDate && multisigTxn._.transactionHash) {
                     // check that the 
                     const client = createPublicClient({
                         chain: sepolia, 
                         transport: http(rpcUrl),
                     })
                     try {
-                        const receipt = await client.getTransactionReceipt({hash: multisigTxn.transactionHash as `0x${string}`});
+                        const receipt = await client.getTransactionReceipt({hash: multisigTxn._.transactionHash as `0x${string}`});
                         if (receipt.status === 'success') {
-                            console.log(chalk.green(`SafeTxn(${multisigTxn.safeTxHash}): successful onchain (${receipt.transactionHash})`))
-                            if (deploy.metadata[deploy.segmentId]) {
-                                deploy.metadata[deploy.segmentId].confirmed = true;
+                            console.log(chalk.green(`SafeTxn(${multisigTxn._.safeTxHash}): successful onchain (${receipt.transactionHash})`))
+                            if (deploy._.metadata[deploy._.segmentId]) {
+                                deploy._.metadata[deploy._.segmentId].confirmed = true;
                             }
-                            advance(deploy);
-                            await saveDeploy(user.metadataStore!, deploy);
-                            if (deploy.segments[deploy.segmentId]) {
-                                console.log(chalk.bold(`To continue running this transaction, re-run with --resume. Deploy will resume from phase: ${deploy.segments[deploy.segmentId].filename}`))
-                                console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
+                            await advance(deploy);
+                            await deploy.save();
+                            
+                            if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
+                                console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
+                                console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
+                                await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction success`);
                                 return;
                             }
                             break;
                         } else {
-                            console.log(chalk.green(`SafeTxn(${multisigTxn.safeTxHash}): reverted onchain (${receipt.transactionHash})`))
-                            deploy.phase = 'failed';
-                            await saveDeploy(user.metadataStore!, deploy);
+                            console.log(chalk.green(`SafeTxn(${multisigTxn._.safeTxHash}): reverted onchain (${receipt.transactionHash})`))
+                            deploy._.phase = 'failed';
+                            await deploy.save();
+                            await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction failed`);
+                            metatxn = await user!.metadataStore!.begin();
                             break;
                         } 
                     } catch (e) {
-                        console.error(`Multisig Transaction (${multisigTxn.transactionHash}) hasn't landed in a block yet.`)
+                        console.error(`Multisig Transaction (${multisigTxn._.transactionHash}) hasn't landed in a block yet.`)
                         console.error(`Re-run to check status:`)
-                        console.error(`\t\tzeus deploy run --resume --env ${deploy.env}`);
+                        console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
                         console.error(e);
                         return;
                     }
@@ -384,7 +408,7 @@ const executeOrContinueDeploy = async (deploy: TDeploy, user: TState, rpcUrl: st
                 break;
             }
             default:
-                console.error(`Deploy is in unknown phase: ${deploy.phase}. Make sure your zeus is up-to-date.`);
+                console.error(`Deploy is in unknown phase: ${deploy._.phase}. Make sure your zeus is up-to-date.`);
                 return;
         }
     }

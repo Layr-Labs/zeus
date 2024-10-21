@@ -7,12 +7,14 @@ import chalk from 'chalk';
 import { canonicalPaths } from '../../../metadata/paths';
 
 async function handler(user: TState): Promise<void> {
-    const existingEnvs = await loadExistingEnvs(user);
+    const txn = await user.metadataStore!.begin();
+
+    const existingEnvs = await loadExistingEnvs(txn);
     const envName = await question({
         text: "Environment name?",
         isValid: (text: string) => {
             const isValidRegex = /^[a-zA-Z0-9-]+$/.test(text);
-            const isNotTaken = existingEnvs.filter(e => e === text).length == 0;
+            const isNotTaken = existingEnvs.filter(e => e.name === text).length == 0;
             return isValidRegex && isNotTaken;
         }
     });
@@ -29,10 +31,8 @@ async function handler(user: TState): Promise<void> {
     // Step 2: Create a new folder in the default branch
     const envManifestContent: TEnvironmentManifest = {
         id: `${envName}`,
-        precedes: '',
         deployedVersion: '0.0.0',
-        contractAddresses: {},     
-        signingStrategy: '',       
+        contractAddresses: {},
         latestDeployedCommit: '',
         chainId
     };
@@ -41,16 +41,17 @@ async function handler(user: TState): Promise<void> {
         inProgressDeploy: '',
     };
 
+
+    const envManifest = await txn.getJSONFile(canonicalPaths.environmentManifest(envName));
+    const deployManifest = await txn.getJSONFile(canonicalPaths.deploysManifest(envName));
+
+    envManifest._ = envManifestContent;
+    deployManifest._ = deployManifestContent
+
+
     // Create a new file in the repository (which effectively creates the folder)
     try {
-        await user.metadataStore?.updateJSON(
-            canonicalPaths.environmentManifest(envName),
-            envManifestContent,
-        );
-        await user.metadataStore?.updateJSON(
-            canonicalPaths.deploysManifest(envName),
-            deployManifestContent,
-        );
+        await txn.commit(`Created environment: ${envName}`);
         console.log(`${chalk.green('+')} created environment`);
     } catch (e) {
         throw new Error(`Failed to create environment folder: ${e}`);

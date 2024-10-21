@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import 'source-map-support/register';
 import { subcommands, run } from "cmd-ts";
 import deploy from './commands/deploy/deploy';
 import env from './commands/env/env';

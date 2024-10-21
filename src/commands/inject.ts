@@ -3,7 +3,7 @@ import { Octokit } from 'octokit';
 import chalk from 'chalk';
 import { Environment } from './environment';
 import { MetadataStore } from '../metadata/metadataStore';
-import { GitMetadataStore } from '../metadata/gitBackedMetadataStore';
+import { GithubMetadataStore } from '../metadata/github/GithubMetadataStore';
 import { configs } from './configs';
 
 export type TState = {
@@ -30,7 +30,7 @@ export async function load(args?: {env: string}): Promise<TState> {
             const [owner, repo] = pathComponents.slice(-2);
             zeusHostOwner = owner;
             zeusHostRepo = repo;
-            metadataStore = new GitMetadataStore({owner: zeusHostOwner, repo: zeusHostRepo});
+            metadataStore = new GithubMetadataStore({owner: zeusHostOwner, repo: zeusHostRepo});
             await metadataStore.initialize();
         } catch {
             console.warn('invalid ZEUS_HOST. Expected a github url.');
@@ -49,7 +49,7 @@ export async function load(args?: {env: string}): Promise<TState> {
         zeusHostOwner,
         zeusHostRepo,
         metadataStore,
-        github: metadataStore ? (metadataStore! as unknown as GitMetadataStore)?.octokit : undefined,
+        github: metadataStore ? (metadataStore! as unknown as GithubMetadataStore)?.octokit : undefined,
         environment: args?.env ? new Environment(args.env!) : undefined,
     }
 }

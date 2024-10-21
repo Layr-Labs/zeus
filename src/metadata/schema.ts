@@ -98,6 +98,7 @@ export type TUpgrade = {
     from: string; // a semver range, "^0.0.1"
     to: string; // the target to upgrade to. "0.0.2".
     phases?: string[];
+    commit: string;
 }
 
 export function isUpgrade(_obj: unknown): _obj is TUpgrade {
@@ -135,19 +136,9 @@ export interface TEnvironmentManifest {
     deployedVersion: string;                    // '1.0.0'
 
     /**
-     * The envirnoment that this environment promotes to.
-     */
-    precedes: string;                           // "mainnet"
-
-    /**
      * important contract addresses for thie environment
      */
     contractAddresses: Record<string, string>;      
-
-    /**
-     * {@link SigningStrategy.id} that this environment requires.
-     */
-    signingStrategy: string;       
     
     /**
      * Latest commit of your repo deployed in this environment.

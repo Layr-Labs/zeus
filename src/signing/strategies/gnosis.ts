@@ -6,8 +6,8 @@ import { parseTuple, SEPOLIA_CHAIN_ID } from "./utils";
 import ora from "ora";
 import * as prompts from '../../commands/prompts';
 import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../metadata/schema";
-import { TState } from "../../commands/inject";
-import { saveDeploy, updateLatestDeploy } from "../../commands/deploy/cmd/utils";
+import { updateLatestDeploy } from "../../commands/deploy/cmd/utils";
+import { SavebleDocument } from "../../metadata/metadataStore";
 
 type TGnosisBaseArgs = {
     safeAddress: string;
@@ -38,13 +38,13 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         return ['--sig', `execute(string)`, await this.pathToDeployParamters()];
     }
     
-    async cancel(deploy: TDeploy, user: TState): Promise<void> {
-        switch (deploy.phase as TMultisigPhase) {
+    async cancel(deploy: SavebleDocument<TDeploy>): Promise<void> {
+        switch (deploy._.phase as TMultisigPhase) {
             case "multisig_start":
             case "multisig_wait_signers":
             case "multisig_execute": {
                 // cancel the transaction.
-                const metadata = deploy.metadata[deploy.segmentId] as MultisigMetadata;
+                const metadata = deploy._.metadata[deploy._.segmentId] as MultisigMetadata;
                 const rpcUrl = await prompts.rpcUrl();
                 const protocolKitOwner1 = await Safe.init({
                     provider: rpcUrl!,
@@ -69,8 +69,8 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
 
                 const strategy = await (async () => {
                     const all = await import('../strategies/strategies');
-                    const strategy = all.all.find(s => new s(deploy, user.metadataStore!).id === strategyId);
-                    return new strategy!(deploy, user.metadataStore!);
+                    const strategy = all.all.find(s => new s(deploy, this.metatxn!).id === strategyId);
+                    return new strategy!(deploy, this.metatxn);
                 })();
 
                 const rejectionTxn = await protocolKitOwner1.createRejectionTransaction(tx.nonce);
@@ -85,13 +85,14 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                     senderSignature: await (strategy as unknown as GnosisSigningStrategy<unknown>).getSignature(safeVersion, rejectionTxn),
                 })
                 // TODO: there should be a "pending cancellation" phase.
-                deploy.phase = 'cancelled';
-                (deploy.metadata[deploy.segmentId] as MultisigMetadata).cancellationTransactionHash = hash;
-                await saveDeploy(user.metadataStore!, deploy); 
-                await updateLatestDeploy(user.metadataStore!, deploy.env, undefined, true); // cancel the deploy.
-                break;
+
+                deploy._.phase = 'cancelled';
+                (deploy._.metadata[deploy._.segmentId] as MultisigMetadata).cancellationTransactionHash = hash;
+                await updateLatestDeploy(this.metatxn, deploy._.env, undefined, true); // cancel the deploy.
+                return;
             }
             case "multisig_wait_confirm":
+                throw new Error('transaction is already awaiting confirmation. cannot be cancelled.');
             default:
                 break;
         }

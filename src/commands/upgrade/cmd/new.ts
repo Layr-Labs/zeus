@@ -11,6 +11,7 @@ import { isUpgrade, TUpgrade } from '../../../metadata/schema';
 import chalk from 'chalk';
 
 const handler = async function(user: TState) {
+  const metaTxn = await user.metadataStore!.begin();
   const zeusConfig = (await configs.zeus.load())!;
   const migrationDirectory: string = await search({
     message: 'Upgrade directory name?',
@@ -54,11 +55,11 @@ const handler = async function(user: TState) {
   const migrationName = path.basename(migrationDirectory);
 
   // check to see if this repo has an existing upgrade registered for this.
-  const manifest = await user.metadataStore!.getJSONFile<TUpgrade>(
+  const manifest = await metaTxn.getJSONFile<TUpgrade>(
     canonicalPaths.upgradeManifest(migrationName)
   );
-  if (manifest !== undefined) {
-    console.error(`The upgrade '${migrationName}' (${manifest.name}) already exists.`)
+  if (manifest._?.name !== undefined) {
+    console.error(`The upgrade '${migrationName}' (${manifest._.name}) already exists.`)
     return;
   }
 
@@ -79,10 +80,16 @@ const handler = async function(user: TState) {
     console.error(e);
     return;
   }
+  if (!upgrade) {
+    console.error('abort');
+    return;
+  }
 
-  const currentCommit = execSync('git rev-parse HEAD')
+  const currentCommit = execSync('git rev-parse HEAD').toString('utf-8').trim();
   const defaultBranch = execSync('git rev-parse --abbrev-ref origin/HEAD').toString('utf-8').trim();
   const currentBranch = execSync('git branch --show').toString('utf-8').trim();
+
+  upgrade.commit = currentCommit;
 
   if (defaultBranch !== currentBranch) {
     console.warn(`Warning: You are currently on (${currentBranch}), while the default branch is ${defaultBranch}. Creating an upgrade from here means that anyone applying in the future will need to checkout this non-default branch. Are you sure you want to continue?`)
@@ -123,10 +130,10 @@ const handler = async function(user: TState) {
     return;
   }
 
-  await user.metadataStore!.updateJSON(
-    canonicalPaths.upgradeManifest(migrationName),
-    upgrade
-  );
+  const upgradeManifestPersist = await metaTxn.getJSONFile(canonicalPaths.upgradeManifest(migrationName));
+  upgradeManifestPersist._ = upgrade;
+  upgradeManifestPersist.save();
+  await metaTxn.commit(`Created upgrade ${upgrade.name}`);
 
   console.log(chalk.green(`+ created upgrade (${upgrade.name})`));
 };
