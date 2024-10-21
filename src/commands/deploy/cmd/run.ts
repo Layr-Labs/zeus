@@ -124,8 +124,9 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
     const upgradeManifest = await metaTxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(args.upgrade));
     const envManifest = await metaTxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
 
-    if (!semver.satisfies(envManifest?._.deployedVersion ?? '0.0.0', upgradeManifest!._.from)) {
-        console.error(`Unsupported upgrade. ${deploy!._.name} requires an environment pass (${upgradeManifest?._.from})`);
+    if (!semver.satisfies(envManifest!._.deployedVersion ?? '0.0.0', upgradeManifest!._.from)) {
+        console.error(`Unsupported upgrade. ${deployJson!._.name} requires an environment meet the following version criteria: (${upgradeManifest!._.from})`);
+        console.error(`Environment ${deployJson!._.env} is currently deployed at '${envManifest!._.deployedVersion}'`);
         return;
     }
 

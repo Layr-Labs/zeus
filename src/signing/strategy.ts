@@ -117,7 +117,7 @@ export abstract class Strategy<TArgs> {
         );
         const deployParametersContents = await this.metatxn.getJSONFile<Record<string, unknown>>(paramsPath) ?? {}
         const tmpFile = tmp.fileSync({dir: './', postfix: '.json', mode: 0o600});
-        fs.writeFileSync(tmpFile.fd, JSON.stringify(deployParametersContents));
+        fs.writeFileSync(tmpFile.fd, JSON.stringify(deployParametersContents._));
         return tmpFile.name;
     }
 

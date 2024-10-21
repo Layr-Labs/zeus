@@ -43,13 +43,25 @@ export class GithubMetadataStore implements MetadataStore {
         }
     }
 
+    async getBranch(): Promise<string> {
+        if (this.branch) {
+            return this.branch;
+        }
+        const { data: repoData } = await this.octokit!.rest.repos.get({
+            owner: this.owner,
+            repo: this.repo,
+        });
+        return repoData.default_branch; 
+    }
+
     async begin(): Promise<Transaction> {
+        const branch = await this.getBranch();
         const response = await this.octokit!.rest.repos.getBranch({
             owner: this.owner!,
             repo: this.repo!,
-            branch: this.branch!, // You can specify a branch here
+            branch,
         });
-        return new GithubTransaction(this.owner!, this.repo!, this.branch!, this.octokit!, response.data.commit.sha);
+        return new GithubTransaction(this.owner!, this.repo!, branch, this.octokit!, response.data.commit.sha);
     }
 
     async isLoggedIn(): Promise<boolean> {
