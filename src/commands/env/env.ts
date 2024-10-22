@@ -1,6 +1,7 @@
 import { subcommands } from "cmd-ts";
 import newCmd from './cmd/new';
 import list from './cmd/list';
+import edit from './cmd/edit';
 
 export default subcommands({
     name: 'env',
@@ -8,6 +9,7 @@ export default subcommands({
     version: '1.0.0',
     cmds: {
         "new": newCmd,
-        "list": list
+        "list": list,
+        "edit": edit,
     }
 });
