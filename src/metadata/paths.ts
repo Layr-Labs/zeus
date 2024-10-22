@@ -15,6 +15,9 @@ export const canonicalPaths = {
     // parameters.json
     deployParameters: (repoRoot: string, env: string) => join(canonicalPaths.allDeploysDirectory(repoRoot, env), "parameters.json"),
 
+    // the json-schema of the deploy parameters to enforce.
+    deployParametersSchema: (repoRoot: string) => join(repoRoot, 'parameters.schema.json'),
+
     // updated immediately after a forge script execution.
     forgeDeployLatestMetadata: (repoRoot: string, scriptName: string, chainId: number) =>       join(repoRoot, `broadcast`, scriptName, `${chainId}`, `deploy-latest.json`),
     

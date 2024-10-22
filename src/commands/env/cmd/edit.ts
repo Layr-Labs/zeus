@@ -7,6 +7,10 @@ import * as allArgs from '../../args';
 import { editor } from '@inquirer/prompts';
 import { wouldYouLikeToContinue } from '../../prompts';
 import chalk from 'chalk';
+import Ajv from "ajv"
+
+const ajv = new Ajv({allErrors: true});
+
 
 export const loadExistingEnvs = async (txn: Transaction) => {
     const environments = await txn.getDirectory('environment');
@@ -16,6 +20,9 @@ export const loadExistingEnvs = async (txn: Transaction) => {
 async function handler(user: TState, args: {json: boolean |undefined, env: string}): Promise<void> {
     const txn = await user.metadataStore!.begin();
     const envs = await loadExistingEnvs(txn);
+
+    const deploySchemaPath = canonicalPaths.deployParametersSchema('');
+    const deploySchema = await txn.getJSONFile(deploySchemaPath)
 
     const targetEnv = envs.find(e => e.name === args.env);
     if (!targetEnv) {
@@ -29,8 +36,29 @@ async function handler(user: TState, args: {json: boolean |undefined, env: strin
         default: JSON.stringify(deployParams._ ?? {}, null, 2)
     });
     const updatedParams = JSON.parse(updatedParamsText);
-    // TODO: we should validate deploy params...
+    
     // TODO: we should show what the update diff is...
+    if (deploySchema && deploySchema._ && Object.keys(deploySchema._).length > 0) {
+        try {
+            const validate = ajv.compile(deploySchema._);
+            if (!validate(updatedParams)) {
+                console.error(`Failed to validate changes to ${allArgs.env}.deployParameters:`);
+                validate.errors?.map(e => {
+                    console.error(`\t* ${e}`);
+                });
+                return;
+            } else {
+                console.log(chalk.green('✅ validated changes'))
+            }
+        } catch (e) {
+            console.error(`An error occurred while validating your changes. They will not be saved.`);
+            console.error(e);
+            return;
+        }
+    } else {
+        console.warn(`Warning: you have no deploy parameter schema set, so zeus cannot tell if this change will break deploys. Please update ZEUS_HOST://${deploySchemaPath}`);
+    }
+
     if (!await wouldYouLikeToContinue()) {
         console.error(`Abort.`);
         return;
