@@ -30,6 +30,7 @@ export interface Transaction {
     // attempts to commit changes to any of the files previously obtained from `getFile/getJSONFile`.
     // NOTE: making changes without `commit()` will do nothing.
     commit(log: string): Promise<void>;
+    hasChanges(): boolean; // whether committing will do anything.
 }
 
 export interface MetadataStore {

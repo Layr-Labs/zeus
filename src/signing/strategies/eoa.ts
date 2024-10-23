@@ -20,7 +20,7 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
 
     async promptArgs(): Promise<TEOAArgs> {
         const pk = await prompts.privateKey();
-        const rpcUrl = await prompts.rpcUrl();
+        const rpcUrl = await prompts.rpcUrl(this.deploy._.chainId);
         return {
             privateKey: pk!,
             rpcUrl: rpcUrl!,

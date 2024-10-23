@@ -17,6 +17,19 @@ export class GithubTransaction implements Transaction {
     // currently modified files. note that this resets after calling `commit`.
     _files: SavebleDocument<unknown>[] = [];
 
+    hasChanges(): boolean {
+        return !!this._files.find(f => f.dirty);
+    }
+
+    toString(): string {
+        if (!this.hasChanges()) {
+            return "<empty>"
+        } else {
+            const changelog = this._files.filter(f => f.dirty).map(f => f.path)
+            return JSON.stringify(changelog, null, 2);
+        }
+    }
+
     constructor(owner: string, repo: string, branch: string, octokit: Octokit, baseCommitHash: string) {
         this.owner = owner;
         this.repo = repo;

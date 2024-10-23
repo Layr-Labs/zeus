@@ -16,7 +16,6 @@ export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisLedgerArg
         return ["--ledger"];
     }
 
-
     public async promptSubStrategyArgs(): Promise<TGnosisLedgerArgs> {
         return {};
     }

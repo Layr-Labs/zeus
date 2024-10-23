@@ -21,7 +21,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
     abstract promptSubStrategyArgs(): Promise<T>;
 
     public async promptArgs(): Promise<TGnosisBaseArgs & T> {
-        const rpcUrl = await prompts.rpcUrl();
+        const rpcUrl = await prompts.rpcUrl(this.deploy._.chainId);
         const safeAddress = await prompts.safeAddress();
         const baseArgs: TGnosisBaseArgs = {
             safeAddress: safeAddress!,
@@ -45,7 +45,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             case "multisig_execute": {
                 // cancel the transaction.
                 const metadata = deploy._.metadata[deploy._.segmentId] as MultisigMetadata;
-                const rpcUrl = await prompts.rpcUrl();
+                const rpcUrl = await prompts.rpcUrl(deploy._.chainId);
                 const protocolKitOwner1 = await Safe.init({
                     provider: rpcUrl!,
                     signer: await this.getSignerAddress(),

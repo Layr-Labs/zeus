@@ -157,24 +157,27 @@ export abstract class Strategy<TArgs> {
         const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...await this.redactInOutput())}`)}`);
         const spinner = prompt.start();
 
-        const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args);
-        spinner.stop();
-        if (code !== 0) {
-            throw new Error(`Forge script failed with code ${code}: ${stderr}`);
-        }
-
-        // Search for the first line that begins with '{' (--json output)
-        const lines = stdout.split('\n');
-        const jsonLine = lines.find(line => line.trim().startsWith('{'));
-        if (jsonLine) {
-            try {
-                const parsedJson = JSON.parse(jsonLine);
-                return {output: parsedJson};
-            } catch (e) {
-                throw new Error(`Failed to parse JSON: ${e}`);
+        try {
+            const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args);
+            if (code !== 0) {
+                throw new Error(`Forge script failed with code ${code}: ${stderr}`);
             }
-        } else {
-            throw new Error('No JSON output found.');
+
+            // Search for the first line that begins with '{' (--json output)
+            const lines = stdout.split('\n');
+            const jsonLine = lines.find(line => line.trim().startsWith('{'));
+            if (jsonLine) {
+                try {
+                    const parsedJson = JSON.parse(jsonLine);
+                    return {output: parsedJson};
+                } catch (e) {
+                    throw new Error(`Failed to parse JSON: ${e}`);
+                }
+            } else {
+                throw new Error('No JSON output found.');
+            }
+        } finally {
+            spinner.stop();
         }
     }
 
