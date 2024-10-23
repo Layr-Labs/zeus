@@ -38,18 +38,35 @@ async function handler(user: TState): Promise<void> {
     
     // attempt to test it on all environments.
     const areValidEnvironments = await Promise.allSettled(envs.map(async (e) => {
-        const file = await txn.getJSONFile(canonicalPaths.deployParameters('', e.name))
+        const file = await txn.getJSONFile<Record<string, unknown>>(canonicalPaths.deployParameters('', e.name))
+        if (Object.keys(file._).length === 0) {
+            throw new Error(`No environment available.`);
+        }
         return validate(file._) as boolean;
     }))
 
+    console.log('==================')
     areValidEnvironments.forEach((env, i) => {
-        console.log(`* ${(env.status === 'rejected' || !env.value) ? '❌' : '✅'} ${envs[i].name}`)
+        const emoji = (() => {
+            if (env.status === 'rejected') {
+                return '❔'
+            }
+            if (env.value) {
+                return '✅'
+            } else {
+                return '❌'
+            }
+        })();
+        console.log(`* ${emoji} ${envs[i].name}`)
     })
+    console.log('==================')
 
-    const hasInvalidEnvironment = areValidEnvironments.filter(e => e.status === 'rejected' || !e.value);
+    console.log(chalk.italic(`(❔ = no environment parameters set, ❌ = failed validation, ✅ = passed validation)\n`))
+
+    const hasInvalidEnvironment = areValidEnvironments.filter(e => e.status === 'fulfilled' && !e.value);
     if (hasInvalidEnvironment.length > 0) {
         console.warn(`Warning: ${hasInvalidEnvironment.length} environments failed to validate after this change.`)
-        console.warn(`Make sure you're ok with this before proceeding.`);
+        console.warn(`This may cause future deploys to fail.`);
     }
 
     if (!await wouldYouLikeToContinue()) {
