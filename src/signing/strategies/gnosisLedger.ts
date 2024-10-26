@@ -9,8 +9,8 @@ const provider = getDefaultProvider() // TODO(multinetwork)
 type TGnosisLedgerArgs = unknown;
 
 export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisLedgerArgs> {
-    id: string = "gnosis.ledger";
-    description: string = "Gnosis SAFE - signing w/ ledger";
+    id = "gnosis.ledger";
+    description = "Gnosis SAFE - signing w/ ledger";
 
     async forgeArgs(): Promise<string[]> {
         return ["--ledger"];

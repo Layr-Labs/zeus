@@ -9,21 +9,21 @@ import { parseTuples } from "./utils";
 import { TDeploy } from "../../metadata/schema";
 import * as prompts from '../../commands/prompts';
 
-type TEOAArgs = {
+interface TEOAArgs {
     privateKey: string
     rpcUrl: string
-};
+}
 
 export default class EOASigningStrategy extends Strategy<TEOAArgs> {
     id = "eoa";
-    description: string = "Signing w/ private key";
+    description = "Signing w/ private key";
 
     async promptArgs(): Promise<TEOAArgs> {
-        const pk = await prompts.privateKey();
+        const pk = await prompts.privateKey(this.deploy._.chainId);
         const rpcUrl = await prompts.rpcUrl(this.deploy._.chainId);
         return {
-            privateKey: pk!,
-            rpcUrl: rpcUrl!,
+            privateKey: pk,
+            rpcUrl: rpcUrl,
         }
     }
 
@@ -57,7 +57,7 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
         const wallet = privateKeyToAccount(args.privateKey.startsWith('0x') ? args.privateKey as `0x${string}` : `0x${args.privateKey}`)
         console.log(chalk.italic(`Using wallet: ${wallet.address}`));
 
-        const deployLatest = JSON.parse(readFileSync(canonicalPaths.forgeDeployLatestMetadata(getRepoRoot(), basename(pathToUpgrade), deploy.chainId!), {encoding: 'utf-8'}))
+        const deployLatest = JSON.parse(readFileSync(canonicalPaths.forgeDeployLatestMetadata(getRepoRoot(), basename(pathToUpgrade), deploy.chainId), {encoding: 'utf-8'}))
         const {timestamp, chain} = deployLatest;
         const runLatest = JSON.parse(readFileSync(canonicalPaths.forgeRunJson(getRepoRoot(), basename(pathToUpgrade), chain as number, timestamp), {encoding: 'utf-8'}))
         return { 

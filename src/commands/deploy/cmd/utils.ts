@@ -1,6 +1,5 @@
 import { canonicalPaths } from "../../../metadata/paths";
 import { TDeployManifest, TDeployPhase, TSegmentType } from "../../../metadata/schema";
-import { join } from "path";
 import { TDeploy } from "../../../metadata/schema";
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { all } from "../../../signing/strategies/strategies";
@@ -21,39 +20,42 @@ export const advanceSegment = async (deploy: SavebleDocument<TDeploy>) => {
     } else {
         throw new Error(`failed to advance deploy.`);
     }
-    await deploy.save();
 }
 
 export const advance = async (deploy: SavebleDocument<TDeploy>) => {
-    switch (deploy._.phase) {
-        case "":
-            deploy._.segmentId = -1; // set back to -1.
-            advanceSegment(deploy);
-            break;
-        case "eoa_start":
-            deploy._.phase = "eoa_wait_confirm";
-            break;
-        case "eoa_wait_confirm":
-            advanceSegment(deploy);
-            break;
-        case "multisig_start":
-            deploy._.phase = "multisig_wait_signers";
-            break;
-        case "multisig_wait_signers":
-            deploy._.phase = "multisig_execute";
-            break;
-        case "multisig_execute":
-            deploy._.phase = "multisig_wait_confirm";
-            break;
-        case "multisig_wait_confirm":
-            await advanceSegment(deploy);
-            break;
-        case "complete":
-        case "cancelled":
-            // nothing to advance
-            break;
-        default:
-            throw new Error(`Deploy in unknown phase: ${deploy._.phase}`);
+    try {
+        switch (deploy._.phase) {
+            case "":
+                deploy._.segmentId = -1; // set back to -1.
+                advanceSegment(deploy);
+                break;
+            case "eoa_start":
+                deploy._.phase = "eoa_wait_confirm";
+                break;
+            case "eoa_wait_confirm":
+                advanceSegment(deploy);
+                break;
+            case "multisig_start":
+                deploy._.phase = "multisig_wait_signers";
+                break;
+            case "multisig_wait_signers":
+                deploy._.phase = "multisig_execute";
+                break;
+            case "multisig_execute":
+                deploy._.phase = "multisig_wait_confirm";
+                break;
+            case "multisig_wait_confirm":
+                await advanceSegment(deploy);
+                break;
+            case "complete":
+            case "cancelled":
+                // nothing to advance
+                break;
+            default:
+                throw new Error(`Deploy in unknown phase: ${deploy._.phase}`);
+        }
+    } finally {
+        await deploy.save();
     }
 }
 
@@ -70,14 +72,21 @@ export const promptForStrategy = async (deploy: SavebleDocument<TDeploy>, txn: T
     const segment = deploy._.segments[deploy._.segmentId];
     const supportedStrategies = supportedSigners[segment.type]
         .filter(strategyId => {
-            return !!all.find(s => new s(deploy, txn!).id === strategyId);
+            return !!all.find(s => new s(deploy, txn).id === strategyId);
         })
         .map(strategyId => {
-            const strategyClass = all.find(s => new s(deploy, txn!).id === strategyId);
-            return new strategyClass!(deploy, txn!);
+            const strategyClass = all.find(s => new s(deploy, txn).id === strategyId);
+            if (!strategyClass) {
+                throw new Error('invalid branch.'); // for typechecker, since .filter() doesn't refine...
+            }
+            return new strategyClass(deploy, txn);
         });
     const strategyId = await pickStrategy(supportedStrategies, overridePrompt)      
-    return supportedStrategies.find(s => s.id === strategyId)!;      
+    const strat = supportedStrategies.find(s => s.id === strategyId);
+    if (!strat) {
+        throw new Error(`Unknown strategy.`);
+    }      
+    return strat;
 }
 
 export const updateLatestDeploy = async (metadata: Transaction, env: string, deployName: string | undefined, forceOverride = false) => {
@@ -86,8 +95,8 @@ export const updateLatestDeploy = async (metadata: Transaction, env: string, dep
     if (deployManifest?._.inProgressDeploy && !forceOverride) {
         throw new Error('unexpected - deploy already in progress.');
     }    
-    deployManifest!._.inProgressDeploy = deployName;
-    await deployManifest!.save();
+    deployManifest._.inProgressDeploy = deployName;
+    await deployManifest.save();
 }
 
 export async function getActiveDeploy(metadata: Transaction, env: string): Promise<SavebleDocument<TDeploy> | undefined> {
@@ -95,12 +104,9 @@ export async function getActiveDeploy(metadata: Transaction, env: string): Promi
         canonicalPaths.deploysManifest(env)
     );
     if (aggregateDeployManifest?._.inProgressDeploy) {
-        const deployName = aggregateDeployManifest!._.inProgressDeploy;
+        const deployName = aggregateDeployManifest._.inProgressDeploy;
         return await metadata.getJSONFile<TDeploy>(
-            join(
-                canonicalPaths.deployDirectory('', env, deployName),
-                "deploy.json"
-            )
+            canonicalPaths.deployStatus({env, name: deployName})
         );
     }
 }

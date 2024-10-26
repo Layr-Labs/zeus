@@ -8,12 +8,12 @@ export const getRepoRoot = () => {
     return execSync('git rev-parse --show-toplevel').toString('utf-8').trim();
 }
 
-export type TZeusConfig = {
+export interface TZeusConfig {
     zeusHost: string,
     migrationDirectory: string
 }
 
-export type TZeusProfile = {
+export interface TZeusProfile {
     accessToken: string | undefined,
 }
 

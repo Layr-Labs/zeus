@@ -8,7 +8,7 @@ import { GithubJsonDocument } from "./GithubJsonDocument";
  */
 export class GithubTransaction implements Transaction {
     //  the commit that all changes are being made against
-    baseCommitHash: string = '';
+    baseCommitHash = '';
     owner: string;
     repo: string;
     branch: string;
@@ -40,7 +40,7 @@ export class GithubTransaction implements Transaction {
     }
 
     async commit(log: string): Promise<void> {
-        const changedFiles = this._files.filter(f => f.dirty);
+        const changedFiles = this._files.filter(f => !f.upToDate);
         if (!changedFiles || changedFiles.length === 0) {
             return;
         }
@@ -53,7 +53,7 @@ export class GithubTransaction implements Transaction {
         const latestCommitSha = refData.object.sha;
         if (latestCommitSha !== this.baseCommitHash) {
             // someone ran a deploy while you were running. abort.
-            console.error(`Failed to commit metadata -- an update occurred while you were modifying state. Please try again. (latest=${latestCommitSha},base=${this.baseCommitHash})`);
+            console.error(`[txn] Failed to commit metadata -- an update occurred while you were modifying state. Please try again. (latest=${latestCommitSha},base=${this.baseCommitHash})`);
             return;
         }
 
@@ -87,26 +87,39 @@ export class GithubTransaction implements Transaction {
             ref: `heads/${this.branch}`,
             sha: newCommitData.sha,
         });
-        this._files = []; // reset staged changes.
+
+        this._files.forEach(f => f.wasSavedOptimistically()); // indicate that all of these have been updated.
+        this.baseCommitHash = newCommitData.sha;
     }
 
     async getFile(path: string): Promise<SavebleDocument<string>> {
+        const existingFile = this._files.find(f => f.path === path);
+        if (existingFile) {
+            // NOTE: trying to take out a lease on a doc that isn't the same type will mess stuff up.
+            return existingFile as unknown as SavebleDocument<string>;
+        }
+
         const contents = await this.getFileContents(path);
-        const file = new GithubJsonDocument(contents! ?? '', path, true, {
-            owner: this.owner!,
-            repo: this.repo!,
-            octokit: this.octokit!,
-            branch: this.branch!
+        const file = new GithubJsonDocument(contents ?? '', path, true, {
+            owner: this.owner,
+            repo: this.repo,
+            octokit: this.octokit,
+            branch: this.branch
         });
         this._files.push(file);
         return file;
     } 
 
     async getFileContents(path: string): Promise<string | undefined> {
+        const existingFile = this._files.find(f => f.path === path);
+        if (existingFile) {
+            return existingFile.contents;
+        }
+
         try {
-            const response = await this.octokit!.rest.repos.getContent({
-                owner: this.owner!,
-                repo: this.repo!,
+            const response = await this.octokit.rest.repos.getContent({
+                owner: this.owner,
+                repo: this.repo,
                 path,
                 ref: this.baseCommitHash,
             });
@@ -125,9 +138,10 @@ export class GithubTransaction implements Transaction {
         }
     } 
 
+    // TODO: this doesn't take into account files optimistically created in the txn...
     async getDirectory(path: string): Promise<TDirectory> {
         try {
-            const response = await this.octokit!.rest.repos.getContent({
+            const response = await this.octokit.rest.repos.getContent({
                 owner: this.owner,
                 repo: this.repo,
                 path,
@@ -153,8 +167,13 @@ export class GithubTransaction implements Transaction {
     }
 
     async getJSONFile<T>(path: string): Promise<SavebleDocument<T>> {
+        const existingFile = this._files.find(f => f.path === path);
+        if (existingFile) {
+            return existingFile as SavebleDocument<T>;
+        }
+
         const contents = await this.getFileContents(path);
-        const file = new GithubJsonDocument(JSON.parse(contents! ?? '{}'), path, true, { octokit: this.octokit!, owner: this.owner!, repo: this.repo!, branch: this.branch!});
+        const file = new GithubJsonDocument(JSON.parse(contents ?? '{}'), path, true, { octokit: this.octokit, owner: this.owner, repo: this.repo, branch: this.branch});
         this._files.push(file);
         return file;
     }

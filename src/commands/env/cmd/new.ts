@@ -1,13 +1,14 @@
 import {command } from 'cmd-ts';
 import { loadExistingEnvs } from './list';
-import { inRepo, loggedIn, requires, TState } from '../../inject';
+import { assertLoggedIn, inRepo, loggedIn, requires, TState } from '../../inject';
 import { question, select } from '../../utils';
 import { TDeployManifest, TEnvironmentManifest } from '../../../metadata/schema'
 import chalk from 'chalk';
 import { canonicalPaths } from '../../../metadata/paths';
 
-async function handler(user: TState): Promise<void> {
-    const txn = await user.metadataStore!.begin();
+async function handler(_user: TState): Promise<void> {
+    const user = assertLoggedIn(_user);
+    const txn = await user.metadataStore.begin();
 
     const existingEnvs = await loadExistingEnvs(txn);
     const envName = await question({
@@ -41,13 +42,14 @@ async function handler(user: TState): Promise<void> {
         inProgressDeploy: '',
     };
 
-
     const envManifest = await txn.getJSONFile(canonicalPaths.environmentManifest(envName));
     const deployManifest = await txn.getJSONFile(canonicalPaths.deploysManifest(envName));
 
     envManifest._ = envManifestContent;
     deployManifest._ = deployManifestContent
 
+    await envManifest.save();
+    await deployManifest.save();
 
     // Create a new file in the repository (which effectively creates the folder)
     try {

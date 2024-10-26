@@ -1,5 +1,5 @@
 import { command } from "cmd-ts";
-import { inRepo, loggedIn, requires, TState } from "../../inject";
+import { assertLoggedIn, inRepo, loggedIn, requires, TState } from "../../inject";
 import { getActiveDeploy, promptForStrategy, updateLatestDeploy } from "./utils";
 import * as allArgs from '../../args';
 import { TDeploy } from "../../../metadata/schema";
@@ -23,8 +23,10 @@ function isCancelleable(deploy: TDeploy): boolean {
     }
 }
 
-async function handler(user: TState, {env}: {env: string}) {
-    const txn = await user.metadataStore!.begin();
+async function handler(_user: TState, {env}: {env: string}) {
+    const user = assertLoggedIn(_user);
+
+    const txn = await user.metadataStore.begin();
     const deploy = await getActiveDeploy(txn, env);
     if (!deploy) {
         console.error(`No active deploy for environment '${env}'.`);
@@ -36,7 +38,7 @@ async function handler(user: TState, {env}: {env: string}) {
         return;
     }
 
-    const strategy =  await promptForStrategy(deploy!, txn, "Cancelling this deploy requires submitting another multisig transaction, with the same nonce, to replace the outstanding one. How would you like to sign this?");
+    const strategy =  await promptForStrategy(deploy, txn, "Cancelling this deploy requires submitting another multisig transaction, with the same nonce, to replace the outstanding one. How would you like to sign this?");
     try {
         await strategy.cancel(deploy);
         await updateLatestDeploy(txn, env, undefined, true);

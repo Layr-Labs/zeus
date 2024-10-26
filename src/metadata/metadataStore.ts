@@ -4,14 +4,23 @@ export type TDirectory = {
 }[];
 
 export interface SavebleDocument<T> {
+    // latest server-ack'ed contents of the file.
+    contents: string;
+
     path: string;
     save(): Promise<void>;
+
+    // indicate that the file contents were updated out-of-band from this file's save method.
+    wasSavedOptimistically(): void;
 
     // if you were to save right now, what contents would be written?
     pendingSaveableContents(): string;
 
-    // is there anything write?
+    // whether there are unsaved changes.
     dirty: boolean;
+
+    // whether the local saved copy has been pushed to the remote.
+    upToDate: boolean; 
 
     // the contents, that you will typically modify when making changes.
     // SaveableDocument is a wrapper around this, meant to be used like;

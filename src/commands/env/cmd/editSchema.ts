@@ -1,5 +1,5 @@
 import {command} from 'cmd-ts';
-import { loggedIn, requires, TState } from '../../inject';
+import { assertLoggedIn, loggedIn, requires, TState } from '../../inject';
 import { Transaction } from '../../../metadata/metadataStore';
 import { canonicalPaths } from '../../../metadata/paths';
 import { editor } from '@inquirer/prompts';
@@ -15,8 +15,9 @@ export const loadExistingEnvs = async (txn: Transaction) => {
     return environments.filter(e => e.type === 'dir');
 };
 
-async function handler(user: TState): Promise<void> {
-    const txn = await user.metadataStore!.begin();
+async function handler(_user: TState): Promise<void> {
+    const user = assertLoggedIn(_user);
+    const txn = await user.metadataStore.begin();
     const envs = await loadExistingEnvs(txn);
 
     const deploySchemaPath = canonicalPaths.deployParametersSchema('');

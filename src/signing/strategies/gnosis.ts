@@ -2,14 +2,14 @@ import SafeApiKit from "@safe-global/api-kit";
 import Safe from '@safe-global/protocol-kit'
 import { SafeTransaction } from '@safe-global/types-kit';
 import { Strategy, TSignatureRequest } from "../strategy";
-import { parseTuple, SEPOLIA_CHAIN_ID } from "./utils";
+import { parseTuple } from "./utils";
 import ora from "ora";
 import * as prompts from '../../commands/prompts';
 import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../metadata/schema";
 import { updateLatestDeploy } from "../../commands/deploy/cmd/utils";
 import { SavebleDocument } from "../../metadata/metadataStore";
 
-type TGnosisBaseArgs = {
+interface TGnosisBaseArgs {
     safeAddress: string;
     rpcUrl: string;
 }
@@ -24,8 +24,8 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         const rpcUrl = await prompts.rpcUrl(this.deploy._.chainId);
         const safeAddress = await prompts.safeAddress();
         const baseArgs: TGnosisBaseArgs = {
-            safeAddress: safeAddress!,
-            rpcUrl: rpcUrl!,
+            safeAddress: safeAddress,
+            rpcUrl: rpcUrl,
         };
         const subcommandArgs = await this.promptSubStrategyArgs();
         return {
@@ -47,13 +47,13 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                 const metadata = deploy._.metadata[deploy._.segmentId] as MultisigMetadata;
                 const rpcUrl = await prompts.rpcUrl(deploy._.chainId);
                 const protocolKitOwner1 = await Safe.init({
-                    provider: rpcUrl!,
+                    provider: rpcUrl,
                     signer: await this.getSignerAddress(),
                     safeAddress: metadata.multisig
                 });
 
                 const apiKit = new SafeApiKit({
-                    chainId: BigInt(SEPOLIA_CHAIN_ID), // TODO:(multinetwork)
+                    chainId: BigInt(deploy._.chainId),
                 })
                 const tx = await apiKit.getTransaction(metadata.gnosisTransactionHash);
                 if (tx.isExecuted) {
@@ -69,8 +69,11 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
 
                 const strategy = await (async () => {
                     const all = await import('../strategies/strategies');
-                    const strategy = all.all.find(s => new s(deploy, this.metatxn!).id === strategyId);
-                    return new strategy!(deploy, this.metatxn);
+                    const strategy = all.all.find(s => new s(deploy, this.metatxn).id === strategyId);
+                    if (!strategy) {
+                        throw new Error(`Unknown strategy`);
+                    }
+                    return new strategy(deploy, this.metatxn);
                 })();
 
                 const rejectionTxn = await protocolKitOwner1.createRejectionTransaction(tx.nonce);
@@ -110,7 +113,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         const {safeAddress, rpcUrl} = await this.args();
 
         const apiKit = new SafeApiKit({
-            chainId: BigInt(SEPOLIA_CHAIN_ID), // TODO:(multinetwork)
+            chainId: BigInt(this.deploy._.chainId),
         })
 
         const protocolKitOwner1 = await Safe.init({
