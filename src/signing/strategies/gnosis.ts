@@ -2,7 +2,7 @@ import SafeApiKit from "@safe-global/api-kit";
 import Safe from '@safe-global/protocol-kit'
 import { SafeTransaction } from '@safe-global/types-kit';
 import { Strategy, TSignatureRequest } from "../strategy";
-import { parseTuple, SEPOLIA_CHAIN_ID } from "./utils";
+import { parseTuple } from "./utils";
 import ora from "ora";
 import * as prompts from '../../commands/prompts';
 import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../metadata/schema";
@@ -53,7 +53,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                 });
 
                 const apiKit = new SafeApiKit({
-                    chainId: BigInt(SEPOLIA_CHAIN_ID), // TODO:(multinetwork)
+                    chainId: BigInt(deploy._.chainId),
                 })
                 const tx = await apiKit.getTransaction(metadata.gnosisTransactionHash);
                 if (tx.isExecuted) {
@@ -110,7 +110,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         const {safeAddress, rpcUrl} = await this.args();
 
         const apiKit = new SafeApiKit({
-            chainId: BigInt(SEPOLIA_CHAIN_ID), // TODO:(multinetwork)
+            chainId: BigInt(this.deploy._.chainId),
         })
 
         const protocolKitOwner1 = await Safe.init({

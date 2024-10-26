@@ -4,6 +4,7 @@ import { loggedIn, requires, TState } from '../../inject';
 import { Transaction } from '../../../metadata/metadataStore';
 import { TEnvironmentManifest } from '../../../metadata/schema';
 import { canonicalPaths } from '../../../metadata/paths';
+import { chainIdName } from '../../prompts';
 
 export const loadExistingEnvs = async (txn: Transaction) => {
     const environments = await txn.getDirectory('environment');
@@ -21,7 +22,7 @@ async function handler(user: TState, args: {json: boolean |undefined}): Promise<
             console.log(`Found ${envs.length} environment${envs.length > 1 ? 's' : ''}:`)
             const manifests = await Promise.all(envs.map(async e => await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(e.name))))
             const entries = envs.map((e, index) => {
-                return {name: e.name, version: manifests[index]._.deployedVersion ?? '0.0.0'}
+                return {name: e.name, version: manifests[index]._.deployedVersion ?? '0.0.0', chain: chainIdName(manifests[index]._.chainId)}
             });
             console.table(entries);
         } else {

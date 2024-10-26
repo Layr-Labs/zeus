@@ -9,22 +9,29 @@ import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
 import chalk from "chalk";
 import { canonicalPaths } from "../../../metadata/paths";
 import { createPublicClient, http } from "viem";
-import { sepolia } from "viem/chains";
+import * as AllChains from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
-import { Segment, TDeploy, TDeployPhase, TEnvironmentManifest, TUpgrade } from "../../../metadata/schema";
+import { Segment, TDeploy, TDeployLock, TDeployPhase, TEnvironmentManifest, TUpgrade } from "../../../metadata/schema";
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
-import { SEPOLIA_CHAIN_ID } from "../../../signing/strategies/utils";
 import { GnosisEOAStrategy } from "../../../signing/strategies/gnosisEoa";
 import semver from 'semver';
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
+import { execSync } from "child_process";
 
 process.on("unhandledRejection", (error) => {
     console.error(error); // This prints error with stack included (as for normal errors)
     throw error; // Following best practices re-throw error and let the process exit with error code
 });
 
+const getChain = (chainId: number) => {
+    const chain = Object.values(AllChains).find(value => value.id === chainId);
+    if (!chain) {
+        throw new Error(`Unsupported chain ${chainId}`);
+    }
+    return chain;
+}
 
 // check the transactions created by the previous step.
 type TFoundryDeploy  = {
@@ -80,7 +87,7 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
         }
 
         console.log(`Resuming existing deploy... (began at ${deploy._.startTime})`);
-        return await executeOrContinueDeploy(deploy, user, metaTxn, args.rpcUrl);
+        return await executeOrContinueDeployWithLock(deploy._.name, deploy._.env, user, args.rpcUrl);
     } else if (args.resume) {
         console.error(`Nothing to resume.`);
         return;
@@ -114,7 +121,9 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
             }
         }
     });
-    const newDeploy = blankDeploy({name: blankDeployName, chainId: SEPOLIA_CHAIN_ID, env: args.env, upgrade: args.upgrade, upgradePath, segments});
+
+    const envManifest = await metaTxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
+    const newDeploy = blankDeploy({name: blankDeployName, chainId: envManifest._.chainId, env: args.env, upgrade: args.upgrade, upgradePath, segments});
     const deployJsonPath = canonicalPaths.deployStatus({env: args.env, name: blankDeployName});
 
     const deployJson = await metaTxn.getJSONFile<TDeploy>(deployJsonPath);
@@ -122,8 +131,6 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
     await deployJson.save();
 
     const upgradeManifest = await metaTxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(args.upgrade));
-    const envManifest = await metaTxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
-
     if (!semver.satisfies(envManifest!._.deployedVersion ?? '0.0.0', upgradeManifest!._.from)) {
         console.error(`Unsupported upgrade. ${deployJson!._.name} requires an environment meet the following version criteria: (${upgradeManifest!._.from})`);
         console.error(`Environment ${deployJson!._.env} is currently deployed at '${envManifest!._.deployedVersion}'`);
@@ -132,13 +139,100 @@ async function handler(user: TState, args: {env: string, resume: boolean, rpcUrl
 
     console.log(chalk.green(`+ creating deploy: ${deployJsonPath}`));
     console.log(chalk.green(`+ started deploy (${envManifest?._.deployedVersion ?? '0.0.0'}) => (${upgradeManifest!._.to}) (requires: ${upgradeManifest!._.from})`));
-
-    await executeOrContinueDeploy(deployJson, user, metaTxn, args.rpcUrl);
+    await metaTxn.commit(`started deploy: ${deployJson._.env}/${deployJson._.name}`);
+    await executeOrContinueDeployWithLock(deployJson._.name, deployJson._.env, user, args.rpcUrl);
 }
 
-const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: TState, _txn: Transaction, rpcUrl: string | undefined) => {
+const SECONDS = 1000;
+const MINUTES = 60 * SECONDS;
 
-    let metatxn = _txn;
+const currentUser = () => execSync('git config --global user.email').toString('utf-8').trim();
+
+const releaseDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<void> = async (deploy, txn) => {
+    const deployLock = await txn.getJSONFile<TDeployLock>(canonicalPaths.deployLock(deploy));
+    if (deployLock._.holder !== currentUser()) {
+        console.warn(`Cannot release deploy lock for ${deploy.env} -- you do not own this lock. (got: ${deployLock._.holder}, expected: ${currentUser()})`);
+        return;
+    }
+
+    deployLock._.holder = undefined;
+    deployLock._.description = undefined;
+    deployLock._.untilTimestampMs = undefined;
+    await deployLock.save();
+}
+
+const acquireDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<boolean> = async (deploy, txn) => {
+    try {
+        const deployLock = await txn.getJSONFile<TDeployLock>(canonicalPaths.deployLock(deploy));
+        const currentEmail = currentUser();
+
+        const acquireLock = async () => {
+            deployLock._.description = `Deploy ${deploy.name} - ${deploy.segmentId}/${deploy.phase}`;
+            deployLock._.holder = currentEmail;
+            deployLock._.untilTimestampMs = Date.now() + (5 * MINUTES);
+            await deployLock.save();
+            return true;
+        }
+        const isEmptyLock = !deployLock._.holder;
+        if (isEmptyLock) {
+            return await acquireLock();
+        }
+
+        const isStaleLock = deployLock._.holder && deployLock._.untilTimestampMs! < Date.now();
+        if (isStaleLock) {
+            // lock expired.
+            console.warn(`Warning: taking expired deploy lock from ${deployLock._.holder} (${deployLock._.description})`)
+            console.warn(`You might clobber their deploy. Check 'zeus deploy status' for more information...`);
+            return await acquireLock();
+        }
+
+        const isMyLock = deployLock._.holder === currentEmail;
+        if (isMyLock) {
+            // you already have the lock for this deploy. you can resume / continue as needed.
+            return true;
+        }
+
+        console.error(`Deploy lock held by ${deployLock._.holder} (expires ${new Date(deployLock._.untilTimestampMs!)})`)
+        return false;
+    } catch (e) {
+        console.error(`An error occurred acquiring the deploy lock: ${e}`);
+        return false;
+    }
+};
+
+const executeOrContinueDeployWithLock = async (name: string, env: string, user: TState, rpcUrl: string | undefined) => {
+    console.error({name, env});
+    const txn = await user!.metadataStore!.begin();
+    const deploy = await txn.getJSONFile<TDeploy>(canonicalPaths.deployStatus({name, env}))
+    const isLocked = await acquireDeployLock(deploy._, txn)
+    if (!isLocked) {
+        console.error(`Fatal: failed to acquire deploy lock.`);
+        return;
+    } else {
+        if (txn.hasChanges()) {
+            console.log(`committed deploy lock`);
+            await txn.commit(`acquired deploy lock`);
+        } else {
+            console.log(`was locked, but txn had no changes.`);
+        }
+    }
+
+    try {
+        const txn = await user!.metadataStore!.begin();
+        const deploy = await txn.getJSONFile<TDeploy>(canonicalPaths.deployStatus({name, env}))
+        await executeOrContinueDeploy(deploy, user, txn, rpcUrl);
+        if (txn.hasChanges()) {
+            console.warn(`Deploy failed to save all changes. This is a bug.`)
+        }
+    } finally {
+        const tx = await user.metadataStore!.begin();
+        console.log(`Releasing lock.`);
+        await releaseDeployLock(deploy._, tx);
+        await tx.commit('releasing deploy lock');
+    }
+}
+
+const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: TState, metatxn: Transaction, rpcUrl: string | undefined) => {
     try {
         while (true) {
             console.log(chalk.green(`[${deploy._.segments[deploy._.segmentId]?.filename ?? '<none>'}] ${deploy._.phase}`))
@@ -216,7 +310,6 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                             await foundryRun.save();
                             await foundryDeploy.save();
                             await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction`);
-                            metatxn = await user!.metadataStore!.begin();
 
                             console.log(chalk.green(`+ uploaded metadata`));
                         } else {
@@ -240,9 +333,8 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                         throw new Error('foundry.deploy.json was corrupted.');
                     }
 
-                    // TODO:multichain
                     const client = createPublicClient({
-                        chain: sepolia, 
+                        chain: getChain(deploy._.chainId), 
                         transport: http(rpcUrl),
                     })
                     const prompt = ora(`Verifying ${foundryDeploy._.transactions.length} transactions...`);
@@ -263,7 +355,6 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                     await advance(deploy);
                     await deploy.save();
                     await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction confirmed`);
-                    metatxn = await user!.metadataStore!.begin();
 
                     if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
                         console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
@@ -294,7 +385,6 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                         await advance(deploy);
                         await deploy.save();
                         await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction started`);
-                        metatxn = await user!.metadataStore!.begin();
                     } else {
                         console.error(`Missing expected script: ${script}. Please check your local copy and try again.`)
                         return;
@@ -305,7 +395,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                     const multisigDeploy = await metatxn.getJSONFile<TGnosisRequest>(
                         canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})
                     )
-                    const safeApi = new SafeApiKit({chainId: BigInt(SEPOLIA_CHAIN_ID)})
+                    const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId)})
                     const multisigTxn = await safeApi.getTransaction(multisigDeploy!._.safeTxHash);
 
                     if (multisigTxn.confirmations?.length === multisigTxn.confirmationsRequired) {
@@ -313,7 +403,6 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                         await advance(deploy);
                         await deploy.save();
                         await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction signers found`);
-                        metatxn = await user!.metadataStore!.begin();
                     } else {
                         console.error(`Waiting on ${multisigTxn.confirmationsRequired - (multisigTxn.confirmations?.length ?? 0)} more confirmations. `)
                         console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy!._.safeAddress}`)
@@ -327,7 +416,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                     const multisigDeploy = await metatxn.getJSONFile<TGnosisRequest>(
                         canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})
                     )
-                    const safeApi = new SafeApiKit({chainId: BigInt(SEPOLIA_CHAIN_ID)})
+                    const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId)})
                     const multisigTxn = await safeApi.getTransaction(multisigDeploy!._.safeTxHash);
 
                     const multisigTxnPersist = await metatxn.getJSONFile(canonicalPaths.multisigTransaction({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
@@ -346,14 +435,12 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                         deploy._.phase = 'failed';
                         await deploy.save();
                         await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction failed`);
-                        metatxn = await user!.metadataStore!.begin();
                         continue;
                     } else {
                         console.log(chalk.green(`SafeTxn(${multisigDeploy!._.safeTxHash}): executed (${multisigTxn.transactionHash})`))
                         await advance(deploy);
                         await deploy.save();
                         await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction executed`);
-                        metatxn = await user!.metadataStore!.begin();
                     }
                     break;
                 }
@@ -368,24 +455,22 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                     }
 
                     if (multisigTxn._.executionDate && multisigTxn._.transactionHash) {
-                        // check that the 
                         const client = createPublicClient({
-                            chain: sepolia, 
+                            chain: getChain(deploy._.chainId), 
                             transport: http(rpcUrl),
                         })
                         try {
                             const receipt = await client.getTransactionReceipt({hash: multisigTxn._.transactionHash as `0x${string}`});
                             if (receipt.status === 'success') {
                                 console.log(chalk.green(`SafeTxn(${multisigTxn._.safeTxHash}): successful onchain (${receipt.transactionHash})`))
-                                if (deploy._.metadata[deploy._.segmentId]) {
-                                    deploy._.metadata[deploy._.segmentId].confirmed = true;
-                                }
+                                deploy._.metadata[deploy._.segmentId] = {...(deploy._.metadata[deploy._.segmentId] ?? {}), confirmed: true};
                                 await advance(deploy);
                                 await deploy.save();
                                 
                                 if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
                                     console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
                                     console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
+                                    console.log(`Was dirty?: ${metatxn.hasChanges()}`);
                                     await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction success`);
                                     return;
                                 }
@@ -395,7 +480,6 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                                 deploy._.phase = 'failed';
                                 await deploy.save();
                                 await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction failed`);
-                                metatxn = await user!.metadataStore!.begin();
                                 break;
                             } 
                         } catch (e) {
@@ -428,6 +512,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
         }
     }
 }
+
 
 export default command({
     name: 'run',

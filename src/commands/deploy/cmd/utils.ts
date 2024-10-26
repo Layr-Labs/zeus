@@ -1,6 +1,5 @@
 import { canonicalPaths } from "../../../metadata/paths";
 import { TDeployManifest, TDeployPhase, TSegmentType } from "../../../metadata/schema";
-import { join } from "path";
 import { TDeploy } from "../../../metadata/schema";
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { all } from "../../../signing/strategies/strategies";
@@ -21,39 +20,45 @@ export const advanceSegment = async (deploy: SavebleDocument<TDeploy>) => {
     } else {
         throw new Error(`failed to advance deploy.`);
     }
-    await deploy.save();
 }
 
 export const advance = async (deploy: SavebleDocument<TDeploy>) => {
-    switch (deploy._.phase) {
-        case "":
-            deploy._.segmentId = -1; // set back to -1.
-            advanceSegment(deploy);
-            break;
-        case "eoa_start":
-            deploy._.phase = "eoa_wait_confirm";
-            break;
-        case "eoa_wait_confirm":
-            advanceSegment(deploy);
-            break;
-        case "multisig_start":
-            deploy._.phase = "multisig_wait_signers";
-            break;
-        case "multisig_wait_signers":
-            deploy._.phase = "multisig_execute";
-            break;
-        case "multisig_execute":
-            deploy._.phase = "multisig_wait_confirm";
-            break;
-        case "multisig_wait_confirm":
-            await advanceSegment(deploy);
-            break;
-        case "complete":
-        case "cancelled":
-            // nothing to advance
-            break;
-        default:
-            throw new Error(`Deploy in unknown phase: ${deploy._.phase}`);
+    const before = `${deploy._.segmentId}::${deploy._.phase}`
+    try {
+        switch (deploy._.phase) {
+            case "":
+                deploy._.segmentId = -1; // set back to -1.
+                advanceSegment(deploy);
+                break;
+            case "eoa_start":
+                deploy._.phase = "eoa_wait_confirm";
+                break;
+            case "eoa_wait_confirm":
+                advanceSegment(deploy);
+                break;
+            case "multisig_start":
+                deploy._.phase = "multisig_wait_signers";
+                break;
+            case "multisig_wait_signers":
+                deploy._.phase = "multisig_execute";
+                break;
+            case "multisig_execute":
+                deploy._.phase = "multisig_wait_confirm";
+                break;
+            case "multisig_wait_confirm":
+                await advanceSegment(deploy);
+                break;
+            case "complete":
+            case "cancelled":
+                // nothing to advance
+                break;
+            default:
+                throw new Error(`Deploy in unknown phase: ${deploy._.phase}`);
+        }
+    } finally {
+        const after = `${deploy._.segmentId}::${deploy._.phase}`
+        console.log(`Advancing deploy: ${before} -> ${after}`);
+        await deploy.save();
     }
 }
 
@@ -97,10 +102,7 @@ export async function getActiveDeploy(metadata: Transaction, env: string): Promi
     if (aggregateDeployManifest?._.inProgressDeploy) {
         const deployName = aggregateDeployManifest!._.inProgressDeploy;
         return await metadata.getJSONFile<TDeploy>(
-            join(
-                canonicalPaths.deployDirectory('', env, deployName),
-                "deploy.json"
-            )
+            canonicalPaths.deployStatus({env, name: deployName})
         );
     }
 }

@@ -2,7 +2,6 @@ import { privateKeyToAccount } from "viem/accounts";
 import { GnosisSigningStrategy } from "./gnosis";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
-import { SEPOLIA_CHAIN_ID } from "./utils";
 import { privateKey } from "../../commands/prompts";
 
 type TGnosisEOAArgs = {
@@ -19,7 +18,7 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
     }
 
     public async promptSubStrategyArgs(): Promise<TGnosisEOAArgs> {
-        const pk = await privateKey();
+        const pk = await privateKey(this.deploy._.chainId);
         return {
             privateKey: pk!
         }
@@ -38,7 +37,7 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
             types: types as unknown as Record<string, unknown>,
             domain: {
                 verifyingContract: args.safeAddress as `0x${string}`,
-                chainId: SEPOLIA_CHAIN_ID,
+                chainId: this.deploy._.chainId,
             },
             primaryType: 'SafeTx',
             message: {

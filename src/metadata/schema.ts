@@ -101,6 +101,17 @@ export type TUpgrade = {
     commit: string;
 }
 
+export type TDeployLock = {
+    // name of the holder.
+    holder?: string;
+
+    // auto-release the lock after this amount of time. Most locks are for 5 minutes.
+    untilTimestampMs?: number;
+
+    // what the lock-holder was doing.
+    description?: string;
+}
+
 export function isUpgrade(_obj: unknown): _obj is TUpgrade {
     if (typeof _obj !== 'object') {
         console.error(`invalid upgrade.json -- must be a JSON object.`);

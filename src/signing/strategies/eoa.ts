@@ -19,7 +19,7 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
     description: string = "Signing w/ private key";
 
     async promptArgs(): Promise<TEOAArgs> {
-        const pk = await prompts.privateKey();
+        const pk = await prompts.privateKey(this.deploy._.chainId);
         const rpcUrl = await prompts.rpcUrl(this.deploy._.chainId);
         return {
             privateKey: pk!,

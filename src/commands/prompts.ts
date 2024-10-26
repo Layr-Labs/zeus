@@ -1,5 +1,5 @@
 import { isAddress } from 'viem';
-import { question, select } from './utils';
+import { select } from './utils';
 import { privateKeyToAccount } from 'viem/accounts';
 import { search, input, password as inquirerPassword } from '@inquirer/prompts';
 
@@ -53,10 +53,9 @@ const envVarOrPrompt: (args: {
     }
 }
 
-
-export const privateKey = async () => {
+export const privateKey = async (chainId: number) => {
     return await envVarOrPrompt({
-        title: 'Enter an ETH private key',
+        title: `Enter an ETH private key (${chainIdName(chainId)})`,
         isValid: (text) => {
             try {
                 let pk: string | undefined = text;
@@ -104,7 +103,7 @@ const getChainId = async (nodeUrl: string) => {
     }
 }
 
-const chainIdName = (chainId: number) => {
+export const chainIdName = (chainId: number) => {
     switch (chainId) {
         case 1:
             return 'Mainnet'
@@ -116,7 +115,6 @@ const chainIdName = (chainId: number) => {
             return `chains/${chainId}`;
     }
 };
-
 
 export const rpcUrl = async (forChainId: number) => {
     while (true) {
@@ -182,11 +180,15 @@ export const wouldYouLikeToContinue = async (overridePrompt?: string) : Promise<
 }
 
 export const safeAddress = async () => {
-    const res = await question({text: "Enter the address of your Gnosis Multisig SAFE (or $ENV_VAR)",
-        isValid: (text) => isAddress(text) || (text.startsWith('$') && isAddress(process.env[text.substring(1)]!)),
-    })
-    if (res.startsWith('$')) {
-        return process.env[res.substring(1)];
+    while (true) {
+        const result = await envVarOrPrompt({
+            title: `Enter the address of your Gnosis Multisig SAFE (or $ENV_VAR)`,
+            isValid: (text) =>  isAddress(text),
+            directEntryInputType: 'text',
+            envVarSearchMessage: 'Enter a multisig address'
+        })
+        
+        // TODO:check that the SAFE is deployed
+        return result;
     }
-    return res;
 } 

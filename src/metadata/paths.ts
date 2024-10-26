@@ -12,6 +12,8 @@ export const canonicalPaths = {
         "deploy.json"
     ),
 
+    deployLock: (args: {env: string}) => `environment/${args.env}/lock.json`,
+
     // parameters.json
     deployParameters: (repoRoot: string, env: string) => join(canonicalPaths.allDeploysDirectory(repoRoot, env), "parameters.json"),
 

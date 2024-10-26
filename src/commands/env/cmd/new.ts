@@ -41,13 +41,14 @@ async function handler(user: TState): Promise<void> {
         inProgressDeploy: '',
     };
 
-
     const envManifest = await txn.getJSONFile(canonicalPaths.environmentManifest(envName));
     const deployManifest = await txn.getJSONFile(canonicalPaths.deploysManifest(envName));
 
     envManifest._ = envManifestContent;
     deployManifest._ = deployManifestContent
 
+    await envManifest.save();
+    await deployManifest.save();
 
     // Create a new file in the repository (which effectively creates the folder)
     try {

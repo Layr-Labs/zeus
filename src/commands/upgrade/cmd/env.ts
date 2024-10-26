@@ -49,8 +49,7 @@ const handler = async function(user: TState, args: {version: string, env: string
         return;
     }
 
-    // TODO: start sequential deploy.
-    console.error(`TODO: unimplemented`);
+    console.error(`Abort: unimplemented.`);
 };  
 
 const cmd = command({

@@ -1,22 +1,37 @@
 import { SavebleDocument } from '../metadataStore';
 import { Octokit } from 'octokit';
+import tmp from 'tmp';
+import fs from 'fs';
+import { execSync } from 'child_process';
+import path from 'path';
+import chalk from 'chalk';
 
 function jsonDeepCopy<T>(item: T): T {
     return JSON.parse(JSON.stringify({value: item})).value;
 }
 
-export class GithubJsonDocument<T> implements SavebleDocument<T> {
-    updateSaveableString() {
-        if (typeof this._ != 'object') {
-            this._toSave = `${this._}`;
-        } else {
-            this._toSave = JSON.stringify(this._, null, 2);
-        }
+function serialize(item: string | object) {
+    if (typeof item != 'object') {
+        return `${item}`;
+    } else {
+        return JSON.stringify(item, null, 2);
+    }
+}
+
+type TOptions = {
+    verbose?: boolean;
+}
+
+export class GithubJsonDocument<T extends string | object> implements SavebleDocument<T> {
+    wasSavedOptimistically() {
+        this._ = jsonDeepCopy(this._saved);
+        this._remote = jsonDeepCopy(this._saved);
+
+        console.log(chalk.yellow(`[${this.path}] saved! `));
     }
 
     async save(): Promise<void> {
-        this.updateSaveableString();
-        
+        this._saved = jsonDeepCopy(this._);
         if (this.inTransaction) {
             // the actual save operation will occur during `commit`.
             return;
@@ -26,40 +41,60 @@ export class GithubJsonDocument<T> implements SavebleDocument<T> {
     }
 
     get dirty(): boolean {
-        return JSON.stringify(this._) !== JSON.stringify(this._saved);
+        return JSON.stringify(this._saved) !== JSON.stringify(this._remote);
+    }
+
+    get upToDate(): boolean {
+        const up = JSON.stringify(this._saved, null, 2) === JSON.stringify(this._remote, null, 2);
+
+        if (this.options?.verbose) {
+            const filename = path.basename(this.path);
+            const savedTmp = tmp.fileSync({postfix: filename, mode: 0o600});
+            fs.writeFileSync(savedTmp.fd, JSON.stringify(this._saved, null, 2));
+
+            const remoteTmp = tmp.fileSync({postfix: filename, mode: 0o600});
+            fs.writeFileSync(remoteTmp.fd, JSON.stringify(this._remote, null, 2));
+            
+            const diff = execSync(`diff -u ${remoteTmp.name} ${savedTmp.name} || :`).toString('utf-8');
+            console.log(chalk.gray(diff));
+        }
+
+        return up;
     }
 
     pendingSaveableContents(): string {
-        return this._toSave;
+        return serialize(this._saved);
     }
 
     path: string; // repo path of this file.
+
+    // the latest committed up-to-date contents of the file.
+    get contents(): string {
+        return serialize(this._remote);
+    };
+    
+    _saved: T; // contents that have been saved in the local copy.
     _: T; // the contents, that you will typically modify when making changes. (latest, potentially unsaved changes)
-    private _saved: T; // the current up-to-date file from the perspective of `save()`.
-    private _toSave: string; // string contents that should be saved on the next commit in a txn.
+    private _remote: T; // the current up-to-date file.
     
     private inTransaction: boolean;
     private octokit: Octokit;
     private owner: string;
     private repo: string;
     private branch: string;
+    private options?: TOptions;
 
-    constructor(contents: T, path: string, inTransaction: boolean, github: {octokit: Octokit, owner: string, repo: string, branch: string}) {
+    constructor(contents: T, path: string, inTransaction: boolean, github: {octokit: Octokit, owner: string, repo: string, branch: string}, options?: TOptions) {
         this._ = jsonDeepCopy(contents);
         this._saved = jsonDeepCopy(contents);
+        this._remote = jsonDeepCopy(contents);
         this.path = path;
         this.inTransaction = inTransaction;
         this.octokit = github.octokit;
         this.owner = github.owner;
         this.repo = github.repo;
+        this.options = options;
         this.branch = github.branch;
-
-        // this.updateSaveableString();
-        if (typeof this._ == 'string') {
-            this._toSave = this._;
-        } else {
-            this._toSave = JSON.stringify(this._);
-        }
     }
 
     async updateJSON<T>(path: string, contents: T): Promise<void> {
@@ -70,7 +105,6 @@ export class GithubJsonDocument<T> implements SavebleDocument<T> {
     async updateFile(path: string, contents: string): Promise<void> {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const getContent = this.octokit!.rest.repos.getContent;
-
         let response: Awaited<ReturnType<typeof getContent>> | undefined;
         try {
             response = await this.octokit!.rest.repos.getContent({
@@ -108,5 +142,4 @@ export class GithubJsonDocument<T> implements SavebleDocument<T> {
             process.exit(1);
         }
     }
-
 }   
