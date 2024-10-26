@@ -34,7 +34,7 @@ const getChain = (chainId: number) => {
 }
 
 // check the transactions created by the previous step.
-type TFoundryDeploy  = {
+interface TFoundryDeploy {
     transactions: {
         hash: `0x${string}`
     }[]

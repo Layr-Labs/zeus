@@ -2,7 +2,7 @@
 import { select as inquirerSelect, Separator, input, password as inquirerPassword } from '@inquirer/prompts';
 
 
-type Choice<T> = {
+interface Choice<T> {
     name: string;
     value: T;
     description?: string;

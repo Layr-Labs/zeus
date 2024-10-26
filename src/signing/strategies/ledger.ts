@@ -4,7 +4,7 @@ type TLedgerArgs = unknown;
 
 export class LedgerSigningStrategy extends Strategy<TLedgerArgs> {
     id = "ledger";
-    description: string = "Signing w/ ledger";
+    description = "Signing w/ ledger";
 
     async promptArgs(): Promise<TLedgerArgs> {
         return {};

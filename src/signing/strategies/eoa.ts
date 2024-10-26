@@ -9,14 +9,14 @@ import { parseTuples } from "./utils";
 import { TDeploy } from "../../metadata/schema";
 import * as prompts from '../../commands/prompts';
 
-type TEOAArgs = {
+interface TEOAArgs {
     privateKey: string
     rpcUrl: string
-};
+}
 
 export default class EOASigningStrategy extends Strategy<TEOAArgs> {
     id = "eoa";
-    description: string = "Signing w/ private key";
+    description = "Signing w/ private key";
 
     async promptArgs(): Promise<TEOAArgs> {
         const pk = await prompts.privateKey(this.deploy._.chainId);

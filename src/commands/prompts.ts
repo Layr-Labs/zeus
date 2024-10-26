@@ -146,7 +146,7 @@ export const rpcUrl = async (forChainId: number) => {
     }
 } 
 
-type TStrategyModel = {
+interface TStrategyModel {
     id: string,
     description: string
 }

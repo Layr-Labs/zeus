@@ -8,7 +8,7 @@ import { GithubJsonDocument } from "./GithubJsonDocument";
  */
 export class GithubTransaction implements Transaction {
     //  the commit that all changes are being made against
-    baseCommitHash: string = '';
+    baseCommitHash = '';
     owner: string;
     repo: string;
     branch: string;

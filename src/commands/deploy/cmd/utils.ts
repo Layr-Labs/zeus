@@ -23,7 +23,6 @@ export const advanceSegment = async (deploy: SavebleDocument<TDeploy>) => {
 }
 
 export const advance = async (deploy: SavebleDocument<TDeploy>) => {
-    const before = `${deploy._.segmentId}::${deploy._.phase}`
     try {
         switch (deploy._.phase) {
             case "":
@@ -56,8 +55,6 @@ export const advance = async (deploy: SavebleDocument<TDeploy>) => {
                 throw new Error(`Deploy in unknown phase: ${deploy._.phase}`);
         }
     } finally {
-        const after = `${deploy._.segmentId}::${deploy._.phase}`
-        console.log(`Advancing deploy: ${before} -> ${after}`);
         await deploy.save();
     }
 }

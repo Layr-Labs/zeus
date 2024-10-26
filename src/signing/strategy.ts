@@ -9,12 +9,12 @@ import { TDeploy } from '../metadata/schema';
 
 tmp.setGracefulCleanup();
 
-export type Txn = {
+export interface Txn {
     calldata: `0x${string}`
     to: `0x${string}`
 }
 
-type TForgeOutput = {
+interface TForgeOutput {
     output: {
         returns: {
             '0': {
@@ -49,7 +49,7 @@ export interface TGnosisRequest {
 
 export type TSignatureRequest = TForgeRequest | TGnosisRequest;
 
-type Result = {
+interface Result {
     stdout: string;
     stderr: string;
     code: number;       

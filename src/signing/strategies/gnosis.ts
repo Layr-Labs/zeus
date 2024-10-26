@@ -9,7 +9,7 @@ import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../metadata/schema
 import { updateLatestDeploy } from "../../commands/deploy/cmd/utils";
 import { SavebleDocument } from "../../metadata/metadataStore";
 
-type TGnosisBaseArgs = {
+interface TGnosisBaseArgs {
     safeAddress: string;
     rpcUrl: string;
 }

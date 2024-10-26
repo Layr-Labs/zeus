@@ -18,7 +18,7 @@ function serialize(item: string | object) {
     }
 }
 
-type TOptions = {
+interface TOptions {
     verbose?: boolean;
 }
 
@@ -26,8 +26,6 @@ export class GithubJsonDocument<T extends string | object> implements SavebleDoc
     wasSavedOptimistically() {
         this._ = jsonDeepCopy(this._saved);
         this._remote = jsonDeepCopy(this._saved);
-
-        console.log(chalk.yellow(`[${this.path}] saved! `));
     }
 
     async save(): Promise<void> {

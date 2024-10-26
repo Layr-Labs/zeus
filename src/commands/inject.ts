@@ -6,7 +6,7 @@ import { MetadataStore } from '../metadata/metadataStore';
 import { GithubMetadataStore } from '../metadata/github/GithubMetadataStore';
 import { configs } from './configs';
 
-export type TState = {
+export interface TState {
     github?: Octokit | undefined; 
     zeusHostOwner: string | undefined;
     zeusHostRepo: string | undefined;

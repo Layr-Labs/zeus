@@ -1,6 +1,6 @@
 import semver from 'semver';
 
-export type TDeployManifest = {
+export interface TDeployManifest {
     inProgressDeploy?: string;
 }
 
@@ -39,7 +39,7 @@ export enum MultisigPhase {
 }
 export type TMultisigPhase = `${MultisigPhase}`;
 
-export type Deployment = {
+export interface Deployment {
     contract: string; // the contract name
     address: `0x${string}`; // the contract onchain address.
     name?: string; // if singleton'd in the repo, this is the singleton's name.
@@ -47,7 +47,7 @@ export type Deployment = {
 
 export type TSegmentType = "eoa" | "multisig";
 
-export type EOAMetadata = {
+export interface EOAMetadata {
     type: "eoa",
     signer: `0x${string}`,
     transactions: `0x${string}`[],
@@ -55,7 +55,7 @@ export type EOAMetadata = {
     confirmed: boolean, // whether the transactions were confirmed onchain with receipts.
 }
 
-export type MultisigMetadata = {
+export interface MultisigMetadata {
     type: "multisig",
     signer: `0x${string}`, // the signatory to the multisig transaction.
     signerType: "eoa" | "ledger",
@@ -66,13 +66,13 @@ export type MultisigMetadata = {
     cancellationTransactionHash: `0x${string}` | undefined;
 }
 
-export type Segment = {
+export interface Segment {
     id: number;
     filename: string;
     type: TSegmentType;
 }
 
-export type TDeploy = {
+export interface TDeploy {
     name: string;
     env: string;
     upgrade: string;
@@ -93,7 +93,7 @@ export type TDeploy = {
     endTimestamp?: number; // unix ts
 }
 
-export type TUpgrade = {
+export interface TUpgrade {
     name: string;
     from: string; // a semver range, "^0.0.1"
     to: string; // the target to upgrade to. "0.0.2".
@@ -101,7 +101,7 @@ export type TUpgrade = {
     commit: string;
 }
 
-export type TDeployLock = {
+export interface TDeployLock {
     // name of the holder.
     holder?: string;
 
@@ -135,7 +135,7 @@ export function isUpgrade(_obj: unknown): _obj is TUpgrade {
 }
 
 
-export type TUpgradeManifest = {
+export interface TUpgradeManifest {
     upgrades: TUpgrade[];
 }
 

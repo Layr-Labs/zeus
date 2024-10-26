@@ -1,7 +1,7 @@
 import { TUpgrade } from "../../metadata/schema";
 import semver from 'semver';
 
-type TPartialRoute = {
+interface TPartialRoute {
     version: string; // current version, as of this segment.
     upgradePath: string[] // all upgradesApplied
 }
