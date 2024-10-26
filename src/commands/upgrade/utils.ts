@@ -23,7 +23,10 @@ export function findUpgradePaths(from: string, to: string, allUpgrades: TUpgrade
                 }
             });
     while (availableRoutes.length > 0) {
-        const route = availableRoutes.pop()!;
+        const route = availableRoutes.pop();
+        if (!route) {
+            break;
+        }
         if (route.version === to) {
             allPaths.push(route.upgradePath);
             continue;

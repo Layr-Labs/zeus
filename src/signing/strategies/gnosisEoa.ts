@@ -20,7 +20,7 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
     public async promptSubStrategyArgs(): Promise<TGnosisEOAArgs> {
         const pk = await privateKey(this.deploy._.chainId);
         return {
-            privateKey: pk!
+            privateKey: pk
         }
     }
 
@@ -31,7 +31,7 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
 
     async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
         const args = await this.args();
-        const account = privateKeyToAccount(args.privateKey! as `0x${string}`);
+        const account = privateKeyToAccount(args.privateKey as `0x${string}`);
         const types = getEip712TxTypes(version);
         const typedDataParameters = {
             types: types as unknown as Record<string, unknown>,
@@ -55,6 +55,6 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
 
     async getSignerAddress(): Promise<`0x${string}`> {
         const args = await this.args();
-        return privateKeyToAccount(args.privateKey! as `0x${string}`).address;
+        return privateKeyToAccount(args.privateKey as `0x${string}`).address;
     }
 }

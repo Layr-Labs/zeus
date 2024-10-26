@@ -1,6 +1,6 @@
 import {command, positional, string} from 'cmd-ts';
 import {json} from '../../args';
-import { loggedIn, requires, TState } from '../../inject';
+import { assertLoggedIn, loggedIn, requires, TState } from '../../inject';
 import { canonicalPaths } from '../../../metadata/paths';
 import { TEnvironmentManifest, TUpgrade } from '../../../metadata/schema';
 import * as allArgs from '../../args';
@@ -9,9 +9,9 @@ import { wouldYouLikeToContinue } from '../../prompts';
 import chalk from 'chalk';
 import { SavebleDocument } from '../../../metadata/metadataStore';
 
-const handler = async function(user: TState, args: {version: string, env: string}) {
-    const metaTxn = await user.metadataStore!.begin();
-    
+const handler = async function(_user: TState, args: {version: string, env: string}) {
+    const user = assertLoggedIn(_user);
+    const metaTxn = await user.metadataStore.begin();
 
     const upgrades = await metaTxn.getDirectory(canonicalPaths.allUpgrades());
     if (!upgrades) {
@@ -37,11 +37,13 @@ const handler = async function(user: TState, args: {version: string, env: string
 
     console.log(`Found upgrade plan: ${chalk.italic(`(from ${version} to ${args.version})`)}`);
     let prev = version;
-    for (let i = 0; i < upgradePath.length; i++) {
-        const plan = upgradePath[i];
+    for (const plan of upgradePath) {
         const upgrade = availableUpgrades.find(up => up._.name === plan);
-        console.log(`\t• ${upgrade?._.name}: ${prev} -> ${upgrade!._.to}`);
-        prev = upgrade!._.to;
+        if (!upgrade) {
+            throw new Error(`Upgrade ${plan} doesn't exist.`);
+        }
+        console.log(`\t• ${upgrade?._.name}: ${prev} -> ${upgrade._.to}`);
+        prev = upgrade._.to;
     }
 
     if (!await wouldYouLikeToContinue('This will start a series of deploys. Would you like to continue?')) {

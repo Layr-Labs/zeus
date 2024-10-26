@@ -14,6 +14,13 @@ export class GithubMetadataStore implements MetadataStore {
     branch?: string;
     accessToken?: string;
 
+    getOctokit(): Octokit {
+        if (!this.octokit) {
+            throw new Error(`MetadataStore not initialized`);
+        }
+        return this.octokit;
+    }
+
     async login(): Promise<boolean> {
         this.accessToken = await loginToGithub();
         if (this.accessToken) {
@@ -47,7 +54,7 @@ export class GithubMetadataStore implements MetadataStore {
         if (this.branch) {
             return this.branch;
         }
-        const { data: repoData } = await this.octokit!.rest.repos.get({
+        const { data: repoData } = await this.getOctokit().rest.repos.get({
             owner: this.owner,
             repo: this.repo,
         });
@@ -56,12 +63,12 @@ export class GithubMetadataStore implements MetadataStore {
 
     async begin(): Promise<Transaction> {
         const branch = await this.getBranch();
-        const response = await this.octokit!.rest.repos.getBranch({
-            owner: this.owner!,
-            repo: this.repo!,
+        const response = await this.getOctokit().rest.repos.getBranch({
+            owner: this.owner,
+            repo: this.repo,
             branch,
         });
-        return new GithubTransaction(this.owner!, this.repo!, branch, this.octokit!, response.data.commit.sha);
+        return new GithubTransaction(this.owner, this.repo, branch, this.getOctokit(), response.data.commit.sha);
     }
 
     async isLoggedIn(): Promise<boolean> {

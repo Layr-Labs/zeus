@@ -1,6 +1,6 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
-import { loggedIn, requires, TState } from '../../inject';
+import { assertLoggedIn, loggedIn, requires, TState } from '../../inject';
 import { Transaction } from '../../../metadata/metadataStore';
 import { TEnvironmentManifest } from '../../../metadata/schema';
 import { canonicalPaths } from '../../../metadata/paths';
@@ -11,8 +11,9 @@ export const loadExistingEnvs = async (txn: Transaction) => {
     return environments.filter(e => e.type === 'dir');
 };
 
-async function handler(user: TState, args: {json: boolean |undefined}): Promise<void> {
-    const txn = await user.metadataStore!.begin();
+async function handler(_user: TState, args: {json: boolean |undefined}): Promise<void> {
+    const user = assertLoggedIn(_user);
+    const txn = await user.metadataStore.begin();
     const envs = await loadExistingEnvs(txn);
 
     if (args.json) {

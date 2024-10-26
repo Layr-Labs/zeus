@@ -1,6 +1,6 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
-import { inRepo, loggedIn, requires, TState } from '../../inject';
+import { assertLoggedIn, inRepo, loggedIn, requires, TState } from '../../inject';
 import { configs, getRepoRoot } from '../../configs';
 import { search, select } from '@inquirer/prompts';
 import path, { join } from 'path';
@@ -10,9 +10,14 @@ import { execSync } from 'child_process';
 import { isUpgrade, TUpgrade } from '../../../metadata/schema';
 import chalk from 'chalk';
 
-const handler = async function(user: TState) {
-  const metaTxn = await user.metadataStore!.begin();
-  const zeusConfig = (await configs.zeus.load())!;
+const handler = async function(_user: TState) {
+  const user = assertLoggedIn(_user);
+  const metaTxn = await user.metadataStore.begin();
+  const zeusConfig = await configs.zeus.load();
+  if (!zeusConfig) {
+    throw new Error(`Can only run in repo.`);
+  }
+
   const migrationDirectory: string = await search({
     message: 'Upgrade directory name?',
     source: async (input) => {
@@ -108,7 +113,7 @@ const handler = async function(user: TState) {
   const scripts = migrationDirContents.filter(s => s.endsWith('.s.sol'));
 
   console.log(`Creating the following upgrade:`)
-  console.log(`\t${chalk.bold(upgrade!.name)}`);
+  console.log(`\t${chalk.bold(upgrade.name)}`);
   console.log(`\t\trequires: ${upgrade.from}`)
   console.log(`\t\tupgrades to: ${upgrade.to}`)
   console.log(chalk.italic(`\t\tpinned to commit: ${currentBranch}@${currentCommit}`));

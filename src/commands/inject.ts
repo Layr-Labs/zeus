@@ -6,12 +6,30 @@ import { MetadataStore } from '../metadata/metadataStore';
 import { GithubMetadataStore } from '../metadata/github/GithubMetadataStore';
 import { configs } from './configs';
 
+// a super-set of logged in and logged out state.
 export interface TState {
     github?: Octokit | undefined; 
     zeusHostOwner: string | undefined;
     zeusHostRepo: string | undefined;
     environment?: Environment | undefined;
     metadataStore?: MetadataStore | undefined;
+}
+
+export interface TLoggedInState extends TState {
+    metadataStore: MetadataStore
+    github: Octokit
+};
+
+export function isLoggedIn(state: TState): state is TLoggedInState {
+    return !!state.metadataStore && !!state.github;
+}
+
+export function assertLoggedIn(state: TState): TLoggedInState {
+    if (!isLoggedIn(state)) {
+        throw new Error(`requires login`);
+    }
+
+    return state;
 }
 
 // get all zeus-state, from environment variables + repo.
@@ -44,14 +62,13 @@ export async function load(args?: {env: string}): Promise<TState> {
         })
     }
 
-    // logged-out
     return {
         zeusHostOwner,
         zeusHostRepo,
         metadataStore,
-        github: metadataStore ? (metadataStore! as unknown as GithubMetadataStore)?.octokit : undefined,
-        environment: args?.env ? new Environment(args.env!) : undefined,
-    }
+        github: metadataStore ? (metadataStore as unknown as GithubMetadataStore)?.octokit : undefined,
+        environment: args?.env ? new Environment(args.env) : undefined,
+    };
 }
 
 type Predicate = () => Promise<void>
@@ -68,7 +85,7 @@ export function requires<Args extends unknown[], T, Returns>(fn: (user: TState, 
 
 export async function loggedIn(): Promise<void> {
     const state = await load();
-    if (!state.metadataStore || !await state.metadataStore!.isLoggedIn()) {
+    if (!isLoggedIn(state)) {
         console.error(chalk.red('this action requires authentication. please login via `zeus login`'));
         process.exit(1);
     }

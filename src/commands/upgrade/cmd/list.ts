@@ -1,13 +1,14 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
-import { loggedIn, requires, TState } from '../../inject';
+import { assertLoggedIn, loggedIn, requires, TState } from '../../inject';
 import { canonicalPaths } from '../../../metadata/paths';
 import { TEnvironmentManifest, TUpgrade } from '../../../metadata/schema';
 import { envOptional } from '../../args';
 import semver from 'semver';
 
-const handler = async function(user: TState, args: {env: string | undefined}) {
-    const txn = await user.metadataStore!.begin();
+const handler = async function(_user: TState, args: {env: string | undefined}) {
+    const user = assertLoggedIn(_user);
+    const txn = await user.metadataStore.begin();
 
     const forRequiredVersion = await (async () => {
         if (!args.env) {
@@ -44,7 +45,7 @@ const handler = async function(user: TState, args: {env: string | undefined}) {
         if (!data.manifest) {
             console.log(`\t - ${data.name.name} (couldnt load manifest)`);
         } else {
-            console.log(`\t - ${data.name.name} ('${data.manifest!._.name}') - (${data.manifest?._.from}) => ${data.manifest?._.to}`)
+            console.log(`\t - ${data.name.name} ('${data.manifest._.name}') - (${data.manifest?._.from}) => ${data.manifest?._.to}`)
         }
     })
 };

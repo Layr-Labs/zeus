@@ -1,12 +1,13 @@
 import { command } from "cmd-ts";
-import { inRepo, loggedIn, requires, TState } from "../../inject";
+import { assertLoggedIn, inRepo, loggedIn, requires, TState } from "../../inject";
 import chalk from "chalk";
 import * as allArgs from "../../args";
 import { getActiveDeploy } from "./utils";
 import { EOAPhase, MultisigPhase } from "../../../metadata/schema";
 
-async function handler(user: TState, {env}: {env: string}) {
-    const metatxn = await user.metadataStore!.begin();
+async function handler(_user: TState, {env}: {env: string}) {
+    const user = assertLoggedIn(_user);
+    const metatxn = await user.metadataStore.begin();
 
     const deploy = await getActiveDeploy(metatxn, env);
     if (deploy) {
@@ -50,7 +51,7 @@ async function handler(user: TState, {env}: {env: string}) {
                     const metadata = deploy._.metadata[deploy._.segmentId];
                     if (metadata) {
                         for (const key of Object.keys(metadata)) {
-                            console.log(chalk.italic(`\t\t${key} => ${(metadata as Record<string, unknown>)[key]}`))
+                            console.log(chalk.italic(`\t\t${key} => ${(metadata as unknown as Record<string, unknown>)[key]}`))
                         }
                     } else {
                             console.log(chalk.italic(`\n\t\t<no metadata available>\n`))

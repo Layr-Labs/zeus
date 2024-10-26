@@ -27,42 +27,40 @@ const envVarOrPrompt: (args: {
             },
             validate: async (input) => {
                 try {
-                    return args.isValid(process.env[input as string]! ?? '');
+                    return args.isValid(process.env[input as string] ?? '');
                 } catch {
                     return false;
                 }
             }
         })
-        return process.env[envVar]!;
+        return process.env[envVar] ?? '';
     } else {
         switch (args.directEntryInputType) {
             case "password": {
-                const value = await inquirerPassword({
+                return await inquirerPassword({
                     message: args.title,
                     validate: args.isValid,
                     mask: '*'
                 });
-                return value!;
             }
             case "text":
             default: {
-                const value = await input({ message: args.title, validate: args.isValid });
-                return value!;
+                return await input({ message: args.title, validate: args.isValid });
             }
         }
     }
 }
 
 export const privateKey = async (chainId: number) => {
-    return await envVarOrPrompt({
+    const res = await envVarOrPrompt({
         title: `Enter an ETH private key (${chainIdName(chainId)})`,
         isValid: (text) => {
             try {
-                let pk: string | undefined = text;
+                let pk: string = text;
                 if (pk.startsWith("$")) {
-                    pk = process.env[pk.substring(1)];
+                    pk = process.env[pk.substring(1)] ?? '';
                 }
-                if (!pk!.startsWith('0x')) {
+                if (!pk.startsWith('0x')) {
                     pk = `0x${pk}`;
                 }
                 privateKeyToAccount(pk as `0x${string}`);
@@ -74,6 +72,10 @@ export const privateKey = async (chainId: number) => {
         directEntryInputType: 'password',
         envVarSearchMessage: 'Choose an environment variable with an ETH private key'
     })
+    if (!res.startsWith('0x')) {
+        return `0x${res}`;
+    }
+    return res;
 }
 
 const getChainId = async (nodeUrl: string) => {
@@ -122,12 +124,12 @@ export const rpcUrl = async (forChainId: number) => {
             title: `Enter an RPC url (or $ENV_VAR) for ${chainIdName(forChainId)}`,
             isValid: (text) => {
                 try {
-                    let url: string | undefined = text;
+                    let url: string = text;
                     if (url.startsWith("$")) {
-                        url = process.env[url.substring(1)];
+                        url = process.env[url.substring(1)] ?? '';
                     }
 
-                    new URL(url!);
+                    new URL(url);
                     return true;
                 } catch {
                     return false;

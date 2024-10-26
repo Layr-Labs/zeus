@@ -72,14 +72,21 @@ export const promptForStrategy = async (deploy: SavebleDocument<TDeploy>, txn: T
     const segment = deploy._.segments[deploy._.segmentId];
     const supportedStrategies = supportedSigners[segment.type]
         .filter(strategyId => {
-            return !!all.find(s => new s(deploy, txn!).id === strategyId);
+            return !!all.find(s => new s(deploy, txn).id === strategyId);
         })
         .map(strategyId => {
-            const strategyClass = all.find(s => new s(deploy, txn!).id === strategyId);
-            return new strategyClass!(deploy, txn!);
+            const strategyClass = all.find(s => new s(deploy, txn).id === strategyId);
+            if (!strategyClass) {
+                throw new Error('invalid branch.'); // for typechecker, since .filter() doesn't refine...
+            }
+            return new strategyClass(deploy, txn);
         });
     const strategyId = await pickStrategy(supportedStrategies, overridePrompt)      
-    return supportedStrategies.find(s => s.id === strategyId)!;      
+    const strat = supportedStrategies.find(s => s.id === strategyId);
+    if (!strat) {
+        throw new Error(`Unknown strategy.`);
+    }      
+    return strat;
 }
 
 export const updateLatestDeploy = async (metadata: Transaction, env: string, deployName: string | undefined, forceOverride = false) => {
@@ -88,8 +95,8 @@ export const updateLatestDeploy = async (metadata: Transaction, env: string, dep
     if (deployManifest?._.inProgressDeploy && !forceOverride) {
         throw new Error('unexpected - deploy already in progress.');
     }    
-    deployManifest!._.inProgressDeploy = deployName;
-    await deployManifest!.save();
+    deployManifest._.inProgressDeploy = deployName;
+    await deployManifest.save();
 }
 
 export async function getActiveDeploy(metadata: Transaction, env: string): Promise<SavebleDocument<TDeploy> | undefined> {
@@ -97,7 +104,7 @@ export async function getActiveDeploy(metadata: Transaction, env: string): Promi
         canonicalPaths.deploysManifest(env)
     );
     if (aggregateDeployManifest?._.inProgressDeploy) {
-        const deployName = aggregateDeployManifest!._.inProgressDeploy;
+        const deployName = aggregateDeployManifest._.inProgressDeploy;
         return await metadata.getJSONFile<TDeploy>(
             canonicalPaths.deployStatus({env, name: deployName})
         );

@@ -100,11 +100,11 @@ export class GithubTransaction implements Transaction {
         }
 
         const contents = await this.getFileContents(path);
-        const file = new GithubJsonDocument(contents! ?? '', path, true, {
-            owner: this.owner!,
-            repo: this.repo!,
-            octokit: this.octokit!,
-            branch: this.branch!
+        const file = new GithubJsonDocument(contents ?? '', path, true, {
+            owner: this.owner,
+            repo: this.repo,
+            octokit: this.octokit,
+            branch: this.branch
         });
         this._files.push(file);
         return file;
@@ -117,9 +117,9 @@ export class GithubTransaction implements Transaction {
         }
 
         try {
-            const response = await this.octokit!.rest.repos.getContent({
-                owner: this.owner!,
-                repo: this.repo!,
+            const response = await this.octokit.rest.repos.getContent({
+                owner: this.owner,
+                repo: this.repo,
                 path,
                 ref: this.baseCommitHash,
             });
@@ -141,7 +141,7 @@ export class GithubTransaction implements Transaction {
     // TODO: this doesn't take into account files optimistically created in the txn...
     async getDirectory(path: string): Promise<TDirectory> {
         try {
-            const response = await this.octokit!.rest.repos.getContent({
+            const response = await this.octokit.rest.repos.getContent({
                 owner: this.owner,
                 repo: this.repo,
                 path,
@@ -173,7 +173,7 @@ export class GithubTransaction implements Transaction {
         }
 
         const contents = await this.getFileContents(path);
-        const file = new GithubJsonDocument(JSON.parse(contents! ?? '{}'), path, true, { octokit: this.octokit!, owner: this.owner!, repo: this.repo!, branch: this.branch!});
+        const file = new GithubJsonDocument(JSON.parse(contents ?? '{}'), path, true, { octokit: this.octokit, owner: this.owner, repo: this.repo, branch: this.branch});
         this._files.push(file);
         return file;
     }

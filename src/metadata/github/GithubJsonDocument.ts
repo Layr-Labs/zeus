@@ -102,10 +102,10 @@ export class GithubJsonDocument<T extends string | object> implements SavebleDoc
 
     async updateFile(path: string, contents: string): Promise<void> {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const getContent = this.octokit!.rest.repos.getContent;
+        const getContent = this.octokit.rest.repos.getContent;
         let response: Awaited<ReturnType<typeof getContent>> | undefined;
         try {
-            response = await this.octokit!.rest.repos.getContent({
+            response = await this.octokit.rest.repos.getContent({
                 owner: this.owner,
                 repo: this.repo,
                 path,
@@ -124,7 +124,7 @@ export class GithubJsonDocument<T extends string | object> implements SavebleDoc
         }
 
         const fileData = response?.data as { sha: string; content: string; path: string } | undefined;
-        const updatedResponse = await this.octokit!.rest.repos.createOrUpdateFileContents({
+        const updatedResponse = await this.octokit.rest.repos.createOrUpdateFileContents({
             owner: this.owner,
             repo: this.repo,
             path,
