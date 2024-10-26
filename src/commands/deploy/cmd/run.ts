@@ -214,10 +214,7 @@ const executeOrContinueDeployWithLock = async (name: string, env: string, user: 
         return;
     } else {
         if (txn.hasChanges()) {
-            console.log(`committed deploy lock`);
             await txn.commit(`acquired deploy lock`);
-        } else {
-            console.log(`was locked, but txn had no changes.`);
         }
     }
 
@@ -230,7 +227,6 @@ const executeOrContinueDeployWithLock = async (name: string, env: string, user: 
         }
     } finally {
         const tx = await user.metadataStore.begin();
-        console.log(`Releasing lock.`);
         await releaseDeployLock(deploy._, tx);
         await tx.commit('releasing deploy lock');
     }
@@ -474,7 +470,6 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                                 if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
                                     console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
                                     console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
-                                    console.log(`Was dirty?: ${metatxn.hasChanges()}`);
                                     await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction success`);
                                     return;
                                 }
