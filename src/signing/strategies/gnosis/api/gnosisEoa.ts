@@ -1,16 +1,16 @@
 import { privateKeyToAccount } from "viem/accounts";
-import { GnosisSigningStrategy } from "./gnosis";
+import { GnosisSigningStrategy } from "./api";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
-import { privateKey } from "../../commands/prompts";
+import { privateKey } from "../../../../commands/prompts";
 
 interface TGnosisEOAArgs {
     privateKey: string;
 }
 
 export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
-    id = "gnosis.eoa";
-    description = "Gnosis SAFE - signing w/ private key";
+    id = "gnosis.api.eoa";
+    description = "[Not Private] Gnosis SAFE - signing w/ private key using Gnosis API";
     
     async forgeArgs(): Promise<string[]> {
         const args = await this.args();

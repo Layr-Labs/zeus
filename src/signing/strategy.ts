@@ -5,7 +5,7 @@ import { canonicalPaths } from '../metadata/paths';
 import tmp from 'tmp';
 import fs from 'fs';
 import ora from 'ora';
-import { TDeploy } from '../metadata/schema';
+import { TDeploy, TDeployedContractSparse } from '../metadata/schema';
 
 tmp.setGracefulCleanup();
 
@@ -35,7 +35,7 @@ export interface TForgeRequest {
     signedTransactions?: `0x${string}`[] | undefined,
 
     // any contracts known to have been deployed by this operation.
-    deployedContracts?: {contract: string, address: `0x${string}`}[] | undefined,
+    deployedContracts?: TDeployedContractSparse[] | undefined,
 
     ready: boolean,
 }

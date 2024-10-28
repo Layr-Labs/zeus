@@ -66,8 +66,8 @@ async function handler(_user: TState, args: {json: boolean |undefined, env: stri
     }
 
     deployParams._ = updatedParams;
-    if (deployParams.dirty) {
-        await deployParams.save();
+    await deployParams.save();
+    if (deployParams.pendingSaveableContents()) {
         await txn.commit(`Updated environment`);
         console.log(chalk.green(`+ updated environment '${args.env}'`))
     } else {

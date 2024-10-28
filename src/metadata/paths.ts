@@ -12,6 +12,11 @@ export const canonicalPaths = {
         "deploy.json"
     ),
 
+    deployDeployedContracts: (args: {env: string, name: string}) => join(
+        canonicalPaths.deployDirectory('', args.env, args.name),
+        "deployed-contracts.json"
+    ),
+
     deployLock: (args: {env: string}) => `environment/${args.env}/lock.json`,
 
     // parameters.json
@@ -28,6 +33,8 @@ export const canonicalPaths = {
 
     environmentManifest: (envName: string) => `environment/${envName}/manifest.json`,
     deploysManifest: (envName: string) => `environment/${envName}/deploys/deploys.json`,
+
+    contractInformation: (repoRoot: string, contractName: string) => join(repoRoot, `out`, `${contractName}.sol`, `${contractName}.json`),
 
     allUpgrades: () => `upgrade`,
     upgradeManifest: (upgradeName: string) => `upgrade/${upgradeName}/manifest.json`,

@@ -65,7 +65,7 @@ export function isTerminalPhase(state: TDeployPhase): boolean {
 
 export const supportedSigners: Record<TSegmentType, string[]> = {
     "eoa": ["eoa", "ledger"],
-    "multisig": ["gnosis.eoa", "gnosis.ledger"],
+    "multisig": ["gnosis.api.eoa", "gnosis.api.ledger"],
 }
 
 export const promptForStrategy = async (deploy: SavebleDocument<TDeploy>, txn: Transaction, overridePrompt?: string) => {

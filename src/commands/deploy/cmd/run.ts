@@ -8,14 +8,14 @@ import { existsSync, lstatSync } from "fs";
 import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
 import chalk from "chalk";
 import { canonicalPaths } from "../../../metadata/paths";
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, sha256 } from "viem";
 import * as AllChains from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
-import { Segment, TDeploy, TDeployLock, TDeployPhase, TEnvironmentManifest, TUpgrade } from "../../../metadata/schema";
+import { ForgeSolidityMetadata, Segment, TDeploy, TDeployedContractsManifest, TDeployLock, TDeployPhase, TEnvironmentManifest, TUpgrade } from "../../../metadata/schema";
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
-import { GnosisEOAStrategy } from "../../../signing/strategies/gnosisEoa";
+import { GnosisEOAStrategy } from "../../../signing/strategies/gnosis/api/gnosisEoa";
 import semver from 'semver';
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { execSync } from "child_process";
@@ -223,7 +223,7 @@ const executeOrContinueDeployWithLock = async (name: string, env: string, user: 
         const deploy = await txn.getJSONFile<TDeploy>(canonicalPaths.deployStatus({name, env}))
         await executeOrContinueDeploy(deploy, user, txn, rpcUrl);
         if (txn.hasChanges()) {
-            console.warn(`Deploy failed to save all changes. This is a bug.`)
+            console.warn(`Deploy failed to save all changes. If you didn't manually exit, this could be a bug.`)
         }
     } finally {
         const tx = await user.metadataStore.begin();
@@ -246,25 +246,39 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                     break;
                 case "complete": {
                     console.log(`Deploy completed. ✅`);
-                    await updateLatestDeploy(metatxn, deploy._.env, undefined, true);
-
-                    // update deployed version in the environment.
                     const envManifest = await metatxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(deploy._.env));
                     if (!envManifest) {
                         console.error(`Corrupted env manifest.`);
                         return;
                     }
+                    
+                    // update environment's latest deployed contracts.
+                    const deployedContracts = await metatxn.getJSONFile<TDeployedContractsManifest>(canonicalPaths.deployDeployedContracts(deploy._));
+                    if (deployedContracts._?.contracts?.length && deployedContracts._?.contracts?.length > 0) {
+                        if (!envManifest._.contracts) {
+                            envManifest._.contracts = {static: {}, instances: []};
+                        }
+                        const deployedStatic = Object.fromEntries(deployedContracts._.contracts.filter(t => t.singleton).map(t => [t.contract, t]));
+                        const deployedInstances = deployedContracts._.contracts.filter(t => !t.singleton);
+                        envManifest._.contracts.static = {
+                            ...envManifest._.contracts.static,
+                            ...deployedStatic,
+                        }
+                        envManifest._.contracts.instances = [
+                            ...(envManifest._.contracts.instances ?? []),
+                            ...deployedInstances
+                        ];
+                    }
+                    await updateLatestDeploy(metatxn, deploy._.env, undefined, true);
 
                     const upgrade = await metatxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(deploy._.upgrade));
                     if (!upgrade) {
                         console.error(`No upgrade manifest for '${deploy._.upgrade}' found.`);
                         return;
                     }
-
                     envManifest._.deployedVersion = upgrade._.to;
                     envManifest._.latestDeployedCommit = upgrade._.commit;
 
-                    // TODO:(milestone1) how/where do contract addresses get updated...
                     envManifest.save();
                     deploy.save();
                     await metatxn.commit(`Deploy ${deploy._.name} completed!`);
@@ -309,8 +323,30 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
 
                             await foundryRun.save();
                             await foundryDeploy.save();
-                            await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction`);
 
+                            // look up any contracts compiled and their associated bytecode.
+                            const withDeployedBytecodeHashes = sigRequest.deployedContracts?.map((contract) => {
+                                const contractInfo = JSON.parse(fs.readFileSync(canonicalPaths.contractInformation(getRepoRoot(), contract.contract), 'utf-8')) as ForgeSolidityMetadata;
+                                return {
+                                    ...contract,
+                                    deployedBytecodeHash: sha256(contractInfo.deployedBytecode.object),
+                                };
+                            }) || [];
+
+                            const deployedContracts = await metatxn.getJSONFile<TDeployedContractsManifest>(canonicalPaths.deployDeployedContracts(deploy._));
+                            if (!deployedContracts._.contracts) {
+                                deployedContracts._.contracts = [];
+                            }
+
+                            deployedContracts._.contracts.push(...withDeployedBytecodeHashes);
+                            await deployedContracts.save();
+
+                            if (withDeployedBytecodeHashes) {
+                                console.log(`Deployed Contracts:`);
+                                console.table(withDeployedBytecodeHashes);
+                            }
+
+                            await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction`);
                             console.log(chalk.green(`+ uploaded metadata`));
                         } else {
                             console.error(`Deploy failed with ready=false. Please try again.`);

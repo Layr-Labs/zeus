@@ -2,7 +2,7 @@ import { SavebleDocument, Transaction } from '../../metadata/metadataStore';
 import { TDeploy } from '../../metadata/schema';
 import {Strategy} from '../strategy';
 import EOASigningStrategy from './eoa';
-import { GnosisEOAStrategy } from './gnosisEoa';
+import { GnosisEOAStrategy } from './gnosis/api/gnosisEoa';
 //import { GnosisLedgerStrategy } from './gnosisLedger';
 import { LedgerSigningStrategy } from './ledger';
 

@@ -1,4 +1,4 @@
-import { GnosisSigningStrategy } from "./gnosis";
+import { GnosisSigningStrategy } from "./api";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 import { LedgerSigner } from "@ethers-ext/signer-ledger";
@@ -9,8 +9,8 @@ const provider = getDefaultProvider() // TODO(multinetwork)
 type TGnosisLedgerArgs = unknown;
 
 export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisLedgerArgs> {
-    id = "gnosis.ledger";
-    description = "Gnosis SAFE - signing w/ ledger";
+    id = "gnosis.api.ledger";
+    description = "[Not Private] Gnosis SAFE - signing w/ ledger using Gnosis API";
 
     async forgeArgs(): Promise<string[]> {
         return ["--ledger"];

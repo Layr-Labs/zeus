@@ -1,13 +1,13 @@
 import SafeApiKit from "@safe-global/api-kit";
 import Safe from '@safe-global/protocol-kit'
 import { SafeTransaction } from '@safe-global/types-kit';
-import { Strategy, TSignatureRequest } from "../strategy";
-import { parseTuple } from "./utils";
+import { Strategy, TSignatureRequest } from "../../../strategy";
+import { parseTuple } from "../../utils";
 import ora from "ora";
-import * as prompts from '../../commands/prompts';
-import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../metadata/schema";
-import { updateLatestDeploy } from "../../commands/deploy/cmd/utils";
-import { SavebleDocument } from "../../metadata/metadataStore";
+import * as prompts from '../../../../commands/prompts';
+import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/schema";
+import { updateLatestDeploy } from "../../../../commands/deploy/cmd/utils";
+import { SavebleDocument } from "../../../../metadata/metadataStore";
 
 interface TGnosisBaseArgs {
     safeAddress: string;
@@ -45,6 +45,11 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             case "multisig_execute": {
                 // cancel the transaction.
                 const metadata = deploy._.metadata[deploy._.segmentId] as MultisigMetadata;
+                if (!metadata || Object.keys(metadata).length === 0) {
+                    console.log(`Cancelling deploy.`);
+                    await updateLatestDeploy(this.metatxn, deploy._.env, undefined, true); // cancel the deploy.
+                    return;
+                }
                 const rpcUrl = await prompts.rpcUrl(deploy._.chainId);
                 const protocolKitOwner1 = await Safe.init({
                     provider: rpcUrl,
@@ -68,7 +73,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                 ])
 
                 const strategy = await (async () => {
-                    const all = await import('../strategies/strategies');
+                    const all = await import('../../strategies');
                     const strategy = all.all.find(s => new s(deploy, this.metatxn).id === strategyId);
                     if (!strategy) {
                         throw new Error(`Unknown strategy`);

@@ -39,19 +39,13 @@ export enum MultisigPhase {
 }
 export type TMultisigPhase = `${MultisigPhase}`;
 
-export interface Deployment {
-    contract: string; // the contract name
-    address: `0x${string}`; // the contract onchain address.
-    name?: string; // if singleton'd in the repo, this is the singleton's name.
-}
-
 export type TSegmentType = "eoa" | "multisig";
 
 export interface EOAMetadata {
     type: "eoa",
     signer: `0x${string}`,
     transactions: `0x${string}`[],
-    deployments: Deployment[],
+    deployments: TDeployedContractSparse[],
     confirmed: boolean, // whether the transactions were confirmed onchain with receipts.
 }
 
@@ -112,6 +106,63 @@ export interface TDeployLock {
     description?: string;
 }
 
+export interface ForgeSolidityMetadata {
+    abi: unknown[]; // ABI, can be more specific if you know the structure
+    bytecode: {
+      object: string;
+      sourceMap: string;
+      linkReferences: Record<string, unknown>;
+    };
+    deployedBytecode: {
+      object: `0x${string}`;
+      sourceMap: string;
+      linkReferences: Record<string, unknown>;
+    };
+    methodIdentifiers: Record<string, string>;
+    rawMetadata: string;
+    metadata: {
+      compiler: {
+        version: string;
+      };
+      language: string;
+      output: {
+        abi: unknown[];
+        devdoc: {
+          kind: string;
+          methods: Record<string, unknown>;
+          version: number;
+        };
+        userdoc: {
+          kind: string;
+          methods: Record<string, unknown>;
+          version: number;
+        };
+      };
+      settings: {
+        remappings: string[];
+        optimizer: {
+          enabled: boolean;
+          runs: number;
+        };
+        metadata: {
+          bytecodeHash: string;
+        };
+        compilationTarget: Record<string, string>;
+        evmVersion: string;
+        libraries: Record<string, string>;
+      };
+      sources: Record<
+        string,
+        {
+          keccak256: string;
+          urls: string[];
+          license: string;
+        }
+      >;
+    };
+    id: number;
+  };
+
 export function isUpgrade(_obj: unknown): _obj is TUpgrade {
     if (typeof _obj !== 'object') {
         console.error(`invalid upgrade.json -- must be a JSON object.`);
@@ -134,9 +185,23 @@ export function isUpgrade(_obj: unknown): _obj is TUpgrade {
     return true;
 }
 
-
 export interface TUpgradeManifest {
     upgrades: TUpgrade[];
+}
+
+
+export interface TDeployedContractSparse {
+    singleton: boolean;
+    contract: string;
+    address: `0x${string}`;
+}
+
+export interface TDeployedContract extends TDeployedContractSparse {
+    deployedBytecodeHash: `0x${string}`;
+}
+
+export interface TDeployedContractsManifest {
+    contracts: TDeployedContract[]
 }
 
 export interface TEnvironmentManifest {
@@ -146,11 +211,12 @@ export interface TEnvironmentManifest {
 
     deployedVersion: string;                    // '1.0.0'
 
-    /**
-     * important contract addresses for thie environment
-     */
-    contractAddresses: Record<string, string>;      
-    
+    // latest deployed contracts.
+    contracts: {
+        static: Record<string, TDeployedContract>,
+        instances: TDeployedContract[],
+    }
+
     /**
      * Latest commit of your repo deployed in this environment.
      */

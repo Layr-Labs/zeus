@@ -52,7 +52,7 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
         }
 
         const deployedContracts = parseTuples(output.returns['0'].value).map((tuple) => {
-            return {contract: tuple[0], address: tuple[1] as `0x${string}`}
+            return {contract: tuple[0], address: tuple[1] as `0x${string}`, singleton: tuple[2] === 'true'}
         })
         const wallet = privateKeyToAccount(args.privateKey.startsWith('0x') ? args.privateKey as `0x${string}` : `0x${args.privateKey}`)
         console.log(chalk.italic(`Using wallet: ${wallet.address}`));
@@ -60,6 +60,7 @@ export default class EOASigningStrategy extends Strategy<TEOAArgs> {
         const deployLatest = JSON.parse(readFileSync(canonicalPaths.forgeDeployLatestMetadata(getRepoRoot(), basename(pathToUpgrade), deploy.chainId), {encoding: 'utf-8'}))
         const {timestamp, chain} = deployLatest;
         const runLatest = JSON.parse(readFileSync(canonicalPaths.forgeRunJson(getRepoRoot(), basename(pathToUpgrade), chain as number, timestamp), {encoding: 'utf-8'}))
+        
         return { 
             forge: {
                 runLatest,
