@@ -11,11 +11,6 @@ interface TGnosisEOAArgs {
 export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
     id = "gnosis.api.eoa";
     description = "[Not Private] Gnosis SAFE - signing w/ private key using Gnosis API";
-    
-    async forgeArgs(): Promise<string[]> {
-        const args = await this.args();
-        return ["--private-key", args.privateKey, ...await super.forgeArgs()];
-    }
 
     public async promptSubStrategyArgs(): Promise<TGnosisEOAArgs> {
         const pk = await privateKey(this.deploy._.chainId);

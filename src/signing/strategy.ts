@@ -132,10 +132,12 @@ export abstract class Strategy<TArgs> {
 
                 child.stdout.on('data', (data) => {
                     stdoutData += data.toString();
+                    console.log(data.toString());
                 });
 
                 child.stderr.on('data', (data) => {
                     stderrData += data.toString();
+                    console.error(data.toString());
                 });
 
                 child.on('close', (code) => {
@@ -152,6 +154,7 @@ export abstract class Strategy<TArgs> {
     }
 
     async runForgeScript(path: string): Promise<TForgeOutput> {
+        // TODO: should we be running a forge clean?
         const args = ['script', path, ...await this.forgeArgs(), '--json'];
 
         const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...await this.redactInOutput())}`)}`);

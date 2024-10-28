@@ -2,26 +2,23 @@ import { GnosisSigningStrategy } from "./api";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 import { LedgerSigner } from "@ethers-ext/signer-ledger";
-import HIDTransport from "@ledgerhq/hw-transport-node-hid";
+import TransportNodeHid from "@ledgerhq/hw-transport-node-hid";
 import { getDefaultProvider } from 'ethers'
  
-const provider = getDefaultProvider() // TODO(multinetwork)
 type TGnosisLedgerArgs = unknown;
 
 export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisLedgerArgs> {
     id = "gnosis.api.ledger";
     description = "[Not Private] Gnosis SAFE - signing w/ ledger using Gnosis API";
 
-    async forgeArgs(): Promise<string[]> {
-        return ["--ledger"];
-    }
-
     public async promptSubStrategyArgs(): Promise<TGnosisLedgerArgs> {
         return {};
     }
     
     async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
-        const signer = new LedgerSigner(HIDTransport, provider);
+        const provider = getDefaultProvider() // TODO(multinetwork)
+        const transport = await TransportNodeHid.create();
+        const signer = new LedgerSigner(transport, provider);
         const args = await this.args();
         const typedDataArgs = {
             types: getEip712TxTypes(version),
@@ -48,7 +45,9 @@ export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisLedgerArg
     }
 
     async getSignerAddress(): Promise<`0x${string}`> {
-        const signer = new LedgerSigner(HIDTransport, provider);
+        const provider = getDefaultProvider() // TODO(multinetwork)
+        const transport = await TransportNodeHid.create();
+        const signer = new LedgerSigner(transport, provider);
         return await signer.getAddress() as `0x${string}`;
     }
 }

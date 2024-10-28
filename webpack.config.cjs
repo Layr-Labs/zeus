@@ -16,6 +16,9 @@ module.exports = {
       },
     ],
   },
+  externals: {
+    'usb': 'commonjs usb',
+  },
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],
     extensionAlias: {
