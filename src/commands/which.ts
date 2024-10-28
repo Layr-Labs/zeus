@@ -29,15 +29,16 @@ const handler = async function(_user: TState, args: {contract: string, env: stri
         if (!contract) {
             throw new Error(`No such contract '${args.contract}' in ${args.env}`);
         }
+        console.log(JSON.stringify(contract));
     } else {
         // load it in every environment...
         const envs = await loadExistingEnvs(txn);
         const data = (await Promise.allSettled(envs.map(async env => {
             const deployedContract = await findContract(env.name, args.contract, args.instance, txn);
             return {
-                name: env.name,
+                environment: env.name,
                 address: deployedContract?.address ?? '<not deployed>',
-                checksum: deployedContract?.deployedBytecodeHash ?? '?'
+                "bytecode hash": deployedContract?.deployedBytecodeHash ?? '?'
             }
         }))).map(res => {
             switch (res.status) {
