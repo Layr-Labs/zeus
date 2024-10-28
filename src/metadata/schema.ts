@@ -198,6 +198,12 @@ export interface TDeployedContractSparse {
 
 export interface TDeployedContract extends TDeployedContractSparse {
     deployedBytecodeHash: `0x${string}`;
+    // the last deployed upgrade that touched this contract.
+    lastUpdatedIn: {
+        name: string,
+        phase: string;
+        segment: number
+    };
 }
 
 export interface TDeployedContractsManifest {

@@ -330,6 +330,11 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                                 return {
                                     ...contract,
                                     deployedBytecodeHash: sha256(contractInfo.deployedBytecode.object),
+                                    lastUpdatedIn: {
+                                        name: deploy._.name,
+                                        phase: deploy._.phase,
+                                        segment: deploy._.segmentId
+                                    },
                                 };
                             }) || [];
 
