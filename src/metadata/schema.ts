@@ -206,6 +206,10 @@ export interface TDeployedContract extends TDeployedContractSparse {
     };
 }
 
+export interface TDeployedInstance extends TDeployedContract {
+    index: number;
+}
+
 export interface TDeployedContractsManifest {
     contracts: TDeployedContract[]
 }

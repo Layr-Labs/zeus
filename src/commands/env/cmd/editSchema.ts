@@ -1,19 +1,14 @@
 import {command} from 'cmd-ts';
 import { assertLoggedIn, loggedIn, requires, TState } from '../../inject';
-import { Transaction } from '../../../metadata/metadataStore';
 import { canonicalPaths } from '../../../metadata/paths';
 import { editor } from '@inquirer/prompts';
 import { wouldYouLikeToContinue } from '../../prompts';
 import chalk from 'chalk';
 import Ajv from "ajv"
+import { loadExistingEnvs } from './list';
 
 const ajv = new Ajv({allErrors: true});
 
-
-export const loadExistingEnvs = async (txn: Transaction) => {
-    const environments = await txn.getDirectory('environment');
-    return environments.filter(e => e.type === 'dir');
-};
 
 async function handler(_user: TState): Promise<void> {
     const user = assertLoggedIn(_user);

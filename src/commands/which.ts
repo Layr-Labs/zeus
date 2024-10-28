@@ -5,11 +5,7 @@ import * as allArgs from './args';
 import { TDeployedContract, TEnvironmentManifest } from '../metadata/schema';
 import { canonicalPaths } from '../metadata/paths';
 import { Transaction } from '../metadata/metadataStore';
-
-export const loadExistingEnvs = async (txn: Transaction) => {
-    const environments = await txn.getDirectory('environment');
-    return environments.filter(e => e.type === 'dir');
-};
+import { loadExistingEnvs } from './env/cmd/list';
 
 const findContract: ((env: string, contractName: string, instance: number | undefined, txn: Transaction) => Promise<TDeployedContract | undefined>) = async (env, contractName, instance, txn) => {
     const envManifest = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(env));
