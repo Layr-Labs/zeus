@@ -21,9 +21,9 @@
   "license": "ISC",
   "dependencies": {
     "@ethers-ext/signer-ledger": "^6.0.0-beta.1",
-    "@ethersproject/hardware-wallets": "^5.7.0",
     "@inquirer/prompts": "^6.0.1",
     "@inquirer/search": "^3.0.0",
+    "@ledgerhq/errors": "^6.19.1",
     "@ledgerhq/hw-transport-node-hid": "^6.29.5",
     "@safe-global/api-kit": "^2.4.6",
     "@types/bun": "^1.1.9",
@@ -45,7 +45,8 @@
     "semver": "^7.6.3",
     "source-map-support": "^0.5.21",
     "tmp": "^0.2.3",
-    "viem": "^2.21.15"
+    "viem": "^2.21.15",
+    "webpack-node-externals": "^3.0.0"
   },
   "devDependencies": {
     "@babel/preset-typescript": "^7.25.7",

@@ -1,5 +1,6 @@
 const path = require('path');
 const webpack = require("webpack");
+const webpackNodeExternals = require("webpack-node-externals");
 
 module.exports = {
   target: 'node',
@@ -17,7 +18,12 @@ module.exports = {
     ],
   },
   externals: {
-    'usb': 'commonjs usb',
+    'usb': 'commonjs usb', 
+    'node-hid': 'node-hid',
+    '@ledgerhq/hw-transport-node-hid': 'commonjs @ledgerhq/hw-transport-node-hid',
+    'bufferutil': 'bufferutil',
+    'utf-8-validate': 'utf-8-validate',
+    ...webpackNodeExternals(),
   },
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],

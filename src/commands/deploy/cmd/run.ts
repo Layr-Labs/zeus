@@ -37,7 +37,7 @@ const getChain = (chainId: number) => {
 interface TFoundryDeploy {
     transactions: {
         hash: `0x${string}`
-    }[]
+    }[] | undefined;
 }
 
 const blankDeploy = (args: {env: string, chainId: number, upgrade: string, upgradePath: string, name: string, segments: Segment[]}) => {
@@ -318,8 +318,8 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                             const foundryRun = await metatxn.getJSONFile(canonicalPaths.foundryRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}));
                             const foundryDeploy = await metatxn.getJSONFile<TFoundryDeploy>(canonicalPaths.foundryDeploy({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}));
                             
-                            foundryRun._ = sigRequest.forge?.runLatest;
-                            foundryDeploy._ = sigRequest.forge?.deployLatest as TFoundryDeploy;
+                            foundryRun._ = (sigRequest.forge?.runLatest ?? {}) as TFoundryDeploy;
+                            foundryDeploy._ = (sigRequest.forge?.deployLatest ?? {}) as TFoundryDeploy;
 
                             await foundryRun.save();
                             await foundryDeploy.save();
@@ -378,20 +378,22 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                         chain: getChain(deploy._.chainId), 
                         transport: http(rpcUrl),
                     })
-                    const prompt = ora(`Verifying ${foundryDeploy._.transactions.length} transactions...`);
-                    const spinner = prompt.start();
-                    for (const txn of foundryDeploy._.transactions) {
-                        if (txn?.hash) {
-                            const receipt = await client.getTransactionReceipt({hash: txn.hash});
-                            if (receipt.status !== "success") {
-                                console.error(`Transaction(${txn}) did not succeed: ${receipt.status}`)
-                                return;
-                                // TODO: what is the step forward here for the user?
+                    if (foundryDeploy._.transactions?.length) {
+                        const prompt = ora(`Verifying ${foundryDeploy._.transactions?.length ?? 0} transactions...`);
+                        const spinner = prompt.start();
+                        for (const txn of (foundryDeploy._.transactions ?? [])) {
+                            if (txn?.hash) {
+                                const receipt = await client.getTransactionReceipt({hash: txn.hash});
+                                if (receipt.status !== "success") {
+                                    console.error(`Transaction(${txn}) did not succeed: ${receipt.status}`)
+                                    return;
+                                    // TODO: what is the step forward here for the user?
+                                }
                             }
                         }
+                        spinner.stopAndPersist();
                     }
 
-                    spinner.stopAndPersist();
                     deploy._.metadata[deploy._.segmentId].confirmed = true;
                     await advance(deploy);
                     await deploy.save();

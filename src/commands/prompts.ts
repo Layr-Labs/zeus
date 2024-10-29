@@ -12,12 +12,12 @@ const envVarOrPrompt: (args: {
     const answer = await select({
         prompt: `Choose method - ${args.title}`,
         choices: [{
-            name: 'Enter directly in terminal',
-            value: 'enter_directly',
-        }, {
             name: 'Use an $ENV_VAR',
             value: 'env_var'
-        }]
+        },{
+            name: 'Enter directly in terminal',
+            value: 'enter_directly',
+        }, ]
     });
     if (answer === 'env_var') {
         const envVar = await search<string>({
@@ -179,6 +179,16 @@ export const wouldYouLikeToContinue = async (overridePrompt?: string) : Promise<
         }]
     });
     return res === 'yes';
+}
+
+export const pressAnyButtonToContinue = async (overridePrompt?: string) : Promise<void> => {
+    await select({
+        prompt: overridePrompt ?? "Press any button to continue.",
+        choices: [{
+            name: 'yes',
+            value: 'yes',
+        }]
+    });
 }
 
 export const safeAddress = async () => {

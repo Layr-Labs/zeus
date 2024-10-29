@@ -166,14 +166,21 @@ export class GithubTransaction implements Transaction {
         }
     }
 
-    async getJSONFile<T>(path: string): Promise<SavebleDocument<T>> {
+    async getJSONFile<T extends object>(path: string): Promise<SavebleDocument<T>> {
         const existingFile = this._files.find(f => f.path === path);
         if (existingFile) {
             return existingFile as SavebleDocument<T>;
         }
 
         const contents = await this.getFileContents(path);
-        const file = new GithubJsonDocument(JSON.parse(contents ?? '{}'), path, true, { octokit: this.octokit, owner: this.owner, repo: this.repo, branch: this.branch});
+        let obj: T | undefined = undefined;
+        try {
+            obj = JSON.parse(contents ?? '{}') as T;
+        } catch {
+            console.warn(`${path} was read as a JSON file but doesn't have valid JSON.`);
+        }
+
+        const file = new GithubJsonDocument<T>(obj ?? {} as T, path, true, { octokit: this.octokit, owner: this.owner, repo: this.repo, branch: this.branch});
         this._files.push(file);
         return file;
     }

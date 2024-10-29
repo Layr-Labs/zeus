@@ -50,10 +50,11 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                     await updateLatestDeploy(this.metatxn, deploy._.env, undefined, true); // cancel the deploy.
                     return;
                 }
+                const signer = await this.getSignerAddress();
                 const rpcUrl = await prompts.rpcUrl(deploy._.chainId);
                 const protocolKitOwner1 = await Safe.init({
                     provider: rpcUrl,
-                    signer: await this.getSignerAddress(),
+                    signer,
                     safeAddress: metadata.multisig
                 });
 
@@ -89,11 +90,11 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                     safeAddress: metadata.multisig,
                     safeTransactionData: rejectionTxn.data,
                     safeTxHash: hash,
-                    senderAddress: await (strategy as unknown as GnosisSigningStrategy<unknown>).getSignerAddress(),
+                    senderAddress: signer,
                     senderSignature: await (strategy as unknown as GnosisSigningStrategy<unknown>).getSignature(safeVersion, rejectionTxn),
                 })
+                
                 // TODO: there should be a "pending cancellation" phase.
-
                 deploy._.phase = 'cancelled';
                 (deploy._.metadata[deploy._.segmentId] as MultisigMetadata).cancellationTransactionHash = hash;
                 await updateLatestDeploy(this.metatxn, deploy._.env, undefined, true); // cancel the deploy.
@@ -121,9 +122,10 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             chainId: BigInt(this.deploy._.chainId),
         })
 
+        const signer = await this.getSignerAddress();
         const protocolKitOwner1 = await Safe.init({
             provider: rpcUrl,
-            signer: await this.getSignerAddress(),
+            signer,
             safeAddress: safeAddress
         });
 
@@ -141,33 +143,30 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
 
         let prompt = ora(`Creating transaction...`);
         let spinner = prompt.start();
-
         const hash = await protocolKitOwner1.getTransactionHash(txn)
         const version = await protocolKitOwner1.getContractVersion();
-        const senderAddress = await this.getSignerAddress();
-
         spinner.stop();
 
-        prompt = ora(`Signing transaction...`);
-        spinner = prompt.start();
         const senderSignature = await this.getSignature(version, txn)
-        spinner.stop();
         
         prompt = ora(`Sending transction to Gnosis SAFE UI...`);
         spinner = prompt.start();
-        await apiKit.proposeTransaction({
-            safeAddress,
-            safeTransactionData: txn.data,
-            safeTxHash: hash,
-            senderAddress,
-            senderSignature,
-        })
-        spinner.stop();
+        try {
+            await apiKit.proposeTransaction({
+                safeAddress,
+                safeTransactionData: txn.data,
+                safeTxHash: hash,
+                senderAddress: signer,
+                senderSignature,
+            })
+        } finally {
+            spinner.stop();
+        }
 
         return {
             safeAddress: safeAddress as `0x${string}`,
             safeTxHash: hash as `0x${string}`,
-            senderAddress,
+            senderAddress: signer,
             signature: senderSignature,
         }
     }

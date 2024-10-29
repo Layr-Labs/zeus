@@ -38,7 +38,7 @@ async function handler(_user: TState, {env}: {env: string}) {
         return;
     }
 
-    const strategy =  await promptForStrategy(deploy, txn, "Cancelling this deploy requires submitting another multisig transaction, with the same nonce, to replace the outstanding one. How would you like to sign this?");
+    const strategy =  await promptForStrategy(deploy, txn, "Cancelling this deploy may require submitting another multisig transaction, with the same nonce, to replace the outstanding one. How would you like to sign this?");
     try {
         await strategy.cancel(deploy);
         await updateLatestDeploy(txn, env, undefined, true);

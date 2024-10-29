@@ -34,7 +34,7 @@ export interface Transaction {
     // loads from the same atomic point.
     getFile(path: string): Promise<SavebleDocument<string>>;
     getDirectory(path: string): Promise<TDirectory>;
-    getJSONFile<T>(path: string): Promise<SavebleDocument<T>>;
+    getJSONFile<T extends object>(path: string): Promise<SavebleDocument<T>>;
 
     // attempts to commit changes to any of the files previously obtained from `getFile/getJSONFile`.
     // NOTE: making changes without `commit()` will do nothing.
