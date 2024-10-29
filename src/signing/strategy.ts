@@ -161,10 +161,14 @@ export abstract class Strategy<TArgs> {
 
         const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...await this.redactInOutput())}`)}`);
         const spinner = prompt.start();
-        const injectedEnv = await injectableEnvForEnvironment(this.metatxn, this.deploy._.env);
+        
+        const latestEnv = await injectableEnvForEnvironment(this.metatxn, this.deploy._.env);
+
 
         try {
-            const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args, injectedEnv);
+            const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args, {
+                ...latestEnv
+            });
             if (code !== 0) {
                 throw new Error(`Forge script failed with code ${code}: ${stderr}`);
             }

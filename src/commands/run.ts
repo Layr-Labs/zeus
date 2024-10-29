@@ -4,7 +4,7 @@ import { assertLoggedIn, inRepo, loggedIn, requires, TState } from './inject';
 import { loadExistingEnvs } from './env/cmd/list';
 import { execSync } from 'child_process';
 import { canonicalPaths } from '../metadata/paths';
-import { TDeployedContract, TEnvironmentManifest } from '../metadata/schema';
+import { TDeployedContract, TDeployedContractsManifest, TEnvironmentManifest } from '../metadata/schema';
 import { TDeployedInstance } from '../metadata/schema';
 import * as allArgs from './args';
 import { Transaction } from '../metadata/metadataStore';
@@ -26,12 +26,22 @@ export const contractsToEnvironmentVariables: (statics: TDeployedContract[], ins
     ])
 }
 
-export const injectableEnvForEnvironment = async (txn: Transaction, env: string) => {
-    const deployedContracts = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(env));
-    const statics = deployedContracts._.contracts?.static ?? {};
+// if `withDeploy` is specified, we also inject instances/statics updated as part of the deploy.
+export const injectableEnvForEnvironment = async (txn: Transaction, env: string, withDeploy?: string) => {
+    const envManifest = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(env));
+    const deployManifest: TDeployedContractsManifest = withDeploy ? (await txn.getJSONFile<TDeployedContractsManifest>(canonicalPaths.deployDeployedContracts({env, name: withDeploy})))._ : {contracts: []};
+
+    const deployStatics = Object.fromEntries(deployManifest.contracts.filter(c => c.singleton).map(c => [c.contract, c]))
+    const deployInstances = deployManifest.contracts.filter(c => !c.singleton);
+
+    const statics = {
+        ...(envManifest._.contracts?.static ?? {}),
+        ...(deployStatics ?? {})
+    };
 
     // group by `cur.contract`    
-    const instancesByContract = deployedContracts._.contracts?.instances.reduce((accum, cur) => {
+    const allInstances = [...(envManifest._.contracts?.instances ?? []), ...(deployInstances )]
+    const instancesByContract = allInstances.reduce((accum, cur) => {
         if (!cur.singleton) {
             accum[cur.contract] = [...(accum[cur.contract] || []), cur];
         }
@@ -46,8 +56,8 @@ export const injectableEnvForEnvironment = async (txn: Transaction, env: string)
     return {
         ...(contractsToEnvironmentVariables(Object.values(statics), instances)),
         ZEUS_ENV: env,
-        ZEUS_ENV_COMMIT: deployedContracts._.latestDeployedCommit,
-        ZEUS_ENV_VERSION: deployedContracts._.deployedVersion,
+        ZEUS_ENV_COMMIT: envManifest._.latestDeployedCommit,
+        ZEUS_ENV_VERSION: envManifest._.deployedVersion,
     }
 }
 
