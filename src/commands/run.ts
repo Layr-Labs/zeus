@@ -7,32 +7,31 @@ import { canonicalPaths } from '../metadata/paths';
 import { TDeployedContract, TEnvironmentManifest } from '../metadata/schema';
 import { TDeployedInstance } from '../metadata/schema';
 import * as allArgs from './args';
+import { Transaction } from '../metadata/metadataStore';
 
 const normalizeContractName = (contractName: string): string => {
     // Remove any .sol ending
-    let normalized = contractName.replace(/\.sol$/i, '');
+    const normalized = contractName.replace(/\.sol$/i, '');
 
     // Convert any random characters (non-alphanumeric) to '_'
-    normalized = normalized.replace(/[^a-zA-Z0-9]/g, '_');
-
-    // Uppercase all characters
-    return normalized.toUpperCase();
+    return normalized.replace(/[^a-zA-Z0-9]/g, '_');
 };
 
-const handler = async function(_user: TState, args: {env: string, command: string}) {
-    const user = assertLoggedIn(_user);
-    const txn = await user.metadataStore?.begin();
-    const envs = await loadExistingEnvs(txn);
+export const contractsToEnvironmentVariables: (statics: TDeployedContract[], instances: TDeployedInstance[]) => Record<string, string> = (statics, instances) => {
+    const deployedSingletons = Object.values(statics).map(singleton => [`ZEUS_DEPLOYED_${normalizeContractName(singleton.contract)}`, singleton.address]) ?? {};
+    const deployedInstances = instances.map(inst => [`ZEUS_DEPLOYED_${normalizeContractName(inst.contract)}_${inst.index}`, inst.address]) ?? {};
+    return Object.fromEntries([
+        ...deployedSingletons,
+        ...deployedInstances
+    ])
+}
 
-    if (!envs.find(e => e.name === args.env)) {
-        console.error(`No such environment.`);
-        return;
-    }
-    const deployedContracts = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
+export const injectableEnvForEnvironment = async (txn: Transaction, env: string) => {
+    const deployedContracts = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(env));
     const statics = deployedContracts._.contracts?.static ?? {};
 
+    // group by `cur.contract`    
     const instancesByContract = deployedContracts._.contracts?.instances.reduce((accum, cur) => {
-        // group by `cur.contract`
         if (!cur.singleton) {
             accum[cur.contract] = [...(accum[cur.contract] || []), cur];
         }
@@ -44,15 +43,27 @@ const handler = async function(_user: TState, args: {env: string, command: strin
         return accum;
     }, [] as TDeployedInstance[])
 
+    return {
+        ...(contractsToEnvironmentVariables(Object.values(statics), instances)),
+        ZEUS_ENV: env,
+        ZEUS_ENV_COMMIT: deployedContracts._.latestDeployedCommit,
+        ZEUS_ENV_VERSION: deployedContracts._.deployedVersion,
+    }
+}
 
-    const deployedSingletons = Object.values(statics).map(singleton => [`DEPLOYED_${normalizeContractName(singleton.contract)}`, singleton.address]) ?? {};
-    const deployedInstances = instances.map(inst => [`DEPLOYED_${normalizeContractName(inst.contract)}_${inst.index}`, inst.address]) ?? {};
+// 
 
-    const contracts = Object.fromEntries([
-        ...deployedSingletons,
-        ...deployedInstances,
-    ])
-    execSync(args.command, {stdio: 'inherit', env: {...contracts, ZEUS_ENV: args.env, ZEUS_ENV_COMMIT: deployedContracts._.latestDeployedCommit, ZEUS_ENV_VERSION: deployedContracts._.deployedVersion, ...process.env}});
+const handler = async function(_user: TState, args: {env: string, command: string}) {
+    const user = assertLoggedIn(_user);
+    const txn = await user.metadataStore?.begin();
+    const envs = await loadExistingEnvs(txn);
+
+    if (!envs.find(e => e.name === args.env)) {
+        console.error(`No such environment.`);
+        return;
+    }
+    const env = await injectableEnvForEnvironment(txn, args.env);
+    execSync(args.command, {stdio: 'inherit', env: {...env, ...process.env}});
 };
 
 const cmd = command({

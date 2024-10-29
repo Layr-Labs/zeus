@@ -387,7 +387,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: T
                                 if (receipt.status !== "success") {
                                     console.error(`Transaction(${txn}) did not succeed: ${receipt.status}`)
                                     return;
-                                    // TODO: what is the step forward here for the user?
+                                    // TODO: what is the step forward here for the user? (push deploy back a phase)
                                 }
                             }
                         }

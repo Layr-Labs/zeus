@@ -6,6 +6,7 @@ import tmp from 'tmp';
 import fs from 'fs';
 import ora from 'ora';
 import { TDeploy, TDeployedContractSparse } from '../metadata/schema';
+import { injectableEnvForEnvironment } from '../commands/run';
 
 tmp.setGracefulCleanup();
 
@@ -122,10 +123,13 @@ export abstract class Strategy<TArgs> {
     }
 
     // for mocking.
-    static runWithArgs(cmd: string, args: string[]): Promise<Result> {
+    static runWithArgs(cmd: string, args: string[], env: Record<string, string>): Promise<Result> {
         return new Promise((resolve, reject) => {
             try {
-                const child = spawn(cmd, args, {stdio: 'pipe'});
+                const child = spawn(cmd, args, {stdio: 'pipe', env: {
+                    ...process.env,
+                    ...env,
+                }});
 
                 let stdoutData = '';
                 let stderrData = '';
@@ -157,9 +161,10 @@ export abstract class Strategy<TArgs> {
 
         const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...await this.redactInOutput())}`)}`);
         const spinner = prompt.start();
+        const injectedEnv = await injectableEnvForEnvironment(this.metatxn, this.deploy._.env);
 
         try {
-            const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args);
+            const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args, injectedEnv);
             if (code !== 0) {
                 throw new Error(`Forge script failed with code ${code}: ${stderr}`);
             }
