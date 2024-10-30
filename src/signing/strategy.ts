@@ -162,8 +162,10 @@ export abstract class Strategy<TArgs> {
         const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...await this.redactInOutput())}`)}`);
         const spinner = prompt.start();
         
-        const latestEnv = await injectableEnvForEnvironment(this.metatxn, this.deploy._.env);
-
+        // when we run scripts, we inject;
+        //  1- the latest available environment, and
+        //  2- any additional scripts deployed on top.
+        const latestEnv = await injectableEnvForEnvironment(this.metatxn, this.deploy._.env, this.deploy._.name);
 
         try {
             const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args, {
