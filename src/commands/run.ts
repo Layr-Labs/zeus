@@ -10,12 +10,16 @@ import * as allArgs from './args';
 import { Transaction } from '../metadata/metadataStore';
 import { zeus as zeusInfo } from '../metadata/meta';
 
+const normalize = (str: string) => {
+    return str.replace(/[^a-zA-Z0-9]/g, '_');
+}
+
 const normalizeContractName = (contractName: string): string => {
     // Remove any .sol ending
     const normalized = contractName.replace(/\.sol$/i, '');
 
     // Convert any random characters (non-alphanumeric) to '_'
-    return normalized.replace(/[^a-zA-Z0-9]/g, '_');
+    return normalize(normalized);
 };
 
 export const contractsToEnvironmentVariables: (statics: TDeployedContract[], instances: TDeployedInstance[]) => Record<string, string> = (statics, instances) => {
@@ -27,13 +31,30 @@ export const contractsToEnvironmentVariables: (statics: TDeployedContract[], ins
     ])
 }
 
+export const deployParametersToEnvironmentVariables: (parameters: Record<string, string> | undefined) => Record<string, string> = (parameters) => {
+    if (!parameters) {
+        return {};
+    }
+
+    // TODO: no nesting in configs. (?)
+    return Object.fromEntries(Object.keys(parameters).map(key => {
+        return [`ZEUS_ENV_${normalize(key)}`, parameters[key]]
+    }))
+}
+
+
 // if `withDeploy` is specified, we also inject instances/statics updated as part of the deploy.
 export const injectableEnvForEnvironment = async (txn: Transaction, env: string, withDeploy?: string) => {
     const envManifest = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(env));
     const deployManifest: TDeployedContractsManifest = withDeploy ? (await txn.getJSONFile<TDeployedContractsManifest>(canonicalPaths.deployDeployedContracts({env, name: withDeploy})))._ : {contracts: []};
 
-    const deployStatics = Object.fromEntries(deployManifest.contracts.filter(c => c.singleton).map(c => [c.contract, c]))
-    const deployInstances = deployManifest.contracts.filter(c => !c.singleton);
+    const deployParameters = await txn.getJSONFile<Record<string, string>>(canonicalPaths.deployParameters(
+        '',
+        env,
+    ));
+    
+    const deployStatics = Object.fromEntries(deployManifest.contracts?.filter(c => c.singleton).map(c => [c.contract, c]) ?? [])
+    const deployInstances = deployManifest.contracts?.filter(c => !c.singleton) ?? [];
 
     const statics = {
         ...(envManifest._.contracts?.static ?? {}),
@@ -55,6 +76,7 @@ export const injectableEnvForEnvironment = async (txn: Transaction, env: string,
     }, [] as TDeployedInstance[])
 
     return {
+        ...(deployParametersToEnvironmentVariables(deployParameters._ ?? {})),
         ...(contractsToEnvironmentVariables(Object.values(statics), instances)),
         ZEUS_VERSION: zeusInfo.Version,
         ZEUS_ENV: env,

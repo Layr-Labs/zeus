@@ -16,9 +16,7 @@ import {zeus as zeusInfo} from './metadata/meta';
 
 const main = async () => {
     const state = await load()
-
     const isLoggedIn = await state.metadataStore?.isLoggedIn() ?? false;
-
     const hasZeusHost = !!state?.zeusHostOwner;
     const zeusHost = state?.zeusHostOwner ? `${state?.zeusHostOwner}/${state?.zeusHostRepo}` : '<repo uninitialized>';
     

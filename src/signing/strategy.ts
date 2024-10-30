@@ -1,9 +1,7 @@
 import chalk from 'chalk';
-import { spawn } from 'child_process';
+import { runWithArgs } from './utils';
 import { SavebleDocument, Transaction } from '../metadata/metadataStore';
-import { canonicalPaths } from '../metadata/paths';
 import tmp from 'tmp';
-import fs from 'fs';
 import ora from 'ora';
 import { TDeploy, TDeployedContractSparse } from '../metadata/schema';
 import { injectableEnvForEnvironment } from '../commands/run';
@@ -45,16 +43,15 @@ export interface TGnosisRequest {
     safeAddress: `0x${string}`,
     safeTxHash: `0x${string}`,
     senderAddress: `0x${string}`,
+    signature?: `0x${string}`
+}
+
+export interface TSignedGnosisRequest extends TGnosisRequest {
     signature: `0x${string}`
 }
 
 export type TSignatureRequest = TForgeRequest | TGnosisRequest;
 
-interface Result {
-    stdout: string;
-    stderr: string;
-    code: number;       
-}
 
 function redact(haystack: string, ...needles: string[]) {
     let out = haystack;
@@ -89,6 +86,9 @@ export abstract class Strategy<TArgs> {
     abstract id: string;
     abstract description: string;
 
+    // return the dry run.
+    abstract prepare(pathToUpgrade: string, deploy: TDeploy): Promise<TSignatureRequest | undefined>;
+
     // trigger the signing process for the given upgrade script.
     //
     // NOTE: this WILL side effects 
@@ -103,61 +103,20 @@ export abstract class Strategy<TArgs> {
     abstract cancel(deploy: SavebleDocument<TDeploy>): Promise<void>;
 
     // lets sub-scripts inject args.
-    //  e.g the EOA will run '-s', 
     abstract forgeArgs(): Promise<string[]>;
+
+    // lets sub-scripts inject args for a prepare / dry run.
+    abstract forgeDryRunArgs(): Promise<string[]>;
 
     // any important data to redact in output.
     async redactInOutput(): Promise<string[]> {
         return [];
     }
 
-    async pathToDeployParamters(): Promise<string> {
-        const paramsPath = canonicalPaths.deployParameters(
-            '',
-            this.deploy._.env,
-        );
-        const deployParametersContents = await this.metatxn.getJSONFile<Record<string, unknown>>(paramsPath) ?? {}
-        const tmpFile = tmp.fileSync({dir: './', postfix: '.json', mode: 0o600});
-        fs.writeFileSync(tmpFile.fd, JSON.stringify(deployParametersContents._));
-        return tmpFile.name;
-    }
-
-    // for mocking.
-    static runWithArgs(cmd: string, args: string[], env: Record<string, string>): Promise<Result> {
-        return new Promise((resolve, reject) => {
-            try {
-                const child = spawn(cmd, args, {stdio: 'pipe', env: {
-                    ...process.env,
-                    ...env,
-                }});
-
-                let stdoutData = '';
-                let stderrData = '';
-
-                child.stdout.on('data', (data) => {
-                    stdoutData += data.toString();
-                });
-
-                child.stderr.on('data', (data) => {
-                    stderrData += data.toString();
-                });
-
-                child.on('close', (code) => {
-                    if (code != 0) {
-                        reject({stdout: stdoutData, code, stderr: stderrData})
-                    } else {
-                        resolve({stdout: stdoutData, code, stderr: stderrData})
-                    }
-                });
-            } catch (e) {
-                reject(e);
-            }
-        });
-    }
-
-    async runForgeScript(path: string): Promise<TForgeOutput> {
+    async runForgeScript(path: string, isPrepare = false): Promise<TForgeOutput> {
         // TODO: should we be running a forge clean?
-        const args = ['script', path, ...await this.forgeArgs(), '--json'];
+        const customForgeArgs = isPrepare ? await this.forgeDryRunArgs() : await this.forgeArgs();
+        const args = ['script', path, ...customForgeArgs, '--json'];
 
         const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...await this.redactInOutput())}`)}`);
         const spinner = prompt.start();
@@ -167,8 +126,11 @@ export abstract class Strategy<TArgs> {
         //  2- any additional scripts deployed on top.
         const latestEnv = await injectableEnvForEnvironment(this.metatxn, this.deploy._.env, this.deploy._.name);
 
+        console.log(`Running with environment: `);
+        console.log(JSON.stringify(latestEnv, null, 2));
+
         try {
-            const {code, stdout, stderr} = await Strategy.runWithArgs('forge', args, {
+            const {code, stdout, stderr} = await runWithArgs('forge', args, {
                 ...latestEnv
             });
             if (code !== 0) {

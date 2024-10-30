@@ -1,13 +1,13 @@
-import { jest } from "@jest/globals";
-import { Strategy } from "../signing/strategy";
+// import { jest } from "@jest/globals";
+// import { Strategy } from "../signing/strategy";
 
-export async function mockForgeReturnOnce(args: {code?: number, response: unknown, stderr?: string}) {
-    const spy = await jest.spyOn(Strategy, "runWithArgs");
-    spy.mockResolvedValueOnce({
-        code: args.code ?? 0,
-        stdout: JSON.stringify(args.response),
-        stderr: args.stderr ?? ''
-    });
+export async function mockForgeReturnOnce(_args: {code?: number, response: unknown, stderr?: string}) {
+    // const spy = await jest.spyOn(Strategy, "runWithArgs");
+    // spy.mockResolvedValueOnce({
+    //     code: args.code ?? 0,
+    //     stdout: JSON.stringify(args.response),
+    //     stderr: args.stderr ?? ''
+    // });
 }
 
 // export class MockMetadataStore implements MetadataStore {

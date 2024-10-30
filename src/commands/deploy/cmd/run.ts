@@ -232,7 +232,7 @@ const executeOrContinueDeployWithLock = async (name: string, env: string, user: 
     }
 }
 
-const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, user: TState, metatxn: Transaction, rpcUrl: string | undefined) => {
+const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: TState, metatxn: Transaction, rpcUrl: string | undefined) => {
     try {
         while (true) {
             console.log(chalk.green(`[${deploy._.segments[deploy._.segmentId]?.filename ?? '<none>'}] ${deploy._.phase}`))

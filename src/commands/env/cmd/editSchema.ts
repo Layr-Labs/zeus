@@ -71,8 +71,8 @@ async function handler(_user: TState): Promise<void> {
     }
 
     deploySchema._ = updatedSchema;
-    if (deploySchema.dirty) {
-        await deploySchema.save();
+    await deploySchema.save();
+    if (!deploySchema.upToDate) {
         await txn.commit(`Updated schema`);
         console.log(chalk.green(`+ updated schema`))
     } else {

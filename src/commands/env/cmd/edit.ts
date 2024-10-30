@@ -37,9 +37,9 @@ async function handler(_user: TState, args: {json: boolean |undefined, env: stri
         try {
             const validate = ajv.compile(deploySchema._);
             if (!validate(updatedParams)) {
-                console.error(`Failed to validate changes to ${allArgs.env}.deployParameters:`);
-                validate.errors?.map(e => {
-                    console.error(`\t* ${e}`);
+                console.error(`Failed to validate changes to ${args.env}.deployParameters:`);
+                validate.errors?.forEach(e => {
+                    console.error(`\t* ${e.message}`);
                 });
                 return;
             } else {

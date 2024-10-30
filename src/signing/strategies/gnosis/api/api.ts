@@ -35,7 +35,11 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
     }
 
     async forgeArgs(): Promise<string[]> {
-        return ['--sig', `execute(string)`, await this.pathToDeployParamters()];
+        return ['--sig', `execute()`];
+    }
+
+    async forgeDryRunArgs(): Promise<string[]> {
+        return await this.forgeArgs();
     }
     
     async cancel(deploy: SavebleDocument<TDeploy>): Promise<void> {
@@ -107,6 +111,45 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         }
 
         throw new Error('uncancellable.');
+    }
+
+    async prepare(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
+        const {output} = await this.runForgeScript(pathToUpgrade);
+        const safeTxn = parseTuple(output.returns['0'].value);
+        if (safeTxn.length != 4) {
+            throw new Error(`Got invalid output from forge. Expected 4 members, got ${safeTxn?.length}.`);
+        }
+        const [to, value, data, op] = safeTxn;
+        const {safeAddress, rpcUrl} = await this.args();
+
+        const signer = await this.getSignerAddress();
+        const protocolKitOwner1 = await Safe.init({
+            provider: rpcUrl,
+            signer,
+            safeAddress: safeAddress
+        });
+
+        const txn = await protocolKitOwner1.createTransaction({
+            transactions: [
+                {
+                    to: to,
+                    data,
+                    value,
+                    operation: parseInt(op)
+                }
+            ],
+        })
+
+        const prompt = ora(`Forming transaction...`);
+        const spinner = prompt.start();
+        const hash = await protocolKitOwner1.getTransactionHash(txn)
+        spinner.stop();
+
+        return {
+            safeAddress: safeAddress as `0x${string}`,
+            safeTxHash: hash as `0x${string}`,
+            senderAddress: signer as `0x${string}`,
+        }
     }
 
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
