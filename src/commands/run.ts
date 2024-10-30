@@ -8,6 +8,7 @@ import { TDeployedContract, TDeployedContractsManifest, TEnvironmentManifest } f
 import { TDeployedInstance } from '../metadata/schema';
 import * as allArgs from './args';
 import { Transaction } from '../metadata/metadataStore';
+import { zeus as zeusInfo } from '../metadata/meta';
 
 const normalizeContractName = (contractName: string): string => {
     // Remove any .sol ending
@@ -55,13 +56,12 @@ export const injectableEnvForEnvironment = async (txn: Transaction, env: string,
 
     return {
         ...(contractsToEnvironmentVariables(Object.values(statics), instances)),
+        ZEUS_VERSION: zeusInfo.Version,
         ZEUS_ENV: env,
         ZEUS_ENV_COMMIT: envManifest._.latestDeployedCommit,
         ZEUS_ENV_VERSION: envManifest._.deployedVersion,
     }
 }
-
-// 
 
 const handler = async function(_user: TState, args: {env: string, command: string}) {
     const user = assertLoggedIn(_user);

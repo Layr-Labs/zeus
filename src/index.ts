@@ -12,6 +12,7 @@ import runCmd from './commands/run';
 import testCmd from './commands/test';
 import initCmd from './commands/init';
 import which from './commands/which';
+import {zeus as zeusInfo} from './metadata/meta';
 
 const main = async () => {
     const state = await load()
@@ -26,6 +27,8 @@ const main = async () => {
         description: `
         metadata: ${hasZeusHost ? chalk.green(zeusHost) : chalk.red(zeusHost)}
         ${isLoggedIn ? chalk.green('logged in!') : chalk.red('logged out')}
+
+        ${chalk.italic(`(zeus v${zeusInfo.Version})`)}
         `,
         cmds: { deploy, env, upgrade, login, run: runCmd, test: testCmd, init: initCmd, which },
     });
