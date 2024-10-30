@@ -13,7 +13,6 @@ export default tseslint.config(
         'node_modules',
         'webpack.config.cjs',
         'eslint.config.mjs',
-        'src/tests',
     ]
   }
 );
