@@ -11,7 +11,7 @@ export default tseslint.config(
     ignores: [
         'dist',
         'node_modules',
-        'webpack.config.cjs',
+        'webpack.*.cjs',
         'eslint.config.mjs',
     ]
   }

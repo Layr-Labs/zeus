@@ -28,7 +28,7 @@ const main = async () => {
         metadata: ${hasZeusHost ? chalk.green(zeusHost) : chalk.red(zeusHost)}
         ${isLoggedIn ? chalk.green('logged in!') : chalk.red('logged out')}
 
-        ${chalk.italic(`(zeus v${zeusInfo.Version})`)}
+        ${chalk.italic(`(zeus v${zeusInfo.Version}-${process.env.ZEUS_BUILD})`)}
         `,
         cmds: { deploy, env, upgrade, login, run: runCmd, test: testCmd, init: initCmd, which },
     });

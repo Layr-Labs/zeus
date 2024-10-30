@@ -1,13 +1,9 @@
-const path = require('path');
 const webpack = require("webpack");
 const webpackNodeExternals = require("webpack-node-externals");
 
 module.exports = {
   target: 'node',
   entry: './src/index.ts',
-  watch: true,
-  mode: 'development',
-  devtool: 'inline-source-map',
   module: {
     rules: [
       {
@@ -30,10 +26,6 @@ module.exports = {
     extensionAlias: {
       '.js': ['.js', '.ts'],
     },
-  },
-  output: {
-    filename: 'bundle.cjs',
-    path: path.resolve(__dirname, 'dist'),
   },
   plugins: [
     new webpack.BannerPlugin({
