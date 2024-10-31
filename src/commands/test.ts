@@ -1,11 +1,22 @@
-import {command, option} from 'cmd-ts';
+import {command, positional, string} from 'cmd-ts';
 import {json} from './args';
-import { loggedIn, requires } from './inject';
+import { assertLoggedIn, loggedIn, requires, TState } from './inject';
+import { runTest } from '../signing/strategies/test';
+import * as allArgs from  './args';
 
-// user: TState, args: {json: boolean, command: string, env: string}
-const handler = async function() {
-    // TODO:(milestone1): run the test with environment injected.
-    //  see: code for Strategy.pathTo
+const handler = async function(_user: TState, args: {script: string, env: string | undefined}) {
+    const user = assertLoggedIn(_user);
+    const txn = await user.metadataStore.begin();
+    const runContext = (args.env) ? {env: args.env} : undefined;
+    try {
+        const res = await runTest({upgradePath: args.script, txn, context: runContext});
+        if (res.code !== 0) {
+            throw new Error(`Test failed (${res.code})`, {cause: new Error(`Test failed with the following output:\n\t${res.stdout}\n\t${res.stderr}`)})
+        }
+    } catch (e) {
+        console.error(`Test failed.`);
+        throw e;
+    } 
 };
 
 const cmd = command({
@@ -14,10 +25,10 @@ const cmd = command({
     version: '1.0.0',
     args: {
         json,
-        env: option({long: 'environment', short: 'e'}),
-        command: option({
-            long: 'command',
-            short: 'c',
+        env: allArgs.envOptional,
+        script: positional({
+            type: string,
+            description: 'Path to script to test.'
         })
     },
     handler: requires(handler, loggedIn),

@@ -46,6 +46,10 @@ export const deployParametersToEnvironmentVariables: (parameters: Record<string,
 // if `withDeploy` is specified, we also inject instances/statics updated as part of the deploy.
 export const injectableEnvForEnvironment = async (txn: Transaction, env: string, withDeploy?: string) => {
     const envManifest = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(env));
+    if (!envManifest._.id) {
+        throw new Error(`No such environment: ${env}`);
+    }
+    
     const deployManifest: TDeployedContractsManifest = withDeploy ? (await txn.getJSONFile<TDeployedContractsManifest>(canonicalPaths.deployDeployedContracts({env, name: withDeploy})))._ : {contracts: []};
 
     const deployParameters = await txn.getJSONFile<Record<string, string>>(canonicalPaths.deployParameters(

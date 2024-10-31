@@ -6,7 +6,7 @@ export interface Result {
     code: number;       
 }
 
-export function runWithArgs(cmd: string, args: string[], env: Record<string, string>): Promise<Result> {
+export function runWithArgs(cmd: string, args: string[], env: Record<string, string | undefined>, liveOutput = false): Promise<Result> {
     return new Promise((resolve, reject) => {
         try {
             const child = spawn(cmd, args, {stdio: 'pipe', env: {
@@ -19,12 +19,16 @@ export function runWithArgs(cmd: string, args: string[], env: Record<string, str
 
             child.stdout.on('data', (data) => {
                 stdoutData += data.toString();
-                console.log(data.toString());
+                if (liveOutput) {
+                    console.log(data.toString());
+                }
             });
 
             child.stderr.on('data', (data) => {
                 stderrData += data.toString();
-                console.log(data.toString());
+                if (liveOutput) {
+                    console.error(data.toString());
+                }
             });
 
             child.on('close', (code) => {

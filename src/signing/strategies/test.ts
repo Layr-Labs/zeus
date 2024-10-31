@@ -1,15 +1,19 @@
 import { injectableEnvForEnvironment } from "../../commands/run";
 import { Transaction } from "../../metadata/metadataStore";
-import { TDeploy } from "../../metadata/schema";
 import { runWithArgs } from "../utils";
 
-export const runTest = async (args: {upgradePath: string, txn: Transaction, deploy: TDeploy}) => {
-    // TODO: inject environment.
+interface TRunContextWithEnv {
+    env: string // in the context of an env.
+};
 
-    const env = await injectableEnvForEnvironment(args.txn, args.deploy.env, args.deploy.name)
+type TRunContextWithDeploy = TRunContextWithEnv & {
+    deploy: string; // in the context of an ongoing deploy.
+}
 
-    // TODO: what are the args for running a test?
-    runWithArgs('forge', ['run'], {...process.env, ...env})
+type TRunContext = undefined | TRunContextWithDeploy | TRunContextWithEnv;
 
-    console.log(`Upgrade path`);
+export const runTest = async (args: {upgradePath: string, txn: Transaction, context: TRunContext}) => {
+    const deployContext = (args.context as TRunContextWithDeploy | undefined);
+    const env: Record<string, string> = deployContext?.env ? (await injectableEnvForEnvironment(args.txn, deployContext.env)) : {};
+    return await runWithArgs('forge', ['script', args.upgradePath, '--sig', `zeusTest()`, `--json`], {...process.env, ...env}, true /* liveOutput */);
 }
