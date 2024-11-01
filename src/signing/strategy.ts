@@ -117,9 +117,6 @@ export abstract class Strategy<TArgs> {
         //  2- any additional scripts deployed on top.
         const latestEnv = await injectableEnvForEnvironment(this.metatxn, this.deploy._.env, this.deploy._.name);
 
-        console.log(`Running with environment: `);
-        console.log(JSON.stringify(latestEnv, null, 2));
-
         try {
             const {code, stdout, stderr} = await runWithArgs('forge', args, {
                 ...latestEnv

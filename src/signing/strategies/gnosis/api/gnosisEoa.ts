@@ -2,7 +2,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { GnosisSigningStrategy } from "./api";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
-import { privateKey } from "../../../../commands/prompts";
+import { checkShouldSignGnosisMessage, privateKey } from "../../../../commands/prompts";
 
 interface TGnosisEOAArgs {
     privateKey: string;
@@ -45,6 +45,8 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
                 refundReceiver: txn.data.refundReceiver,
             }
         };
+
+        await checkShouldSignGnosisMessage(typedDataParameters);
         return await account.signTypedData(typedDataParameters)
     }
 

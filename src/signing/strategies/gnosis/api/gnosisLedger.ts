@@ -4,10 +4,9 @@ import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-7
 import { getDefaultProvider } from 'ethers'
 import ora from "ora";
 import chalk from "chalk";
-import { pressAnyButtonToContinue } from "../../../../commands/prompts";
+import { checkShouldSignGnosisMessage, pressAnyButtonToContinue } from "../../../../commands/prompts";
 import { getLedgerSigner } from "../../ledgerTransport";
 import { TypedDataField } from "ethers";
-import { wouldYouLikeToContinue } from "../../../../commands/prompts";
 import { verifyTypedData } from "viem";
  
 type TGnosisLedgerArgs = unknown;
@@ -43,14 +42,7 @@ export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisLedgerArg
             }
         };
 
-        console.log(chalk.bold(`Zeus would like to sign the following EIP-712 message for Gnosis: `))
-        console.warn(chalk.bold("========================================================================================================================"))
-        console.warn(chalk.bold(`WARNING: Signing and submitting this message constitutes an 'approval' from your wallet. Don't proceed if you aren't ready.`))
-        console.warn(chalk.bold("========================================================================================================================"))
-        console.log(JSON.stringify(typedDataArgs, null, 2));
-        if (!await wouldYouLikeToContinue()) {
-            throw new Error(`Transaction not approved. Cancelling for now.`);
-        }
+        await checkShouldSignGnosisMessage(typedDataArgs);
 
         const prompt = ora(`Signing with ledger (please check your device for instructions)...`);
         const spinner = prompt.start();

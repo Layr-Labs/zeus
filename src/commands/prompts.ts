@@ -2,6 +2,18 @@ import { isAddress } from 'viem';
 import { select } from './utils';
 import { privateKeyToAccount } from 'viem/accounts';
 import { search, input, password as inquirerPassword } from '@inquirer/prompts';
+import chalk from 'chalk';
+
+export const checkShouldSignGnosisMessage = async (message: unknown) => {
+    console.log(chalk.bold(`Zeus would like to sign the following EIP-712 message for Gnosis: `))
+    console.warn(chalk.bold("========================================================================================================================"))
+    console.warn(chalk.bold(`WARNING: Signing and submitting this message constitutes an 'approval' from your wallet. Don't proceed if you aren't ready.`))
+    console.warn(chalk.bold("========================================================================================================================"))
+    console.log(JSON.stringify(message, null, 2));
+    if (!await wouldYouLikeToContinue()) {
+        throw new Error(`Transaction not approved. Cancelling for now.`);
+    }
+}
 
 const envVarOrPrompt: (args: {
     title: string,
@@ -10,7 +22,7 @@ const envVarOrPrompt: (args: {
     isValid: (text: string) => boolean,
 }) => Promise<string> = async (args) => {
     const answer = await select({
-        prompt: `Choose method - ${args.title}`,
+        prompt: `[choose method] ${args.title}`,
         choices: [{
             name: 'Use an $ENV_VAR',
             value: 'env_var'
@@ -23,15 +35,11 @@ const envVarOrPrompt: (args: {
         const envVar = await search<string>({
             message: args.envVarSearchMessage ?? 'Choose an environment variable',
             source: async (input) => {
-                return Object.keys(process.env).filter(key => input ? key.startsWith(input) : true) as string[]
+                return Object.keys(process.env)
+                            .filter(key => input ? key.startsWith(input) : true)
+                            .filter(key => args.isValid(process.env[key] ?? '')) as string[]
             },
-            validate: async (input) => {
-                try {
-                    return args.isValid(process.env[input as string] ?? '');
-                } catch {
-                    return false;
-                }
-            }
+            validate: async (input) => args.isValid(process.env[input as string] ?? '')
         })
         return process.env[envVar] ?? '';
     } else {

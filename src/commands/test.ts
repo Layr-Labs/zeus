@@ -3,6 +3,7 @@ import {json} from './args';
 import { assertLoggedIn, loggedIn, requires, TState } from './inject';
 import { runTest } from '../signing/strategies/test';
 import * as allArgs from  './args';
+import chalk from 'chalk';
 
 const handler = async function(_user: TState, args: {script: string, env: string | undefined, verbose: boolean}) {
     const user = assertLoggedIn(_user);
@@ -11,14 +12,13 @@ const handler = async function(_user: TState, args: {script: string, env: string
     try {
         const res = await runTest({upgradePath: args.script, txn, context: runContext, verbose: args.verbose});
         if (res.code !== 0 || !res.forge.output.success) {
-
-            throw new Error(`❌ Test failed [${res.code}]`, {cause: new Error(`Test failed with the following output:\n\t${res.stdout}\n\t${res.stderr}`)})
+            throw new Error(`❌ Test failed [${res.code}]`, {cause: new Error(`Test failed (for full output, re-run with --verbose)`)})
         }
     } catch (e) {
-        console.error(`❌ Test failed`, {cause: e});
+        console.error(`❌ Test failed (for full output, re-run with --verbose)`, {cause: e});
         throw e;
     } 
-    console.log(`✅ Test Passed`)
+    console.log(`✅ Test Passed ${chalk.italic('(for full output, re-run with --verbose)')}`)
 };
 
 const cmd = command({

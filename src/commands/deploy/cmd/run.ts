@@ -245,7 +245,6 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     await updateLatestDeploy(metatxn, deploy._.env, deploy._.name);
                     break;
                 case "complete": {
-                    console.log(`Deploy completed. ✅`);
                     const envManifest = await metatxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(deploy._.env));
                     if (!envManifest) {
                         console.error(`Corrupted env manifest.`);
@@ -260,6 +259,20 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         }
                         const deployedStatic = Object.fromEntries(deployedContracts._.contracts.filter(t => t.singleton).map(t => [t.contract, t]));
                         const deployedInstances = deployedContracts._.contracts.filter(t => !t.singleton);
+
+                        const updatedStatics = 
+                            Object.fromEntries(
+                                Object.keys(deployedStatic)
+                                    .filter(contract => deployedStatic[contract].address !== envManifest._.contracts.static[contract].address)
+                                    .map(contract => [['name', contract], ['old', envManifest._.contracts.static[contract]?.address ?? '<none>'], ['new', deployedStatic[contract].address]])
+                            );
+                        if (updatedStatics) {
+                            console.log(chalk.bold.underline(`Updated static contracts:`))
+                            console.log()
+                            console.table(updatedStatics)
+                            console.log()
+                        }
+
                         envManifest._.contracts.static = {
                             ...envManifest._.contracts.static,
                             ...deployedStatic,
@@ -269,6 +282,8 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                             ...deployedInstances
                         ];
                     }
+
+                    console.log(`Deploy completed. ✅`);
                     await updateLatestDeploy(metatxn, deploy._.env, undefined, true);
 
                     const upgrade = await metatxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(deploy._.upgrade));
