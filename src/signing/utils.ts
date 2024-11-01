@@ -6,6 +6,32 @@ export interface Result {
     code: number;       
 }
 
+export interface TForgeOutput {
+    output: {
+        success: boolean,
+        returns: {
+            '0': {
+                value: string;
+            }
+        }
+    }
+}
+
+export function parseForgeOutput(stdout: string): TForgeOutput {
+    const lines = stdout.split('\n');
+    const jsonLine = lines.find(line => line.trim().startsWith('{'));
+    if (jsonLine) {
+        try {
+            const parsedJson = JSON.parse(jsonLine);
+            return {output: parsedJson};
+        } catch (e) {
+            throw new Error(`Failed to parse JSON: ${e}`);
+        }
+    } else {
+        throw new Error('No JSON output found.');
+    }
+}
+
 export function runWithArgs(cmd: string, args: string[], env: Record<string, string | undefined>, liveOutput = false): Promise<Result> {
     return new Promise((resolve, reject) => {
         try {

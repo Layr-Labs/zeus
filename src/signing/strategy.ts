@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { runWithArgs } from './utils';
+import { parseForgeOutput, runWithArgs, TForgeOutput } from './utils';
 import { SavebleDocument, Transaction } from '../metadata/metadataStore';
 import tmp from 'tmp';
 import ora from 'ora';
@@ -13,15 +13,6 @@ export interface Txn {
     to: `0x${string}`
 }
 
-interface TForgeOutput {
-    output: {
-        returns: {
-            '0': {
-                value: string;
-            }
-        }
-    }
-}
 
 export interface TForgeRequest {
     forge?: {
@@ -137,19 +128,7 @@ export abstract class Strategy<TArgs> {
                 throw new Error(`Forge script failed with code ${code}: ${stderr}`);
             }
 
-            // Search for the first line that begins with '{' (--json output)
-            const lines = stdout.split('\n');
-            const jsonLine = lines.find(line => line.trim().startsWith('{'));
-            if (jsonLine) {
-                try {
-                    const parsedJson = JSON.parse(jsonLine);
-                    return {output: parsedJson};
-                } catch (e) {
-                    throw new Error(`Failed to parse JSON: ${e}`);
-                }
-            } else {
-                throw new Error('No JSON output found.');
-            }
+            return parseForgeOutput(stdout);
         } finally {
             spinner.stop();
         }
