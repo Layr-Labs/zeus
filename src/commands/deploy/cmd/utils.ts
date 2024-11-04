@@ -14,7 +14,7 @@ export const advanceSegment = async (deploy: SavebleDocument<TDeploy>) => {
 
     deploy._.segmentId++;
     if (deploy._.segments[deploy._.segmentId]?.type === "eoa") {
-        deploy._.phase = "eoa_start";
+        deploy._.phase = "eoa_validate";
     } else if (deploy._.segments[deploy._.segmentId]?.type === "multisig") {
         deploy._.phase = "multisig_start";
     } else {
@@ -28,6 +28,9 @@ export const advance = async (deploy: SavebleDocument<TDeploy>) => {
             case "":
                 deploy._.segmentId = -1; // set back to -1.
                 advanceSegment(deploy);
+                break;
+            case "eoa_validate":
+                deploy._.phase = "eoa_start";
                 break;
             case "eoa_start":
                 deploy._.phase = "eoa_wait_confirm";

@@ -17,10 +17,12 @@ export type TDeployPhase = (
      "failed" 
 )
 
+// - "eoa_validate" -- We are running tests, performing a dry run, and validating that the
 // - "eoa_start" -- [eoa] the `create` phase has been run and is submitted to the network.
 //    * CLI should confirm that etherscan has ABIs for contracts.
 // - "eoa_wait_confirm" -- we are waiting for the confirmation of the associated transactions from deploy.
 export enum EOAPhase {
+    VALIDATE = "eoa_validate",
     START = "eoa_start",
     WAIT = "eoa_wait_confirm"
 }
@@ -104,6 +106,13 @@ export interface TDeployLock {
 
     // what the lock-holder was doing.
     description?: string;
+}
+
+export interface TTestOutput {
+  forge: unknown;
+  code: number;
+  stdout: string;
+  stderr: string;
 }
 
 export interface ForgeSolidityMetadata {

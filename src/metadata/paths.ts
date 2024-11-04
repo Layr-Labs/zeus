@@ -27,7 +27,7 @@ export const canonicalPaths = {
 
     // updated immediately after a forge script execution.
     forgeDeployLatestMetadata: (repoRoot: string, scriptName: string, chainId: number) =>       join(repoRoot, `broadcast`, scriptName, `${chainId}`, `deploy-latest.json`),
-    
+
     // timestamp comes from the JSON output of the DeployLatestMetadata.
     forgeRunJson: (repoRoot: string, scriptName: string, chainId: number, timestamp: number) => join(repoRoot, `broadcast`, scriptName, `${chainId}`, `run-${timestamp}.json`),
 
@@ -49,6 +49,11 @@ export const canonicalPaths = {
         `${args.segmentId}`,
         "multisig.transaction.json"
     ),
+    testRun: (args: {deployEnv: string, deployName: string, segmentId: number}) => join(
+        canonicalPaths.deployDirectory("", args.deployEnv, args.deployName),
+        `${args.segmentId}`,
+        "test-run.json"
+    ),
     foundryRun: (args: {deployEnv: string, deployName: string, segmentId: number}) => join(
         canonicalPaths.deployDirectory("", args.deployEnv, args.deployName),
         `${args.segmentId}`,
@@ -59,4 +64,5 @@ export const canonicalPaths = {
         `${args.segmentId}`,
         "foundry.deploy.json"
     )
+
 }

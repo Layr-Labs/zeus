@@ -1,15 +1,19 @@
-export function parseTuples(input: string): string[][] {
-    const tupleRegex = /\((\w+),\s(0x[a-fA-F0-9]+)\)/g;
-    const result: string[][] = [];
+export function parseTuples(input: string): (string | boolean)[][] {
+    const tupleRegex = /\((0x[a-fA-F0-9]+),\s*([\w]*)\s*,\s*(true|false)\)/g;
+    const result: (string | boolean)[][] = [];
     let match;
 
     // Use regex to extract all tuples
     while ((match = tupleRegex.exec(input)) !== null) {
-        result.push([match[1], match[2]]);
+        const address = match[1];
+        const secondValue = match[2] || "";  // Use empty string if the second value is missing
+        const booleanValue = match[3] === "true";  // Convert to boolean
+        result.push([address, secondValue, booleanValue]);
     }
 
     return result;
 }
+
 
 export function parseTuple(input: string): string[] {
     const tupleRegex = /\((.*?)\)/;

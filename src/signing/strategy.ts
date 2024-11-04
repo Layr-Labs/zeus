@@ -15,6 +15,8 @@ export interface Txn {
 
 
 export interface TForgeRequest {
+    output: unknown; 
+
     forge?: {
         runLatest: unknown,
         deployLatest: unknown
@@ -106,6 +108,7 @@ export abstract class Strategy<TArgs> {
 
     async runForgeScript(path: string, isPrepare = false): Promise<TForgeOutput> {
         // TODO: should we be running a forge clean?
+
         const customForgeArgs = isPrepare ? await this.forgeDryRunArgs() : await this.forgeArgs();
         const args = ['script', path, ...customForgeArgs, '--json'];
 

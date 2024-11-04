@@ -12,13 +12,15 @@ import { createPublicClient, http, sha256 } from "viem";
 import * as AllChains from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
-import { ForgeSolidityMetadata, Segment, TDeploy, TDeployedContractsManifest, TDeployLock, TDeployPhase, TEnvironmentManifest, TUpgrade } from "../../../metadata/schema";
+import { ForgeSolidityMetadata, Segment, TDeploy, TDeployedContractsManifest, TDeployLock, TDeployPhase, TEnvironmentManifest, TTestOutput, TUpgrade } from "../../../metadata/schema";
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
 import { GnosisEOAStrategy } from "../../../signing/strategies/gnosis/api/gnosisEoa";
 import semver from 'semver';
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { execSync } from "child_process";
+import { runTest } from "../../../signing/strategies/test";
+import { wouldYouLikeToContinue } from "../../prompts";
 
 process.on("unhandledRejection", (error) => {
     console.error(error); // This prints error with stack included (as for normal errors)
@@ -312,6 +314,52 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     await metatxn.commit(`Deploy ${deploy._.name} cancelled.`);
                     return;
                 // eoa states
+                case "eoa_validate": {
+                    const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
+                    if (!existsSync(script)) {
+                        console.error(`Missing expected script: ${script}`);
+                        console.error(`Fix your local copy and continue with: `);
+                        console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`)
+                        return;
+                    }
+                    const prompt = ora(`Running 'zeus test'`);
+                    const spinner = prompt.start();
+                    try {
+                        const res = await runTest({upgradePath: script, txn: metatxn, context: {env: deploy._.env, deploy: deploy._.name}, verbose: false})
+                        const testOutput = await metatxn.getJSONFile<TTestOutput>(canonicalPaths.testRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
+                        testOutput._ = res;
+                        await testOutput.save();
+                        spinner.stopAndPersist({suffixText: '✅'});
+                    } catch {
+                        spinner.stopAndPersist({suffixText: '❌'})
+                    }
+
+                    console.log(`Zeus would like to simulate this EOA transaction before attempting it for real. Please choose the method you'll use to sign:`)
+                    const strategy =  await promptForStrategy(deploy, metatxn);
+                    const sigRequest = await strategy.prepare(script, deploy._) as TForgeRequest;
+                    console.log(chalk.yellow(`Please reviewing the following: `))
+                    console.log(chalk.yellow(`=====================================================================================`))
+                    console.log(chalk.bold.underline(`Forge output: `))
+                    console.log(JSON.stringify(sigRequest.forge, null, 2));
+                    console.log(JSON.stringify(sigRequest.output, null, 2));
+                    console.log(chalk.bold.underline(`Deployed Contracts: `))
+                    if (sigRequest.deployedContracts) {
+                        console.table(sigRequest.deployedContracts)
+                    } else {
+                        console.log(chalk.bold(`<none>`));
+                    }
+                    console.log(chalk.yellow(`=====================================================================================`))
+                    if (!await wouldYouLikeToContinue()) {
+                        return;
+                    }
+
+                    await advance(deploy);
+                    await deploy.save();
+                    await metatxn.commit(`[deploy ${deploy._.name}] eoa test`);
+                    console.log(chalk.green(`+ recorded successful test run`));
+
+                    break;
+                }
                 case "eoa_start": {
                     const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
                     if (existsSync(script)) {

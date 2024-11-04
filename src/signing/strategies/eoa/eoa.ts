@@ -7,16 +7,30 @@ import chalk from "chalk";
 import { parseTuples } from "../utils";
 import { TDeploy } from "../../../metadata/schema";
 import * as prompts from '../../../commands/prompts';
+import { TForgeRun, TraceItem } from "../../utils";
 
 interface TBaseEOAArgs {
     rpcUrl: string
 }
 
-interface TForgeRun {
-    timestamp: number,
-    chain: number, 
-    transactions: {transaction: {from: string}}[]
-}
+
+function getTrace(data: TForgeRun, address: `0x${string}`): TraceItem | null {
+    for (const traceBlock of data.traces) {
+      for (const traceItem of traceBlock[1].arena) {
+        const trace = traceItem.trace;
+        if (trace.kind !== "CREATE") continue;
+  
+        // Check if the trace is of kind "CREATE" and matches the given address
+        if (trace.address.toLowerCase() === address.toLowerCase() && trace.success) {
+          // Return the label (contract name) if it exists in the decoded section
+          return traceItem;
+        }
+      }
+    }
+  
+    return null;
+  }
+
 
 export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEOAArgs & T> {
 
@@ -61,36 +75,28 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
             throw new Error(`Forge output was missing: (chainId=${deploy.chainId},output=${output})`);
         }
 
-        const deployedContracts = parseTuples(output.returns['0'].value).map((tuple) => {
-            return {contract: tuple[0], address: tuple[1] as `0x${string}`, singleton: tuple[2] === 'true'}
-        })
-
-        let runLatest: TForgeRun | undefined = undefined;
-        let deployLatest: TForgeRun | undefined = undefined;
         const signer = await this.getSignerAddress();
 
-        const deployLatestPath = canonicalPaths.forgeDeployLatestMetadata(getRepoRoot(), basename(pathToUpgrade), deploy.chainId);
-        if (!existsSync(deployLatestPath)) {
-            console.warn(`This deploy did not broadcast any new contracts. If this was intended, you can ignore this.`);
-            if (Object.keys(deployedContracts).length > 0) {
-                console.error(`HIGH: The 'deployments' returned from this script were non-zero (${Object.keys(deployedContracts).length}), but forge did not broadcast anything.`);
+        const deployedContracts = parseTuples(output.returns['0'].value).map((tuple) => {
+            console.log(tuple);
+            const addr = tuple[0] as `0x${string}`;
+            const trace = getTrace(output, addr);
+            if (!trace) {
+                console.warn(`Failed to find deployment trace for deploy: ${addr}`);
+                return;
             }
-        } else {
-            deployLatest = JSON.parse(readFileSync(deployLatestPath, {encoding: 'utf-8'})) as TForgeRun;
-            const {timestamp, chain} = deployLatest;
-            runLatest = JSON.parse(readFileSync(canonicalPaths.forgeRunJson(getRepoRoot(), basename(pathToUpgrade), chain as number, timestamp), {encoding: 'utf-8'})) as TForgeRun
-            const signer = deployLatest?.transactions[0]?.transaction?.from;
-            console.log(chalk.italic(`Using wallet: ${signer}`));
-        }
+            return {address: tuple[0] as `0x${string}`, contract: tuple[1] as string, singleton: tuple[2] as boolean}
+        }).filter(deployment => !!deployment) ?? [];
 
         return { 
             forge: {
-                runLatest,
-                deployLatest
+                runLatest: undefined,
+                deployLatest: undefined,
             },
             signer,
             deployedContracts,
             ready: true,
+            output
         }
     }
 
@@ -101,7 +107,7 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
         }
 
         const deployedContracts = parseTuples(output.returns['0'].value).map((tuple) => {
-            return {contract: tuple[0], address: tuple[1] as `0x${string}`, singleton: tuple[2] === 'true'}
+            return {contract: tuple[1] as string, address: tuple[0] as `0x${string}`, singleton: tuple[2] as boolean}
         })
 
         let runLatest: TForgeRun | undefined = undefined;
@@ -123,6 +129,7 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
         }
 
         return { 
+            output: output,
             forge: {
                 runLatest,
                 deployLatest
