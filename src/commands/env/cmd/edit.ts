@@ -74,7 +74,7 @@ const cmd = command({
     description: 'Edit the parameters for a particular environment.',
     version: '1.0.0',
     args: {
-        env: allArgs.env,
+        env: allArgs.envPositional,
         json,
     },
     handler: requires(handler, loggedIn),

@@ -25,6 +25,24 @@ export interface TForgeRun {
     address: string | null;
 }
 
+export function getTrace(data: TForgeRun, address: `0x${string}`): TraceItem | null {
+    for (const traceBlock of data.traces) {
+      for (const traceItem of traceBlock[1].arena) {
+        const trace = traceItem.trace;
+        if (trace.kind !== "CREATE") continue;
+  
+        // Check if the trace is of kind "CREATE" and matches the given address
+        if (trace.address.toLowerCase() === address.toLowerCase() && trace.success) {
+          // Return the label (contract name) if it exists in the decoded section
+          return traceItem;
+        }
+      }
+    }
+  
+    return null;
+}
+
+
 export interface TForgeOutput {
     output: {
         timestamp: number,
@@ -74,9 +92,9 @@ export interface TraceItem {
         output?: string;
         steps: unknown[];
         decoded: {
-        label: string | null;
-        return_data: string | null;
-        call_data: string | null;
+            label: string | null;
+            return_data: string | null;
+            call_data: string | null;
         };
     };
     logs: {

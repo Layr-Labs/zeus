@@ -17,7 +17,7 @@ function isCancelleable(deploy: TDeploy): boolean {
     const segment = deploy.segments[deploy.segmentId];
     switch (segment.type) {
         case 'eoa':
-            return false; // you can't really stop the EOA deploy, since it deploys contracts and updates immediately.
+            return true;
         case 'multisig':
             return deploy.phase === 'multisig_start' || deploy.phase === 'multisig_wait_signers' || deploy.phase === 'multisig_execute'
     }

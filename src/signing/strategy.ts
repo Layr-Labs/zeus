@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { parseForgeOutput, runWithArgs, TForgeOutput } from './utils';
+import { parseForgeOutput, runWithArgs, TForgeOutput, TForgeRun } from './utils';
 import { SavebleDocument, Transaction } from '../metadata/metadataStore';
 import tmp from 'tmp';
 import ora from 'ora';
@@ -15,7 +15,7 @@ export interface Txn {
 
 
 export interface TForgeRequest {
-    output: unknown; 
+    output: TForgeRun; 
 
     forge?: {
         runLatest: unknown,
@@ -106,10 +106,10 @@ export abstract class Strategy<TArgs> {
         return [];
     }
 
-    async runForgeScript(path: string, isPrepare = false): Promise<TForgeOutput> {
+    async runForgeScript(path: string, _args?: {isPrepare?: boolean, verbose?: boolean}): Promise<TForgeOutput> {
         // TODO: should we be running a forge clean?
 
-        const customForgeArgs = isPrepare ? await this.forgeDryRunArgs() : await this.forgeArgs();
+        const customForgeArgs = _args?.isPrepare ? await this.forgeDryRunArgs() : await this.forgeArgs();
         const args = ['script', path, ...customForgeArgs, '--json'];
 
         const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...await this.redactInOutput())}`)}`);
@@ -123,15 +123,17 @@ export abstract class Strategy<TArgs> {
         try {
             const {code, stdout, stderr} = await runWithArgs('forge', args, {
                 ...latestEnv
-            });
+            }, _args?.verbose);
             if (code !== 0) {
                 throw new Error(`Forge script failed with code ${code}: ${stderr}`);
             }
+            spinner.stop();
 
             return parseForgeOutput(stdout);
-        } finally {
-            spinner.stop();
-        }
+        } catch (e) {
+            spinner.stopAndPersist();  
+            throw e;
+        } 
     }
 
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction) {

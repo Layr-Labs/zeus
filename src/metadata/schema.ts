@@ -114,18 +114,22 @@ export interface TTestOutput {
   stdout: string;
   stderr: string;
 }
+export interface BytecodeReference {start: number, length: number};
+
 
 export interface ForgeSolidityMetadata {
     abi: unknown[]; // ABI, can be more specific if you know the structure
     bytecode: {
       object: string;
       sourceMap: string;
-      linkReferences: Record<string, unknown>;
+      linkReferences?: Record<string, BytecodeReference[]>;
+      immutableReferences?: Record<string, BytecodeReference[]>;
     };
     deployedBytecode: {
       object: `0x${string}`;
       sourceMap: string;
-      linkReferences: Record<string, unknown>;
+      linkReferences?: Record<string, BytecodeReference[]>;
+      immutableReferences?: Record<string, BytecodeReference[]>;
     };
     methodIdentifiers: Record<string, string>;
     rawMetadata: string;
@@ -215,12 +219,79 @@ export interface TDeployedContract extends TDeployedContractSparse {
     };
 }
 
+export interface TDeployedContractWithValidations extends TDeployedContract {
+  validations?: {
+    by: string;
+    valid: boolean;
+    expectedBytecodeHash?: `0x${string}`;
+  }[];
+}
+
+export interface TForgeContractMetadata {
+  abi: unknown[];
+  bytecode: {
+    object: `0x${string}`;
+    sourceMap: string;
+    linkReferences: Record<string, unknown>;
+  };
+  deployedBytecode: {
+    object: `0x${string}`;
+    sourceMap: string;
+    linkReferences: Record<string, unknown>;
+  };
+  methodIdentifiers: Record<string, string>;
+  rawMetadata: string;
+  metadata: {
+    compiler: {
+      version: string;
+    };
+    language: string;
+    output: {
+      abi: unknown[];
+      devdoc: {
+        details?: string;
+        kind: string;
+        methods: Record<string, unknown>;
+        version: number;
+      };
+      userdoc: {
+        kind: string;
+        methods: Record<string, unknown>;
+        version: number;
+      };
+    };
+    settings: {
+      remappings: string[];
+      optimizer: {
+        enabled: boolean;
+        runs: number;
+      };
+      metadata: {
+        bytecodeHash: string;
+      };
+      compilationTarget: Record<string ,string>;
+      evmVersion: string;
+      libraries: Record<string, string>;
+    };
+    sources: Record<string, {
+      keccak256: string;
+      urls: string[];
+      license: string;
+    }>;
+    
+    version: number;
+  };
+  id: number;
+}
+
+
+
 export interface TDeployedInstance extends TDeployedContract {
     index: number;
 }
 
 export interface TDeployedContractsManifest {
-    contracts: TDeployedContract[]
+    contracts: TDeployedContractWithValidations[]
 }
 
 export interface TEnvironmentManifest {

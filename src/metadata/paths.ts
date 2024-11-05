@@ -28,6 +28,8 @@ export const canonicalPaths = {
     // updated immediately after a forge script execution.
     forgeDeployLatestMetadata: (repoRoot: string, scriptName: string, chainId: number) =>       join(repoRoot, `broadcast`, scriptName, `${chainId}`, `deploy-latest.json`),
 
+    contractJson: (repoRoot: string, contractName: string) => join(repoRoot, `out`, `${contractName}.sol`, `${contractName}.json`),
+
     // timestamp comes from the JSON output of the DeployLatestMetadata.
     forgeRunJson: (repoRoot: string, scriptName: string, chainId: number, timestamp: number) => join(repoRoot, `broadcast`, scriptName, `${chainId}`, `run-${timestamp}.json`),
 
@@ -63,6 +65,10 @@ export const canonicalPaths = {
         canonicalPaths.deployDirectory("", args.deployEnv, args.deployName),
         `${args.segmentId}`,
         "foundry.deploy.json"
+    ),
+    segmentContractAbi: (args: {name: string, segmentId: number, env: string, contractName: string}) => join(
+        canonicalPaths.deployDirectory("", args.env, args.name),
+        `${args.segmentId}`,
+        `${args.contractName}.abi.json`
     )
-
 }

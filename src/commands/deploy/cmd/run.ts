@@ -8,7 +8,7 @@ import { existsSync, lstatSync } from "fs";
 import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
 import chalk from "chalk";
 import { canonicalPaths } from "../../../metadata/paths";
-import { createPublicClient, http, sha256 } from "viem";
+import { createPublicClient, http, TransactionReceiptNotFoundError } from "viem";
 import * as AllChains from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
@@ -20,7 +20,8 @@ import semver from 'semver';
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { execSync } from "child_process";
 import { runTest } from "../../../signing/strategies/test";
-import { wouldYouLikeToContinue } from "../../prompts";
+import { chainIdName, wouldYouLikeToContinue, rpcUrl as freshRpcUrl } from "../../prompts";
+import { computeFairHash } from "../utils";
 
 process.on("unhandledRejection", (error) => {
     console.error(error); // This prints error with stack included (as for normal errors)
@@ -93,7 +94,7 @@ async function handler(_user: TState, args: {env: string, resume: boolean, rpcUr
             return;
         }
 
-        console.log(`Resuming existing deploy... (began at ${deploy._.startTime})`);
+        console.log(`[${chainIdName(deploy._.chainId)}] Resuming existing deploy... (began at ${deploy._.startTime})`);
         return await executeOrContinueDeployWithLock(deploy._.name, deploy._.env, user, args.rpcUrl);
     } else if (args.resume) {
         console.error(`Nothing to resume.`);
@@ -167,6 +168,8 @@ const releaseDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<void> = 
     deployLock._.untilTimestampMs = undefined;
     await deployLock.save();
 }
+
+const sleepMs = (timeMs: number) => new Promise((resolve) => setTimeout(resolve, timeMs))
 
 const acquireDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<boolean> = async (deploy, txn) => {
     try {
@@ -330,8 +333,10 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         testOutput._ = res;
                         await testOutput.save();
                         spinner.stopAndPersist({suffixText: '✅'});
-                    } catch {
+                    } catch (e) {
                         spinner.stopAndPersist({suffixText: '❌'})
+                        console.error(e);
+                        throw e;
                     }
 
                     console.log(`Zeus would like to simulate this EOA transaction before attempting it for real. Please choose the method you'll use to sign:`)
@@ -388,18 +393,26 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                             await foundryDeploy.save();
 
                             // look up any contracts compiled and their associated bytecode.
-                            const withDeployedBytecodeHashes = sigRequest.deployedContracts?.map((contract) => {
+                            const withDeployedBytecodeHashes = await Promise.all(sigRequest.deployedContracts?.map(async (contract) => {
                                 const contractInfo = JSON.parse(fs.readFileSync(canonicalPaths.contractInformation(getRepoRoot(), contract.contract), 'utf-8')) as ForgeSolidityMetadata;
+                                console.log(`${chalk.bold(`${contract.contract}.deployedBytecode: ${contractInfo.deployedBytecode.object}`)}`)
+                                
+                                // save the contract abi.
+                                const segmentAbi = await metatxn.getJSONFile<ForgeSolidityMetadata>(canonicalPaths.segmentContractAbi({...deploy._, contractName: contract.contract}))
+                                segmentAbi._ = contractInfo;
+                                await segmentAbi.save();
+
+                                
                                 return {
                                     ...contract,
-                                    deployedBytecodeHash: sha256(contractInfo.deployedBytecode.object),
+                                    deployedBytecodeHash: computeFairHash(contractInfo.deployedBytecode.object),
                                     lastUpdatedIn: {
                                         name: deploy._.name,
                                         phase: deploy._.phase,
                                         segment: deploy._.segmentId
                                     },
                                 };
-                            }) || [];
+                            }) || []);
 
                             const deployedContracts = await metatxn.getJSONFile<TDeployedContractsManifest>(canonicalPaths.deployDeployedContracts(deploy._));
                             if (!deployedContracts._.contracts) {
@@ -437,24 +450,54 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         throw new Error('foundry.deploy.json was corrupted.');
                     }
 
+                    const localRpcUrl = await freshRpcUrl(deploy._.chainId);
                     const client = createPublicClient({
                         chain: getChain(deploy._.chainId), 
-                        transport: http(rpcUrl),
+                        transport: http(localRpcUrl),
                     })
+
                     if (foundryDeploy._.transactions?.length) {
                         const prompt = ora(`Verifying ${foundryDeploy._.transactions?.length ?? 0} transactions...`);
                         const spinner = prompt.start();
-                        for (const txn of (foundryDeploy._.transactions ?? [])) {
-                            if (txn?.hash) {
-                                const receipt = await client.getTransactionReceipt({hash: txn.hash});
-                                if (receipt.status !== "success") {
-                                    console.error(`Transaction(${txn}) did not succeed: ${receipt.status}`)
-                                    return;
-                                    // TODO: what is the step forward here for the user? (push deploy back a phase)
+                        try {
+                            let done = false;
+                            while (!done) {
+                                try {
+                                    let anyNotDone = false;
+                                    for (const txn of (foundryDeploy._.transactions ?? [])) {
+                                        if (txn?.hash) {
+                                            const receipt = await client.getTransactionReceipt({hash: txn.hash});
+                                            if (receipt.status !== "success") {
+                                                console.error(`Transaction(${txn}) did not succeed: ${receipt.status}`)
+                                                anyNotDone = true;
+                                                continue;
+                                                // TODO: what is the step forward here for the user? (push deploy back a phase)
+                                            } else {
+                                                console.log(`${chalk.green('✔')} Transaction(${txn.hash})`);
+                                            }
+                                        }
+                                    } 
+                                    if (!anyNotDone) {
+                                        done = true;
+                                    } else {
+                                        await sleepMs(5000);
+                                    }
+                                } catch (e) {
+                                    if (e instanceof TransactionReceiptNotFoundError) {
+                                        console.warn(`Transaction not in a block yet.`);
+                                        console.warn(e);
+                                    } else {
+                                        console.warn(e);
+                                    }
+                                    
+                                    await sleepMs(5000);
+                                    continue;
                                 }
+                                done = true;
                             }
+                        } finally {
+                            spinner.stopAndPersist();
                         }
-                        spinner.stopAndPersist();
                     }
 
                     deploy._.metadata[deploy._.segmentId].confirmed = true;
@@ -613,7 +656,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
             console.warn(`Modified files: `)
             console.warn(metatxn.toString());
         } else {
-            console.log(`Your copy had no outstanding changes to commit.`);
+            console.log(chalk.italic(`Your copy had no outstanding changes to commit.`));
         }
     }
 }

@@ -28,10 +28,6 @@ export default class EOASigningStrategy extends EOABaseSigningStrategy<TEOAArgs>
         return [(await this.args()).privateKey];
     }
 
-    async cancel(): Promise<void> {
-        throw new Error('EOA deploys cannot be cancelled.');
-    }
-
     async getSignerAddress(): Promise<`0x${string}`> {
         const args = await this.args();
         return privateKeyToAccount(args.privateKey as `0x${string}`).address;
