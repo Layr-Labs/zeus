@@ -35,7 +35,7 @@ export const install = async() => {
     spinner = ora('downloading zeus').start();
     try {    
         const zeusBinaryPath = join(targetDir, 'zeus')
-        const zeusBinaryContents = await (await fetch(`https://github.com/Layr-Labs/zeus/releases/download/${ZEUS_VERSION}/zeus`)).text();
+        const zeusBinaryContents = await (await fetch(`https://d2mlo472ao01at.cloudfront.net/zeus-${ZEUS_VERSION}`)).text();
         if (zeusBinaryContents === 'Not Found') {
             spinner.stopAndPersist({prefixText: '❌'});
             console.error(`fatal: zeus v${ZEUS_VERSION} not found.`);
