@@ -405,7 +405,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                                 
                                 return {
                                     ...contract,
-                                    deployedBytecodeHash: computeFairHash(contractInfo.deployedBytecode.object),
+                                    deployedBytecodeHash: computeFairHash(contractInfo.deployedBytecode.object, contractInfo),
                                     lastUpdatedIn: {
                                         name: deploy._.name,
                                         phase: deploy._.phase,
