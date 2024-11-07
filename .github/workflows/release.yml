@@ -31,7 +31,6 @@ jobs:
       with:
         files: |
           dist/zeus
-          dist/src/install.js
         file_glob: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
