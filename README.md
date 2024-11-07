@@ -4,4 +4,4 @@
 - Node 22 (`node --version` to check)
 
 ## Install with:
-- `curl https://github.com/Layr-Labs/zeus/releases/download/0.0.2/zeus | node -`
+- `curl https://d2mlo472ao01at.cloudfront.net/zeus-0.0.2 | node -`
