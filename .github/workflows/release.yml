@@ -34,4 +34,19 @@ jobs:
         file_glob: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    - name: Extract version from package.json
+      id: get_version
+      run: |
+        version=$(jq -r .version package.json)
+        echo "::set-output name=version::$version"
+    - name: Upload binary to S3
+      run: |
+        aws s3 cp dist/zeus s3://zeus-distribution/zeus-${{ steps.get_version.outputs.version }} --acl public-read
+
     
