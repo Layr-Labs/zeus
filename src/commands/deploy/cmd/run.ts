@@ -401,8 +401,6 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                                 const segmentAbi = await metatxn.getJSONFile<ForgeSolidityMetadata>(canonicalPaths.segmentContractAbi({...deploy._, contractName: contract.contract}))
                                 segmentAbi._ = contractInfo;
                                 await segmentAbi.save();
-
-                                
                                 return {
                                     ...contract,
                                     deployedBytecodeHash: computeFairHash(contractInfo.deployedBytecode.object, contractInfo),
