@@ -13,8 +13,19 @@ import testCmd from './commands/test';
 import initCmd from './commands/init';
 import which from './commands/which';
 import {zeus as zeusInfo} from './metadata/meta';
+import { install } from './install';
+
+const isRunningAsInstallScript = () => {
+    return process.argv[1] === '-';
+}
 
 const main = async () => {
+    // check whether we are running on a host with zeus installed.
+    if (isRunningAsInstallScript()) {
+        install();
+        return;
+    }
+
     const state = await load()
     const isLoggedIn = await state.metadataStore?.isLoggedIn() ?? false;
     const hasZeusHost = !!state?.zeusHostOwner;

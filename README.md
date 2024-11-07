@@ -1,5 +1,7 @@
-# Dependencies
+# Installing zeus
 
-Some packages are environment dependent. Install your host's packages for USB interaction:
+## Prerequisites:
+- Node 22 (`node --version` to check)
 
-`npm install -g usb @ledgerhq/hw-transport-node-hid`
+## Install with:
+- `curl https://github.com/Layr-Labs/zeus/install.js | node -`

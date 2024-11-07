@@ -1,4 +1,14 @@
 {
+  "exclude": [
+    "dist",
+    "coverage",
+    "package.json",
+    "webpack.common.cjs",
+    "webpack.config.dev.cjs",
+    "webpack.config.prod.cjs",
+    "eslint.config.mjs",
+    "jest.config.mjs"
+  ],
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig to read more about this file */
 
