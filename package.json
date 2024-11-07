@@ -1,6 +1,6 @@
 {
   "name": "@layr-labs/zeus",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "web3 deployer / metadata manager",
   "main": "src/index.ts",
   "scripts": {
@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "debug": "node --inspect-brk dist/index.js",
     "lint": "eslint .",
-    "prepack": "build-prod",
+    "prepack": "npm run build-prod",
     "lint-fix": "eslint . --fix",
     "watch": "webpack --watch -c webpack.config.dev.cjs",
     "build-dev": "webpack -c webpack.config.dev.cjs",

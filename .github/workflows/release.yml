@@ -23,14 +23,17 @@ jobs:
     - name: Install dependencies
       run: npm install
     - name: Build project
-      run: npm run build-prod
-    - name: Rename binary
-      run: mv dist/bundle.cjs dist/zeus
+      run: npm pack
+    - name: Extract version from package.json
+      id: get_version
+      run: |
+        version=$(jq -r .version package.json)
+        echo "::set-output name=version::$version"
     - name: Upload artifact to release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          dist/zeus
+          layr-labs-zeus-${{ steps.get_version.outputs.version }}.tgz
         file_glob: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,13 +43,8 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
-    - name: Extract version from package.json
-      id: get_version
-      run: |
-        version=$(jq -r .version package.json)
-        echo "::set-output name=version::$version"
     - name: Upload binary to S3
       run: |
-        aws s3 cp dist/zeus s3://zeus-distribution/zeus-${{ steps.get_version.outputs.version }}
+        aws s3 cp layr-labs-zeus-${{ steps.get_version.outputs.version }}.tgz s3://zeus-distribution/zeus-${{ steps.get_version.outputs.version }}.tgz
 
     
