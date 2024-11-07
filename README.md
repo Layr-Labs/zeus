@@ -4,4 +4,4 @@
 - Node 22 (`node --version` to check)
 
 ## Install with:
-- `curl https://d2mlo472ao01at.cloudfront.net/zeus-0.0.2 | node -`
+- `curl https://d2mlo472ao01at.cloudfront.net/zeus-0.0.3 | node -`
