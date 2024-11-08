@@ -21,7 +21,7 @@ jobs:
       with:
         node-version: '22'
     - name: Install dependencies
-      run: npm install
+      run: npm ci
     - name: Build project
       run: npm pack
     - name: Extract version from package.json
