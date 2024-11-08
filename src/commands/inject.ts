@@ -1,7 +1,6 @@
 
 import { Octokit } from 'octokit';
 import chalk from 'chalk';
-import { Environment } from './environment';
 import { MetadataStore } from '../metadata/metadataStore';
 import { GithubMetadataStore } from '../metadata/github/GithubMetadataStore';
 import { configs } from './configs';
@@ -11,7 +10,6 @@ export interface TState {
     github?: Octokit | undefined; 
     zeusHostOwner: string | undefined;
     zeusHostRepo: string | undefined;
-    environment?: Environment | undefined;
     metadataStore?: MetadataStore | undefined;
 }
 
@@ -21,7 +19,7 @@ export interface TLoggedInState extends TState {
 };
 
 export function isLoggedIn(state: TState): state is TLoggedInState {
-    return !!state.metadataStore && !!state.github;
+    return !!state.github;
 }
 
 export function assertLoggedIn(state: TState): TLoggedInState {
@@ -33,7 +31,7 @@ export function assertLoggedIn(state: TState): TLoggedInState {
 }
 
 // get all zeus-state, from environment variables + repo.
-export async function load(args?: {env: string}): Promise<TState> {
+export async function load(): Promise<TState> {
     const zeusProfile = await configs.zeusProfile.load();
     const zeusRepo = await configs.zeus.load();
 
@@ -67,7 +65,6 @@ export async function load(args?: {env: string}): Promise<TState> {
         zeusHostRepo,
         metadataStore,
         github: metadataStore ? (metadataStore as unknown as GithubMetadataStore)?.octokit : undefined,
-        environment: args?.env ? new Environment(args.env) : undefined,
     };
 }
 

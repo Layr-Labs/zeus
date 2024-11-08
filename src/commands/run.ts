@@ -36,8 +36,10 @@ export const deployParametersToEnvironmentVariables: (parameters: Record<string,
         return {};
     }
 
-    // TODO: no nesting in configs. (?)
     return Object.fromEntries(Object.keys(parameters).map(key => {
+        if (typeof parameters[key] === 'object') {
+            throw new Error(`Unsupported environment type.`);
+        }
         return [`ZEUS_ENV_${normalize(key)}`, parameters[key]]
     }))
 }

@@ -1,11 +1,11 @@
 {
   "name": "@layr-labs/zeus",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "web3 deployer / metadata manager",
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc",
-    "test": "jest",
+    "test": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" NODE_NO_WARNINGS=1 npx jest --coverage",
     "start": "node dist/index.js",
     "debug": "node --inspect-brk dist/index.js",
     "lint": "eslint .",
@@ -13,8 +13,7 @@
     "lint-fix": "eslint . --fix",
     "watch": "webpack --watch -c webpack.config.dev.cjs",
     "build-dev": "webpack -c webpack.config.dev.cjs",
-    "build-prod": "webpack -c webpack.config.prod.cjs",
-    "bun-start": "bun dist/index.ts"
+    "build-prod": "webpack -c webpack.config.prod.cjs"
   },
   "bin": {
     "zeus": "./dist/bundle.cjs"

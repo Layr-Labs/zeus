@@ -54,8 +54,6 @@ function redact(haystack: string, ...needles: string[]) {
     return out;
 }
 
-
-// TODO: signing strategy should inject node / publicClient
 export abstract class Strategy<TArgs> {
     readonly deploy: SavebleDocument<TDeploy>;
     readonly metatxn: Transaction;
@@ -107,8 +105,6 @@ export abstract class Strategy<TArgs> {
     }
 
     async runForgeScript(path: string, _args?: {isPrepare?: boolean, verbose?: boolean}): Promise<TForgeOutput> {
-        // TODO: should we be running a forge clean?
-
         const customForgeArgs = _args?.isPrepare ? await this.forgeDryRunArgs() : await this.forgeArgs();
         const args = ['script', path, ...customForgeArgs, '--json'];
 

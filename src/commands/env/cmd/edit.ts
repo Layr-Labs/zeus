@@ -13,7 +13,7 @@ const ajv = new Ajv({allErrors: true});
 
 async function handler(_user: TState, args: {json: boolean |undefined, env: string}): Promise<void> {
     const user = assertLoggedIn(_user);
-    const txn = await user.metadataStore.begin();
+    const txn = await user.metadataStore.begin({verbose: true});
     const envs = await loadExistingEnvs(txn);
 
     const deploySchemaPath = canonicalPaths.deployParametersSchema('');
@@ -32,7 +32,6 @@ async function handler(_user: TState, args: {json: boolean |undefined, env: stri
     });
     const updatedParams = JSON.parse(updatedParamsText);
     
-    // TODO: we should show what the update diff is...
     if (deploySchema && deploySchema._ && Object.keys(deploySchema._).length > 0) {
         try {
             const validate = ajv.compile(deploySchema._);
@@ -45,6 +44,7 @@ async function handler(_user: TState, args: {json: boolean |undefined, env: stri
             } else {
                 console.log(chalk.green('✅ validated changes'))
             }
+
         } catch (e) {
             console.error(`An error occurred while validating your changes. They will not be saved.`);
             console.error(e);
@@ -61,12 +61,8 @@ async function handler(_user: TState, args: {json: boolean |undefined, env: stri
 
     deployParams._ = updatedParams;
     await deployParams.save();
-    if (deployParams.pendingSaveableContents()) {
-        await txn.commit(`Updated environment`);
-        console.log(chalk.green(`+ updated environment '${args.env}'`))
-    } else {
-        console.warn(`No changes were made to ${args.env}.deployParameters.`);
-    }
+    await txn.commit(`Updated environment`);
+    console.log(chalk.green(`+ updated environment '${args.env}'`))
 }
 
 const cmd = command({

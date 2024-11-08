@@ -89,8 +89,15 @@ async function handler(_user: TState, args: {env: string}) {
     const script = join(deploy._.upgradePath, deploy._.segments[eoaPhases[0].id].filename);
     const prep = await strategy.prepare(script, deploy._) as TForgeRequest;
     if (!prep.deployedContracts || !prep.forge) {
-        console.error(`This deploy isn't supposed to produce any contracts.`);
-        // TODO: validate that no contracts were deployed in this phase.
+        if (deployedContracts._?.contracts?.length > 0) {
+            console.error(`The local copy didn't produce any contracts, but the remote claimed to produce the following contracts.`);
+            console.table(deployedContracts._.contracts)
+            console.error(`Make sure you're on the correct commit, and double check any deployed contracts before proceeding...`);
+            return;
+        }
+
+        console.log(`Both the local and remote copy didn't produce any contracts.`);
+        console.log(`This is not a bug -- the uprgade just didn't deploy anything.`)
         return;
     }
 

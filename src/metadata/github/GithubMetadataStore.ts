@@ -45,8 +45,7 @@ export class GithubMetadataStore implements MetadataStore {
                 this.octokit = new Octokit({auth: this.accessToken});
             }
         } catch (e) {
-            console.error(`Failed initializing metadata.`)
-            throw e;
+            throw new Error(`failed to initialize`, {cause: e});
         }
     }
 
@@ -61,14 +60,14 @@ export class GithubMetadataStore implements MetadataStore {
         return repoData.default_branch; 
     }
 
-    async begin(): Promise<Transaction> {
+    async begin(args?: {verbose?: boolean}): Promise<Transaction> {
         const branch = await this.getBranch();
         const response = await this.getOctokit().rest.repos.getBranch({
             owner: this.owner,
             repo: this.repo,
             branch,
         });
-        return new GithubTransaction(this.owner, this.repo, branch, this.getOctokit(), response.data.commit.sha);
+        return new GithubTransaction(this.owner, this.repo, branch, this.getOctokit(), response.data.commit.sha, args?.verbose ?? false);
     }
 
     async isLoggedIn(): Promise<boolean> {

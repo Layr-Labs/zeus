@@ -49,5 +49,5 @@ export interface MetadataStore {
     // async constructor
     initialize(): Promise<void>;
 
-    begin(): Promise<Transaction>;
+    begin(options?: {verbose?: boolean}): Promise<Transaction>;
 };

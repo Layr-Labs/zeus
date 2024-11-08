@@ -2,10 +2,6 @@ import { Transaction, SavebleDocument, TDirectory } from "../metadataStore";
 import { Octokit } from 'octokit';
 import { GithubJsonDocument } from "./GithubJsonDocument";
 
-/**
- * TODO: subsequent reads during a single transaction are inconsistent without commit.
- *  We should be returning the cached `file` from `_files` instead of fetching again from the base commit.
- */
 export class GithubTransaction implements Transaction {
     //  the commit that all changes are being made against
     baseCommitHash = '';
@@ -16,6 +12,7 @@ export class GithubTransaction implements Transaction {
 
     // currently modified files. note that this resets after calling `commit`.
     _files: SavebleDocument<unknown>[] = [];
+    _verbose: boolean;
 
     hasChanges(): boolean {
         return !!this._files.find(f => f.dirty);
@@ -30,13 +27,14 @@ export class GithubTransaction implements Transaction {
         }
     }
 
-    constructor(owner: string, repo: string, branch: string, octokit: Octokit, baseCommitHash: string) {
+    constructor(owner: string, repo: string, branch: string, octokit: Octokit, baseCommitHash: string, verbose: boolean) {
         this.owner = owner;
         this.repo = repo;
         this.octokit = octokit;
         this.branch = branch;
         this.baseCommitHash = baseCommitHash;
         this._files = [];
+        this._verbose = verbose;
     }
 
     async commit(log: string): Promise<void> {
@@ -105,7 +103,7 @@ export class GithubTransaction implements Transaction {
             repo: this.repo,
             octokit: this.octokit,
             branch: this.branch
-        });
+        }, {verbose: this._verbose});
         this._files.push(file);
         return file;
     } 
@@ -180,7 +178,7 @@ export class GithubTransaction implements Transaction {
             console.warn(`${path} was read as a JSON file but doesn't have valid JSON.`);
         }
 
-        const file = new GithubJsonDocument<T>(obj ?? {} as T, path, true, { octokit: this.octokit, owner: this.owner, repo: this.repo, branch: this.branch});
+        const file = new GithubJsonDocument<T>(obj ?? {} as T, path, true, { octokit: this.octokit, owner: this.owner, repo: this.repo, branch: this.branch}, {verbose: this._verbose});
         this._files.push(file);
         return file;
     }

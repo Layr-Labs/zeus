@@ -44,7 +44,6 @@ export class GithubJsonDocument<T extends string | object> implements SavebleDoc
 
     get upToDate(): boolean {
         const up = JSON.stringify(this._saved, null, 2) === JSON.stringify(this._remote, null, 2);
-
         if (this.options?.verbose) {
             const filename = path.basename(this.path);
             const savedTmp = tmp.fileSync({postfix: filename, mode: 0o600});
@@ -54,7 +53,16 @@ export class GithubJsonDocument<T extends string | object> implements SavebleDoc
             fs.writeFileSync(remoteTmp.fd, JSON.stringify(this._remote, null, 2));
             
             const diff = execSync(`diff -u ${remoteTmp.name} ${savedTmp.name} || :`).toString('utf-8');
-            console.log(chalk.gray(diff));
+
+            diff.split('\n').forEach(line => {
+                if (line.startsWith('+')) {
+                    console.log(chalk.green(line));
+                } else if (line.startsWith('-')) {
+                    console.log(chalk.red(line));
+                } else {
+                    console.log(chalk.gray(line));
+                }
+            })
         }
 
         return up;

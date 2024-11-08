@@ -172,7 +172,6 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             safeAddress: safeAddress
         });
 
-        // TODO:(low-pri) we don't need to multi-encode this at the solidity level.
         const txn = await protocolKitOwner1.createTransaction({
             transactions: [
                 {

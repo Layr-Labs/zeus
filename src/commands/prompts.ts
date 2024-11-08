@@ -203,12 +203,11 @@ export const safeAddress = async () => {
     while (true) {
         const result = await envVarOrPrompt({
             title: `Enter the address of your Gnosis Multisig SAFE (or $ENV_VAR)`,
-            isValid: (text) =>  isAddress(text),
+            isValid: isAddress,
             directEntryInputType: 'text',
             envVarSearchMessage: 'Enter a multisig address'
         })
         
-        // TODO:check that the SAFE is deployed
         return result;
     }
 } 

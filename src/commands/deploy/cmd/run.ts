@@ -72,7 +72,7 @@ function formatNow() {
     return `${year}-${month}-${day}-${hours}-${minutes}`;
 }
 
-async function handler(_user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string | undefined}) {
+export async function handler(_user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string | undefined}) {
     if (!isLoggedIn(_user)) {
         return;
     }
@@ -368,8 +368,6 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                 case "eoa_start": {
                     const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
                     if (existsSync(script)) {
-                        // TODO: check whether this deploy already has forge documents uploaded from a previous run.
-                        // (i.e that it bailed before advancing.)
                         const strategy =  await promptForStrategy(deploy, metatxn);
                         const sigRequest = await strategy.requestNew(script, deploy._) as TForgeRequest;
                         if (sigRequest?.ready) {
