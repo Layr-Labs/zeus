@@ -149,14 +149,18 @@ async function handler(_user: TState, args: {env: string}) {
             }
         }).filter(v => !!v));
 
-        // TODO: this doesn't take into account instances (keying on the contract name is basically always wrong)
         const contracts = deployedContracts._.contracts;
-        const info = Object.fromEntries(contracts.map((ctr) => [ctr.contract, {
-            ...ctr,
-            yours: localBytecodeHashes[ctr.contract] ?? '<none>',
-            onchain: onchainHashes[ctr.contract] ?? '<none>',
-            match: !!((localBytecodeHashes[ctr.contract] === onchainHashes[ctr.contract]) && localBytecodeHashes[ctr.contract]),
-        }]))
+        const instanceCounter: Record<string, number> = {};
+        const info = Object.fromEntries(contracts.map((ctr) => {
+            const instancedContractName = `${ctr.contract}${instanceCounter[ctr.contract] ? `_${instanceCounter[ctr.contract]}` : ``}`
+            instanceCounter[ctr.contract] = (instanceCounter[ctr.contract] ?? 0) + 1;
+            return [instancedContractName, {
+                ...ctr,
+                yours: localBytecodeHashes[ctr.contract] ?? '<none>',
+                onchain: onchainHashes[ctr.contract] ?? '<none>',
+                match: !!((localBytecodeHashes[ctr.contract] === onchainHashes[ctr.contract]) && localBytecodeHashes[ctr.contract]),
+            }]
+        }))
 
         const isFailure = Object.keys(info).filter(ctr => !info[ctr].match)
         if (isFailure && Object.keys(isFailure).length > 0) {

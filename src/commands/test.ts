@@ -1,24 +1,38 @@
-import {command, positional, string} from 'cmd-ts';
+import {command, restPositionals, string} from 'cmd-ts';
 import {json} from './args';
 import { assertLoggedIn, loggedIn, requires, TState } from './inject';
 import { runTest } from '../signing/strategies/test';
 import * as allArgs from  './args';
 import chalk from 'chalk';
 
-const handler = async function(_user: TState, args: {script: string, env: string | undefined, verbose: boolean}) {
+const handler = async function(_user: TState, args: {scripts: string[], env: string | undefined, verbose: boolean}) {
     const user = assertLoggedIn(_user);
     const txn = await user.metadataStore.begin();
     const runContext = (args.env) ? {env: args.env} : undefined;
-    try {
-        const res = await runTest({upgradePath: args.script, txn, context: runContext, verbose: args.verbose});
-        if (res.code !== 0 || !res.forge.output.success) {
-            throw new Error(`❌ Test failed [${res.code}]`, {cause: new Error(`Test failed (for full output, re-run with --verbose)`)})
-        }
-    } catch (e) {
-        console.error(`❌ Test failed (for full output, re-run with --verbose)`, {cause: e});
-        throw e;
-    } 
-    console.log(`✅ Test Passed ${chalk.italic('(for full output, re-run with --verbose)')}`)
+    const result: Record<string, boolean> = {};
+    args.scripts.forEach(async (script) => {
+        try {
+            const res = await runTest({upgradePath: script, txn, context: runContext, verbose: args.verbose});
+            if (res.code !== 0 || !res.forge.output.success) {
+                console.error(`❌ [${script}] - test failed (for full output, re-run with --verbose)`, {cause: e});
+                result[script] = false;
+                return;
+            }
+            result[script] = true;
+        } catch (e) {
+            result[script] = false;
+            console.error(`❌ [${script}] - test failed (for full output, re-run with --verbose)`, {cause: e});
+            throw e;
+        } 
+    });
+
+    const failures = Object.values(result).find(v => v === false);
+    const isSuccess = !failures; // no failures.
+    if (isSuccess) {
+        console.log(`✅ ${args.scripts.length} test${args.scripts.length > 1 ? 's' : ''} succeeded ${chalk.italic('(for full output, re-run with --verbose)')}`)
+    } else {
+        throw new Error(`❌ [${failures}/${Object.keys(result).length}] not all tests succeeded`)
+    }
 };
 
 const cmd = command({
@@ -27,9 +41,9 @@ const cmd = command({
     version: '1.0.0',
     args: {
         json,
-        env: allArgs.envOptional,
+        env: allArgs.env,
         verbose: allArgs.verbose,
-        script: positional({
+        scripts: restPositionals({
             type: string,
             description: 'Path to script to test.'
         })

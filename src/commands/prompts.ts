@@ -15,12 +15,23 @@ export const checkShouldSignGnosisMessage = async (message: unknown) => {
     }
 }
 
+const cachedAnswers: Record<string, string> = {};
+
 const envVarOrPrompt: (args: {
     title: string,
     envVarSearchMessage?: string,
     directEntryInputType: "text" | "password",
     isValid: (text: string) => boolean,
+
+    /**
+     * Allows answers to be reused, to avoid reprompting.
+     */
+    reuseKey?: string,
 }) => Promise<string> = async (args) => {
+    if (args.reuseKey && cachedAnswers[args.reuseKey] !== undefined) {
+        return cachedAnswers[args.reuseKey];
+    }
+
     const answer = await select({
         prompt: `[choose method] ${args.title}`,
         choices: [{
@@ -41,10 +52,18 @@ const envVarOrPrompt: (args: {
             },
             validate: async (input) => args.isValid(process.env[input as string] ?? '')
         })
-        return process.env[envVar] ?? '';
+        const resp = process.env[envVar] ?? '';
+        if (args.reuseKey) {
+            cachedAnswers[args.reuseKey] = resp;
+        }
+        return resp;
     } else {
         switch (args.directEntryInputType) {
             case "password": {
+                if (args.reuseKey) {
+                    throw new Error(`Reuse key not supported for passwords.`);
+                }
+
                 return await inquirerPassword({
                     message: args.title,
                     validate: args.isValid,
@@ -53,7 +72,11 @@ const envVarOrPrompt: (args: {
             }
             case "text":
             default: {
-                return await input({ message: args.title, validate: args.isValid });
+                const res = await input({ message: args.title, validate: args.isValid });
+                if (args.reuseKey) {
+                    cachedAnswers[args.reuseKey] = res;
+                }
+                return res;
             }
         }
     }
@@ -130,6 +153,7 @@ export const rpcUrl = async (forChainId: number) => {
     while (true) {
         const result = await envVarOrPrompt({
             title: `Enter an RPC url (or $ENV_VAR) for ${chainIdName(forChainId)}`,
+            reuseKey: `node-${forChainId}`,
             isValid: (text) => {
                 try {
                     let url: string = text;

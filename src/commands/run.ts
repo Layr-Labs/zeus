@@ -22,8 +22,11 @@ const normalizeContractName = (contractName: string): string => {
     return normalize(normalized);
 };
 
-export const contractsToEnvironmentVariables: (statics: TDeployedContract[], instances: TDeployedInstance[]) => Record<string, string> = (statics, instances) => {
-    const deployedSingletons = Object.values(statics).map(singleton => [`ZEUS_DEPLOYED_${normalizeContractName(singleton.contract)}`, singleton.address]) ?? {};
+export const contractsToEnvironmentVariables: (statics: Record<string, TDeployedContract>, instances: TDeployedInstance[]) => Record<string, string> = (statics, instances) => {
+    const deployedSingletons = Object.entries(statics).map<[string, `0x${string}`]>(v => {
+        const [contract, singleton] = v;
+        return [`ZEUS_DEPLOYED_${normalizeContractName(contract)}`, singleton.address]
+    }) ?? {};
     const deployedInstances = instances.map(inst => [`ZEUS_DEPLOYED_${normalizeContractName(inst.contract)}_${inst.index}`, inst.address]) ?? {};
     return Object.fromEntries([
         ...deployedSingletons,
@@ -53,7 +56,6 @@ export const injectableEnvForEnvironment = async (txn: Transaction, env: string,
     }
     
     const deployManifest: TDeployedContractsManifest = withDeploy ? (await txn.getJSONFile<TDeployedContractsManifest>(canonicalPaths.deployDeployedContracts({env, name: withDeploy})))._ : {contracts: []};
-
     const deployParameters = await txn.getJSONFile<Record<string, string>>(canonicalPaths.deployParameters(
         '',
         env,
@@ -61,7 +63,6 @@ export const injectableEnvForEnvironment = async (txn: Transaction, env: string,
     
     const deployStatics = Object.fromEntries(deployManifest.contracts?.filter(c => c.singleton).map(c => [c.contract, c]) ?? [])
     const deployInstances = deployManifest.contracts?.filter(c => !c.singleton) ?? [];
-
     const statics = {
         ...(envManifest._.contracts?.static ?? {}),
         ...(deployStatics ?? {})
@@ -82,12 +83,12 @@ export const injectableEnvForEnvironment = async (txn: Transaction, env: string,
     }, [] as TDeployedInstance[])
 
     return {
-        ...(deployParametersToEnvironmentVariables(deployParameters._ ?? {})),
-        ...(contractsToEnvironmentVariables(Object.values(statics), instances)),
-        ZEUS_VERSION: zeusInfo.Version,
         ZEUS_ENV: env,
         ZEUS_ENV_COMMIT: envManifest._.latestDeployedCommit,
         ZEUS_ENV_VERSION: envManifest._.deployedVersion,
+        ZEUS_VERSION: zeusInfo.Version,
+        ...(deployParametersToEnvironmentVariables(deployParameters._ ?? {})),
+        ...(contractsToEnvironmentVariables(statics, instances)),
     }
 }
 
@@ -117,7 +118,7 @@ const cmd = command({
             description: 'A full shell command to run.'
         })
     },
-    // TODO: does this really require being logged in????
+    // does this really require being logged in????
     // we likely need a logged out read-only metadataStore as well.
     handler: requires(handler, inRepo, loggedIn),
 })
