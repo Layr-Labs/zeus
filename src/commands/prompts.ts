@@ -82,6 +82,18 @@ const envVarOrPrompt: (args: {
     }
 }
 
+export const etherscanApiKey: () => Promise<string | undefined> = async () => {
+    const res = await wouldYouLikeToContinue(`Would you like to verify contracts on etherscan?`);
+    if (res) {
+        return await envVarOrPrompt({
+            title: `Enter an etherscan API key`,
+            isValid: (text) => text.length === 34,
+            directEntryInputType: 'password',
+            envVarSearchMessage: `Enter a 34-character etherscan API key`
+        })
+    }
+};
+
 export const privateKey = async (chainId: number) => {
     const res = await envVarOrPrompt({
         title: `Enter an ETH private key (${chainIdName(chainId)})`,

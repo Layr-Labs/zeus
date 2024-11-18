@@ -10,29 +10,36 @@ const handler = async function(_user: TState, args: {scripts: string[], env: str
     const txn = await user.metadataStore.begin();
     const runContext = (args.env) ? {env: args.env} : undefined;
     const result: Record<string, boolean> = {};
-    args.scripts.forEach(async (script) => {
+    const verboseHelp = args.verbose ? '' : chalk.italic(`(for full output, re-run with --verbose)`); 
+
+    await Promise.all(args.scripts.map(async (script) => {
         try {
             const res = await runTest({upgradePath: script, txn, context: runContext, verbose: args.verbose});
             if (res.code !== 0 || !res.forge.output.success) {
-                console.error(`❌ [${script}] - test failed (for full output, re-run with --verbose)`, {cause: e});
+                console.error(`❌ [${script}] - test failed ${verboseHelp}`);
                 result[script] = false;
                 return;
+            } else {
+                result[script] = true;
             }
-            result[script] = true;
         } catch (e) {
             result[script] = false;
-            console.error(`❌ [${script}] - test failed (for full output, re-run with --verbose)`, {cause: e});
-            throw e;
+            console.error(`❌ [${script}] - test failed ${verboseHelp}`, {cause: e});
         } 
-    });
-
-    const failures = Object.values(result).find(v => v === false);
-    const isSuccess = !failures; // no failures.
+    }));
+    const anyFailures = Object.values(result).filter(v => v === false);
+    const isSuccess = !anyFailures || anyFailures.length === 0; // no failures.
     if (isSuccess) {
-        console.log(`✅ ${args.scripts.length} test${args.scripts.length > 1 ? 's' : ''} succeeded ${chalk.italic('(for full output, re-run with --verbose)')}`)
+        console.log(`✅ ${args.scripts.length} test${args.scripts.length > 1 ? 's' : ''} succeeded ${verboseHelp}`)
     } else {
-        throw new Error(`❌ [${failures}/${Object.keys(result).length}] not all tests succeeded`)
+        console.error(`❌ [${anyFailures.length}/${Object.keys(result).length}] failing. ${verboseHelp}`)
     }
+
+    Object.keys(result).forEach(script => {
+        console.log(`\t${result[script] === true ? chalk.green('✔️') : chalk.red('✖️')}  ${script}`);
+    })
+    
+    process.exit(anyFailures.length);
 };
 
 const cmd = command({

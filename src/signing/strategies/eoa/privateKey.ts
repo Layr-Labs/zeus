@@ -25,7 +25,8 @@ export default class EOASigningStrategy extends EOABaseSigningStrategy<TEOAArgs>
     }
 
     async redactInOutput(): Promise<string[]> {
-        return [(await this.args()).privateKey];
+        const args = await this.args();
+        return [args.privateKey, ...await super.redactInOutput()];
     }
 
     async getSignerAddress(): Promise<`0x${string}`> {

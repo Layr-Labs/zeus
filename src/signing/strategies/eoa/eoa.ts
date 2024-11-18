@@ -12,6 +12,7 @@ import { updateLatestDeploy } from "../../../commands/deploy/cmd/utils";
 
 interface TBaseEOAArgs {
     rpcUrl: string
+    etherscanApiKey?: string,
 }
 
 export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEOAArgs & T> {
@@ -23,9 +24,12 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
     async promptArgs(): Promise<TBaseEOAArgs & T> {
         const subargs = await this.promptSubArgs();
         const rpcUrl = await prompts.rpcUrl(this.deploy._.chainId);
+        const etherscanApiKey = await prompts.etherscanApiKey()
+
         return {
             ...subargs,
             rpcUrl: rpcUrl,
+            etherscanApiKey,
         }
     }
 
@@ -33,11 +37,21 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
         return '--privateKey [0x123123123] --rpcUrl <execution node>';
     }
 
+    async redactInOutput(): Promise<string[]> {
+        const args = await this.args();
+        if (args.etherscanApiKey) {
+            return [args.etherscanApiKey];
+        }
+
+        return [];
+    }
+
     async forgeArgs(): Promise<string[]> {
         const args = await this.args();
         const subclassForgeArgs = await this.subclassForgeArgs();
+        const etherscanVerify = args.etherscanApiKey ? [`--etherscan-api-key`, args.etherscanApiKey, `--chain`, `${this.deploy._.chainId}`, `--verify`] : [];
 
-        return [...subclassForgeArgs, '--broadcast', '--rpc-url', args.rpcUrl, '--sig', `deploy()`];
+        return [...subclassForgeArgs, '--broadcast', ...etherscanVerify, '--rpc-url', args.rpcUrl, '--sig', `deploy()`];
     }
 
     async forgeDryRunArgs(): Promise<string[]> {

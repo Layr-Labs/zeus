@@ -22,6 +22,7 @@ import { execSync } from "child_process";
 import { runTest } from "../../../signing/strategies/test";
 import { chainIdName, wouldYouLikeToContinue, rpcUrl as freshRpcUrl } from "../../prompts";
 import { computeFairHash } from "../utils";
+import EOABaseSigningStrategy from "../../../signing/strategies/eoa/eoa";
 
 process.on("unhandledRejection", (error) => {
     console.error(error); // This prints error with stack included (as for normal errors)
@@ -238,6 +239,8 @@ const executeOrContinueDeployWithLock = async (name: string, env: string, user: 
 }
 
 const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: TState, metatxn: Transaction, rpcUrl: string | undefined) => {
+    let eoaStrategy: EOABaseSigningStrategy<unknown> | undefined = undefined;
+    
     try {
         while (true) {
             console.log(chalk.green(`[${deploy._.segments[deploy._.segmentId]?.filename ?? '<none>'}] ${deploy._.phase}`))
@@ -340,8 +343,8 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     }
 
                     console.log(`Zeus would like to simulate this EOA transaction before attempting it for real. Please choose the method you'll use to sign:`)
-                    const strategy =  await promptForStrategy(deploy, metatxn);
-                    const sigRequest = await strategy.prepare(script, deploy._) as TForgeRequest;
+                    eoaStrategy = (await promptForStrategy(deploy, metatxn)) as unknown as EOABaseSigningStrategy<unknown>;
+                    const sigRequest = await eoaStrategy.prepare(script, deploy._) as TForgeRequest;
                     console.log(chalk.yellow(`Please reviewing the following: `))
                     console.log(chalk.yellow(`=====================================================================================`))
                     console.log(chalk.bold.underline(`Forge output: `))
@@ -368,7 +371,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                 case "eoa_start": {
                     const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
                     if (existsSync(script)) {
-                        const strategy =  await promptForStrategy(deploy, metatxn);
+                        const strategy = eoaStrategy ?? await promptForStrategy(deploy, metatxn);
                         const sigRequest = await strategy.requestNew(script, deploy._) as TForgeRequest;
                         if (sigRequest?.ready) {
                             deploy._.metadata[deploy._.segmentId] = {
@@ -393,8 +396,6 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                             // look up any contracts compiled and their associated bytecode.
                             const withDeployedBytecodeHashes = await Promise.all(sigRequest.deployedContracts?.map(async (contract) => {
                                 const contractInfo = JSON.parse(fs.readFileSync(canonicalPaths.contractInformation(getRepoRoot(), contract.contract), 'utf-8')) as ForgeSolidityMetadata;
-                                console.log(`${chalk.bold(`${contract.contract}.deployedBytecode: ${contractInfo.deployedBytecode.object}`)}`)
-                                
                                 // save the contract abi.
                                 const segmentAbi = await metatxn.getJSONFile<ForgeSolidityMetadata>(canonicalPaths.segmentContractAbi({...deploy._, contractName: contract.contract}))
                                 segmentAbi._ = contractInfo;
@@ -420,7 +421,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
 
                             if (withDeployedBytecodeHashes) {
                                 console.log(`Deployed Contracts:`);
-                                console.table(withDeployedBytecodeHashes);
+                                console.table(withDeployedBytecodeHashes.map(v => {return {...v, lastUpdatedIn: undefined}}));
                             }
 
                             await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction`);
@@ -446,7 +447,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         throw new Error('foundry.deploy.json was corrupted.');
                     }
 
-                    const localRpcUrl = await freshRpcUrl(deploy._.chainId);
+                    const localRpcUrl = (eoaStrategy ? (await eoaStrategy.args()).rpcUrl : await freshRpcUrl(deploy._.chainId));
                     const client = createPublicClient({
                         chain: getChain(deploy._.chainId), 
                         transport: http(localRpcUrl),
