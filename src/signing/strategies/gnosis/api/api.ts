@@ -8,11 +8,13 @@ import * as prompts from '../../../../commands/prompts';
 import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/schema";
 import { updateLatestDeploy } from "../../../../commands/deploy/cmd/utils";
 import { SavebleDocument } from "../../../../metadata/metadataStore";
-
+import { holesky } from "viem/chains";
 interface TGnosisBaseArgs {
     safeAddress: string;
     rpcUrl: string;
 }
+
+const TX_SERVICE_HOLESKY = 'https://gateway.holesky-safe.protofire.io';
 
 export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs & T> {
 
@@ -62,8 +64,11 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                     safeAddress: metadata.multisig
                 });
 
+                const overrideTxServiceUrl = deploy._.chainId === holesky.id ? TX_SERVICE_HOLESKY : undefined;
                 const apiKit = new SafeApiKit({
                     chainId: BigInt(deploy._.chainId),
+                    // TODO: we probably want the option to inject a custom tx service url here...
+                    txServiceUrl: overrideTxServiceUrl,
                 })
                 const tx = await apiKit.getTransaction(metadata.gnosisTransactionHash);
                 if (tx.isExecuted) {
@@ -160,9 +165,11 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         }
         const [to, value, data, op] = safeTxn;
         const {safeAddress, rpcUrl} = await this.args();
+        const overrideTxServiceUrl = this.deploy._.chainId === holesky.id ? TX_SERVICE_HOLESKY : undefined;
 
         const apiKit = new SafeApiKit({
             chainId: BigInt(this.deploy._.chainId),
+            txServiceUrl: overrideTxServiceUrl,
         })
 
         const signer = await this.getSignerAddress();

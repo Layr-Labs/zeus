@@ -1,4 +1,6 @@
 import semver from 'semver';
+import { isAddress } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 export interface TDeployManifest {
     inProgressDeploy?: string;
@@ -12,6 +14,7 @@ export type TDeployPhase = (
     "" |
     TEOAPhase |
     TMultisigPhase |
+    TScriptPhase |
      "complete" | 
      "cancelled" | 
      "failed" 
@@ -41,7 +44,9 @@ export enum MultisigPhase {
 }
 export type TMultisigPhase = `${MultisigPhase}`;
 
-export type TSegmentType = "eoa" | "multisig";
+export type TSegmentType = "eoa" | "multisig" | "script";
+
+export type TScriptPhase = "script_run";
 
 export interface EOAMetadata {
     type: "eoa",
@@ -62,11 +67,6 @@ export interface MultisigMetadata {
     cancellationTransactionHash: `0x${string}` | undefined;
 }
 
-export interface Segment {
-    id: number;
-    filename: string;
-    type: TSegmentType;
-}
 
 export interface TDeploy {
     name: string;
@@ -89,11 +89,67 @@ export interface TDeploy {
     endTimestamp?: number; // unix ts
 }
 
+export const ArgumentValidFn: Record<Argument['type'], (text: string) => boolean> = {
+  'string': (text: string) => text.length > 0,
+  'number': (text: string) => {
+      try {
+          parseFloat(text);
+          return true;
+      } catch {
+          return false;
+      }
+  },
+  'privateKey': (text: string) => {
+    try {
+      privateKeyToAccount(text as `0x${string}`);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  'address': (text: string) => {
+      return isAddress(text)
+  },
+  'url': (text: string) => {
+      try {
+          new URL(text);
+          return true;
+      } catch {
+          return false;
+      }
+  }
+}
+
+export interface Argument {
+  type: "string" | "number" | "address" | "url" | "privateKey",
+  inputType?: "text" | "password",
+  prompt: string,
+  name: string
+  passBy: `env` | `arg`
+}
+
+export interface TPhase {
+  // eoa: should be treated as an upgrade from a single wallet, broadcast literally as-is.
+  // multisig: transactions are encoded as a multicall and sent to gnosis.
+  // script: a script is executed (i.e via zeus run) as part of the phase.
+  type: 'eoa' | 'multisig' | 'script'
+
+  // path, relative to the manifest's location.
+  filename: string; 
+
+  // additional arguments, especially for the script phase.
+  arguments?: Argument[]
+}
+
+export interface Segment extends TPhase {
+  id: number;
+}
+
 export interface TUpgrade {
     name: string;
     from: string; // a semver range, "^0.0.1"
     to: string; // the target to upgrade to. "0.0.2".
-    phases?: string[];
+    phases: TPhase[];
     commit: string;
 }
 
@@ -116,6 +172,13 @@ export interface TTestOutput {
 }
 export interface BytecodeReference {start: number, length: number};
 
+export interface TArtifactScriptRun {
+  success: boolean;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  date: string;
+}
 
 export interface ForgeSolidityMetadata {
     abi: unknown[]; // ABI, can be more specific if you know the structure
@@ -176,6 +239,60 @@ export interface ForgeSolidityMetadata {
     id: number;
   };
 
+function isArgument(obj: unknown): obj is Argument {
+  if (typeof obj !== "object" || obj === null) {
+    return false;
+  }
+
+  const arg = obj as Argument;
+
+  const validTypes = ["string", "number", "address", "url", "privateKey"];
+  const validInputTypes = ["text", "password"];
+  const validPassBy = ["env", "arg"];
+
+  return (
+    typeof arg.type === "string" &&
+    validTypes.includes(arg.type) &&
+    (arg.inputType === undefined || validInputTypes.includes(arg.inputType)) &&
+    typeof arg.prompt === "string" &&
+    typeof arg.name === "string" &&
+    validPassBy.includes(arg.passBy)
+  );
+}
+
+// TODO: THIS SHOULD ALL BE AJV + SCHEMA.
+export function isPhase(_obj: unknown, index: number): _obj is TPhase {
+  if (typeof _obj !== 'object') {
+    console.error(`invalid phases.${index} -- must be a JSON object.`);
+    return false;
+  }
+  const obj = _obj as Record<string, unknown>;
+  if (typeof obj.type !== 'string' || !['eoa', 'multisig', 'script'].includes(obj.type)) {
+    console.log(`phases.${index}.type - invalid option.`);
+    return false;
+  }
+
+  if (obj.arguments && !Array.isArray(obj.arguments)) {
+    console.log(`phases.${index}.arguments -- expected array.`);
+    return false;
+  }
+
+  if ((obj.arguments as unknown[]).find(arg => !isArgument(arg))) {
+    console.error(`phases.${index}.arguments -- one or more arguments were invalid.`);
+    console.error(`expected: `)
+    console.error(JSON.stringify({
+      type: ["string", "number", "address", "url", "privateKey"],
+      inputType: ["text", "password"],
+      passBy: ["env", "arg"],
+      name: "string",
+      prompt: "string"
+    }, null, 2))
+    return false;
+  }
+
+  return true;
+}
+
 export function isUpgrade(_obj: unknown): _obj is TUpgrade {
     if (typeof _obj !== 'object') {
         console.error(`invalid upgrade.json -- must be a JSON object.`);
@@ -186,12 +303,23 @@ export function isUpgrade(_obj: unknown): _obj is TUpgrade {
         console.error('invalid upgrade name.');
         return false;
     }
+    if (!obj.phases || !Array.isArray(obj.phases) || obj.phases.length === 0) {
+      console.error(`"phases" was empty or invalid.`);
+      return false;
+    }
+    const anyInvalid = obj.phases.find((phase, i) => !isPhase(phase, i));
+    if (anyInvalid) {
+      console.error(`One or more phases were invalid. Please double check syntax.`);
+      return false;
+    } 
+
     if (!semver.validRange(obj.from)) {
         console.error('invalid `from` constraint.');
         return false;
     }
-    if (!semver.valid(obj.to)) {
-        console.error('invalid `to` constraint.');
+
+    if (obj.to && !semver.valid(obj.to)) {
+        console.error('invalid `to` constraint. If specified, must be a valid semver target. If unspecified, the upgrade does not progress the version.');
         return false;
     }
 
@@ -201,7 +329,6 @@ export function isUpgrade(_obj: unknown): _obj is TUpgrade {
 export interface TUpgradeManifest {
     upgrades: TUpgrade[];
 }
-
 
 export interface TDeployedContractSparse {
     singleton: boolean;
@@ -283,8 +410,6 @@ export interface TForgeContractMetadata {
   };
   id: number;
 }
-
-
 
 export interface TDeployedInstance extends TDeployedContract {
     index: number;

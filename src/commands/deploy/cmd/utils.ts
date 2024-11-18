@@ -17,6 +17,8 @@ export const advanceSegment = async (deploy: SavebleDocument<TDeploy>) => {
         deploy._.phase = "eoa_validate";
     } else if (deploy._.segments[deploy._.segmentId]?.type === "multisig") {
         deploy._.phase = "multisig_start";
+    } else if (deploy._.segments[deploy._.segmentId]?.type === "script") {
+        deploy._.phase = "script_run";
     } else {
         throw new Error(`failed to advance deploy.`);
     }
@@ -50,6 +52,9 @@ export const advance = async (deploy: SavebleDocument<TDeploy>) => {
             case "multisig_wait_confirm":
                 await advanceSegment(deploy);
                 break;
+            case "script_run":
+                await advanceSegment(deploy);
+                break;
             case "complete":
             case "cancelled":
                 // nothing to advance
@@ -69,6 +74,7 @@ export function isTerminalPhase(state: TDeployPhase): boolean {
 export const supportedSigners: Record<TSegmentType, string[]> = {
     "eoa": ["eoa", "ledger"],
     "multisig": ["gnosis.api.eoa", "gnosis.api.ledger"],
+    "script": [],
 }
 
 export const promptForStrategy = async (deploy: SavebleDocument<TDeploy>, txn: Transaction, overridePrompt?: string) => {

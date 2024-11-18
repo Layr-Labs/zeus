@@ -36,6 +36,15 @@ export const canonicalPaths = {
     environmentManifest: (envName: string) => `environment/${envName}/manifest.json`,
     deploysManifest: (envName: string) => `environment/${envName}/deploys/deploys.json`,
 
+    // record a script run after it's happened
+    scriptRun: (args: {deployEnv: string, deployName: string, segmentId: number}) => {
+        return join(
+            canonicalPaths.deployDirectory("", args.deployEnv, args.deployName),
+            `${args.segmentId}`,
+            `run.json`
+        );
+    },
+
     contractInformation: (repoRoot: string, contractName: string) => join(repoRoot, `out`, `${contractName}.sol`, `${contractName}.json`),
 
     allUpgrades: () => `upgrade`,

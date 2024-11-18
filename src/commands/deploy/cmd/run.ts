@@ -12,7 +12,7 @@ import { createPublicClient, http, TransactionReceiptNotFoundError } from "viem"
 import * as AllChains from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
-import { ForgeSolidityMetadata, Segment, TDeploy, TDeployedContractsManifest, TDeployLock, TDeployPhase, TEnvironmentManifest, TTestOutput, TUpgrade } from "../../../metadata/schema";
+import { ArgumentValidFn, ForgeSolidityMetadata, Segment, TArtifactScriptRun, TDeploy, TDeployedContractsManifest, TDeployLock, TDeployPhase, TEnvironmentManifest, TTestOutput, TUpgrade } from "../../../metadata/schema";
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
 import { GnosisEOAStrategy } from "../../../signing/strategies/gnosis/api/gnosisEoa";
@@ -20,14 +20,23 @@ import semver from 'semver';
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { execSync } from "child_process";
 import { runTest } from "../../../signing/strategies/test";
-import { chainIdName, wouldYouLikeToContinue, rpcUrl as freshRpcUrl } from "../../prompts";
+import { chainIdName, wouldYouLikeToContinue, rpcUrl as freshRpcUrl, envVarOrPrompt} from "../../prompts";
 import { computeFairHash } from "../utils";
 import EOABaseSigningStrategy from "../../../signing/strategies/eoa/eoa";
+import { injectableEnvForEnvironment } from "../../run";
 
 process.on("unhandledRejection", (error) => {
     console.error(error); // This prints error with stack included (as for normal errors)
     throw error; // Following best practices re-throw error and let the process exit with error code
 });
+
+interface ExecSyncError {
+    pid: number,
+    stdout: string,
+    stderr: string,
+    status: number,
+    signal: string,
+}
 
 const getChain = (chainId: number) => {
     const chain = Object.values(AllChains).find(value => value.id === chainId);
@@ -113,31 +122,9 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
         return;
     }
     const blankDeployName = `${formatNow()}-${args.upgrade}`;
-
-    let _id = 0;
-    const segments = fs.readdirSync(upgradePath).filter(p => p.endsWith('.s.sol') && (p.includes('eoa') || p.includes('multisig'))).sort((a, b) => a.localeCompare(b)).map<Segment>(p => {
-        if (p.includes('eoa')) {
-            return {
-                id: _id++,
-                filename: p,
-                type: 'eoa'
-            }
-        } else {
-            return {
-                id: _id++,
-                filename: p,
-                type: 'multisig'
-            }
-        }
-    });
-
     const envManifest = await metaTxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
-    const newDeploy = blankDeploy({name: blankDeployName, chainId: envManifest._.chainId, env: args.env, upgrade: args.upgrade, upgradePath, segments});
     const deployJsonPath = canonicalPaths.deployStatus({env: args.env, name: blankDeployName});
-
     const deployJson = await metaTxn.getJSONFile<TDeploy>(deployJsonPath);
-    deployJson._ = newDeploy;
-    await deployJson.save();
 
     const upgradeManifest = await metaTxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(args.upgrade));
     if (!semver.satisfies(envManifest._.deployedVersion ?? '0.0.0', upgradeManifest._.from)) {
@@ -145,6 +132,11 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
         console.error(`Environment ${deployJson._.env} is currently deployed at '${envManifest._.deployedVersion}'`);
         return;
     }
+
+    deployJson._ = blankDeploy({name: blankDeployName, chainId: envManifest._.chainId, env: args.env, upgrade: args.upgrade, upgradePath, segments: upgradeManifest._.phases.map((phase, idx) => {
+        return {...phase, id: idx};
+    })});;
+    await deployJson.save();
 
     console.log(chalk.green(`+ creating deploy: ${deployJsonPath}`));
     console.log(chalk.green(`+ started deploy (${envManifest?._.deployedVersion ?? '0.0.0'}) => (${upgradeManifest._.to}) (requires: ${upgradeManifest._.from})`));
@@ -508,6 +500,79 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         return;
                     }
                     break;
+                }
+                // script execution
+                case "script_run": {
+                    const seg = deploy._.segments[deploy._.segmentId];
+                    const script = join(deploy._.upgradePath, seg.filename);   
+                    if (!existsSync(script)) {
+                        console.error(`Script ${script} does not exist. Make sure your local copy is OK before proceeding.`);
+                        return;
+                    }
+
+                    console.log(`Running ${script}...`);
+                    const env = await injectableEnvForEnvironment(metatxn, deploy._.env, deploy._.name);
+
+                    // fetch additional arguments.
+                    const cliArgs: Record<string, string> = {};
+                    const envArgs: Record<string, string> = {};
+
+                    for (const arg of (seg.arguments ?? [])) {
+                        const argValue = await envVarOrPrompt({
+                            title: arg.prompt,
+                            directEntryInputType: arg.inputType ?? 'text',
+                            isValid: ArgumentValidFn[arg.type]
+                        });
+                        if (arg.passBy === 'env') {
+                            envArgs[arg.name] = argValue;
+                        } else {
+                            cliArgs[arg.name] = argValue;
+                        }
+                    }
+
+                    const cliArgString = Object.keys(cliArgs).map(key => `--${key} "${cliArgs[key]}"`).join(' ');
+                    const scriptRun: TArtifactScriptRun = (() => {
+                        try {
+                            const res = execSync(`${script} ${cliArgString}`, {stdio: 'inherit', env: {...process.env, ...env, ...envArgs}}).toString();
+                            return {
+                                success: true,
+                                exitCode: 0,
+                                stdout: res,
+                                stderr: '',
+                                date: new Date().toString()
+                            };
+                        } catch (e) {
+                            const err = e as ExecSyncError;
+                            return {
+                                success: false,
+                                exitCode: err.status,
+                                stdout: err.stdout,
+                                stderr: err.stderr,
+                                date: new Date().toString()
+                            };
+                        }
+                    })();
+
+                    const savedRun = await metatxn.getJSONFile(canonicalPaths.scriptRun({
+                        deployEnv: deploy._.env,
+                        deployName: deploy._.name,
+                        segmentId: deploy._.segmentId,
+                    }))
+                    savedRun._ = scriptRun;
+                    await savedRun.save();
+
+                    if (scriptRun.success) {
+                        console.log(`Successfully ran ${script}.`);
+                        advance(deploy);
+                        await deploy.save();
+                        await metatxn.commit(`[pass] Ran script ${script} for deploy.`);
+                        continue;
+                    } else {
+                        console.error(`${script} failed. Re-run with resume to try again.`);
+                        await deploy.save();
+                        await metatxn.commit(`[fail] Ran script ${script} for deploy.`);
+                        return;
+                    }
                 }
                 // multisig states.
                 case "multisig_start": {             

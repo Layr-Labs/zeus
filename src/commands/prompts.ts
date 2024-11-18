@@ -17,7 +17,7 @@ export const checkShouldSignGnosisMessage = async (message: unknown) => {
 
 const cachedAnswers: Record<string, string> = {};
 
-const envVarOrPrompt: (args: {
+export const envVarOrPrompt: (args: {
     title: string,
     envVarSearchMessage?: string,
     directEntryInputType: "text" | "password",
