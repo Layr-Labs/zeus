@@ -20,6 +20,8 @@ function isCancelleable(deploy: TDeploy): boolean {
             return true;
         case 'multisig':
             return deploy.phase === 'multisig_start' || deploy.phase === 'multisig_wait_signers' || deploy.phase === 'multisig_execute'
+        case 'script':
+            return true;
     }
 }
 

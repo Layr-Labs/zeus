@@ -277,7 +277,7 @@ export function isPhase(_obj: unknown, index: number): _obj is TPhase {
     return false;
   }
 
-  if ((obj.arguments as unknown[]).find(arg => !isArgument(arg))) {
+  if (((obj.arguments as unknown[]) ?? []).find(arg => !isArgument(arg))) {
     console.error(`phases.${index}.arguments -- one or more arguments were invalid.`);
     console.error(`expected: `)
     console.error(JSON.stringify({

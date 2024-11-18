@@ -86,10 +86,9 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
     if (!isLoggedIn(_user)) {
         return;
     }
-    const user: TLoggedInState = _user;
     
+    const user: TLoggedInState = _user;
     const metaTxn = await user.metadataStore.begin();
-
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
