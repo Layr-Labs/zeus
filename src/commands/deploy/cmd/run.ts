@@ -12,7 +12,7 @@ import { createPublicClient, http, TransactionReceiptNotFoundError } from "viem"
 import * as AllChains from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
-import { ArgumentValidFn, ForgeSolidityMetadata, Segment, TArtifactScriptRun, TDeploy, TDeployedContractsManifest, TDeployLock, TDeployPhase, TEnvironmentManifest, TTestOutput, TUpgrade } from "../../../metadata/schema";
+import { ArgumentValidFn, ForgeSolidityMetadata, Segment, TArtifactScriptRun, TDeploy, TDeployedContractsManifest, TDeployLock, TDeployPhase, TDeployStateMutations, TEnvironmentManifest, TMutation, TTestOutput, TUpgrade } from "../../../metadata/schema";
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
 import { GnosisEOAStrategy } from "../../../signing/strategies/gnosis/api/gnosisEoa";
@@ -249,6 +249,25 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         console.error(`Corrupted env manifest.`);
                         return;
                     }
+
+                    const deployedEnvironmentMutations = await metatxn.getJSONFile<TDeployStateMutations>(canonicalPaths.deployStateMutations(deploy._));
+                    const deployParameters = await metatxn.getJSONFile<Record<string, unknown>>(canonicalPaths.deployParameters('', deploy._.env));
+
+                    if (deployedEnvironmentMutations._.mutations) {
+                        console.log(chalk.bold.underline(`Updated environment constants:`));
+                        console.log();
+                        console.table(deployedEnvironmentMutations._.mutations.map(mut => {return {...mut, internalType: undefined}}));
+
+                        const mutations: Record<string, unknown> = Object.fromEntries(deployedEnvironmentMutations._.mutations.map((mutation) => {
+                            return [mutation.name, mutation.next];
+                        }));
+
+                        deployParameters._ = {
+                            ...(deployParameters._ ?? {}),
+                            ...mutations
+                        };
+                        await deployParameters.save();
+                    }
                     
                     // update environment's latest deployed contracts.
                     const deployedContracts = await metatxn.getJSONFile<TDeployedContractsManifest>(canonicalPaths.deployDeployedContracts(deploy._));
@@ -326,9 +345,9 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         const testOutput = await metatxn.getJSONFile<TTestOutput>(canonicalPaths.testRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
                         testOutput._ = res;
                         await testOutput.save();
-                        spinner.stopAndPersist({suffixText: '✅'});
+                        spinner.stopAndPersist({prefixText: '✔'});
                     } catch (e) {
-                        spinner.stopAndPersist({suffixText: '❌'})
+                        spinner.stopAndPersist({prefixText: '❌'})
                         console.error(e);
                         throw e;
                     }
@@ -342,10 +361,16 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     console.log(JSON.stringify(sigRequest.forge, null, 2));
                     console.log(JSON.stringify(sigRequest.output, null, 2));
                     console.log(chalk.bold.underline(`Deployed Contracts: `))
-                    if (sigRequest.deployedContracts) {
+                    if (sigRequest.deployedContracts && Object.keys(sigRequest.deployedContracts).length > 0) {
                         console.table(sigRequest.deployedContracts)
                     } else {
                         console.log(chalk.bold(`<none>`));
+                    }
+                    console.log(chalk.bold.underline(`Updated Environment: `));
+                    if (sigRequest.stateUpdates) {
+                        console.table(sigRequest.stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
+                    } else {
+                        console.log(chalk.bold(`<none>`))
                     }
                     console.log(chalk.yellow(`=====================================================================================`))
                     if (!await wouldYouLikeToContinue()) {
@@ -413,6 +438,28 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                             if (withDeployedBytecodeHashes) {
                                 console.log(`Deployed Contracts:`);
                                 console.table(withDeployedBytecodeHashes.map(v => {return {...v, lastUpdatedIn: undefined}}));
+                                console.log();
+                            }
+
+                            if (sigRequest.stateUpdates) {
+                                console.log(chalk.bold.underline(`Updated Environment: `));
+                                console.table(sigRequest.stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
+                                
+                                // save environment updates.
+                                const currentEnv = await injectableEnvForEnvironment(metatxn, deploy._.env, deploy._.name);
+                                const deployStateMutations = await metatxn.getJSONFile<TDeployStateMutations>(canonicalPaths.deployStateMutations(deploy._));
+                                deployStateMutations._.mutations = [
+                                    ...(deployStateMutations._.mutations ?? []),
+                                    ...sigRequest.stateUpdates.map<TMutation>(mut => {
+                                        return {
+                                            prev: currentEnv[`ZEUS_ENV_${mut.name}`],
+                                            next: mut.value,
+                                            name: mut.name,
+                                            internalType: mut.internalType
+                                        }
+                                    })
+                                ];
+                                await deployStateMutations.save();
                             }
 
                             await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction`);
@@ -589,6 +636,28 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                             confirmed: false,
                             cancellationTransactionHash: undefined
                         };
+
+                        if (sigRequest.stateUpdates) {
+                            console.log(chalk.bold.underline(`Updated Environment: `));
+                            console.table(sigRequest.stateUpdates);
+                            
+                            // save environment updates.
+                            const currentEnv = await injectableEnvForEnvironment(metatxn, deploy._.env, deploy._.name);
+                            const deployStateMutations = await metatxn.getJSONFile<TDeployStateMutations>(canonicalPaths.deployStateMutations(deploy._));
+                            deployStateMutations._.mutations = [
+                                ...(deployStateMutations._.mutations ?? []),
+                                ...sigRequest.stateUpdates.map<TMutation>(mut => {
+                                    return {
+                                        prev: currentEnv[`ZEUS_ENV_${mut.name}`],
+                                        next: mut.value,
+                                        name: mut.name,
+                                        internalType: mut.internalType
+                                    }
+                                })
+                            ];
+                            await deployStateMutations.save();
+                        }
+
                         const multisigRun = await metatxn.getJSONFile<TGnosisRequest>(canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
                         multisigRun._ = sigRequest;
                         await multisigRun.save();

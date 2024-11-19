@@ -11,10 +11,13 @@ const handler = async function(_user: TState, args: {scripts: string[], env: str
     const runContext = (args.env) ? {env: args.env} : undefined;
     const result: Record<string, boolean> = {};
     const verboseHelp = args.verbose ? '' : chalk.italic(`(for full output, re-run with --verbose)`); 
+    const timeTakenMs: Record<string, number> = {};
 
     await Promise.all(args.scripts.map(async (script) => {
         try {
+            const start = Date.now()
             const res = await runTest({upgradePath: script, txn, context: runContext, verbose: args.verbose});
+            timeTakenMs[script] = Date.now() - start;
             if (res.code !== 0 || !res.forge.output.success) {
                 console.error(`❌ [${script}] - test failed ${verboseHelp}`);
                 result[script] = false;
@@ -36,7 +39,7 @@ const handler = async function(_user: TState, args: {scripts: string[], env: str
     }
 
     Object.keys(result).forEach(script => {
-        console.log(`\t${result[script] === true ? chalk.green('✔️') : chalk.red('✖️')}  ${script}`);
+        console.log(`\t${result[script] === true ? chalk.green('✔️') : chalk.red('✖️')}  ${script}      [${timeTakenMs[script]}ms]`);
     })
     
     process.exit(anyFailures.length);

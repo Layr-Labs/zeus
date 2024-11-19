@@ -67,7 +67,7 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
     }
 
     async prepare(pathToUpgrade: string, deploy: TDeploy): Promise<TSignatureRequest | undefined> {
-        const {output} = await this.runForgeScript(pathToUpgrade, {isPrepare: true});
+        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade, {isPrepare: true});
         if (!output) {
             throw new Error(`Forge output was missing: (chainId=${deploy.chainId},output=${output})`);
         }
@@ -89,6 +89,7 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
                 runLatest: undefined,
                 deployLatest: undefined,
             },
+            stateUpdates,
             signer,
             deployedContracts,
             ready: true,
@@ -97,7 +98,7 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
     }
 
     async requestNew(pathToUpgrade: string, deploy: TDeploy): Promise<TSignatureRequest | undefined> {
-        const {output} = await this.runForgeScript(pathToUpgrade);
+        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
         if (!output) {
             throw new Error(`Forge output was missing: (chainId=${deploy.chainId},output=${output})`);
         }
@@ -125,7 +126,8 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
         }
 
         return { 
-            output: output,
+            output,
+            stateUpdates,
             forge: {
                 runLatest,
                 deployLatest

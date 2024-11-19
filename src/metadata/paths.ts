@@ -16,6 +16,10 @@ export const canonicalPaths = {
         canonicalPaths.deployDirectory('', args.env, args.name),
         "deployed-contracts.json"
     ),
+    deployStateMutations: (args: {env: string, name: string}) => join(
+        canonicalPaths.deployDirectory('', args.env, args.name),
+        "mutations.json"
+    ),
 
     deployLock: (args: {env: string}) => `environment/${args.env}/lock.json`,
 

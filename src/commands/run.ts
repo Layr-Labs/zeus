@@ -4,7 +4,7 @@ import { assertLoggedIn, inRepo, loggedIn, requires, TState } from './inject';
 import { loadExistingEnvs } from './env/cmd/list';
 import { execSync } from 'child_process';
 import { canonicalPaths } from '../metadata/paths';
-import { TDeployedContract, TDeployedContractsManifest, TEnvironmentManifest } from '../metadata/schema';
+import { TDeployedContract, TDeployedContractsManifest, TDeployStateMutations, TEnvironmentManifest } from '../metadata/schema';
 import { TDeployedInstance } from '../metadata/schema';
 import * as allArgs from './args';
 import { Transaction } from '../metadata/metadataStore';
@@ -47,9 +47,15 @@ export const deployParametersToEnvironmentVariables: (parameters: Record<string,
     }))
 }
 
+export interface TBaseZeusEnv {
+    ZEUS_ENV: string,
+    ZEUS_ENV_COMMIT: string,
+    ZEUS_ENV_VERSION: string
+    ZEUS_VERSION: string
+}
 
 // if `withDeploy` is specified, we also inject instances/statics updated as part of the deploy.
-export const injectableEnvForEnvironment = async (txn: Transaction, env: string, withDeploy?: string) => {
+export const injectableEnvForEnvironment: (txn: Transaction, env: string, withDeploy?: string) => Promise<TBaseZeusEnv & Record<string, string>> = async (txn, env, withDeploy) => {
     const envManifest = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(env));
     if (!envManifest._.id) {
         throw new Error(`No such environment: ${env}`);
@@ -60,6 +66,9 @@ export const injectableEnvForEnvironment = async (txn: Transaction, env: string,
         '',
         env,
     ));
+
+    const deployedEnvironmentMutations = withDeploy ? ((await txn.getJSONFile<TDeployStateMutations>(canonicalPaths.deployStateMutations({env, name: withDeploy})))._.mutations ?? []) : [];
+    const deployEnvUpdates: Record<string, string> = Object.fromEntries(deployedEnvironmentMutations.map(mut => [mut.name, `${mut.next}`]));
     
     const deployStatics = Object.fromEntries(deployManifest.contracts?.filter(c => c.singleton).map(c => [c.contract, c]) ?? [])
     const deployInstances = deployManifest.contracts?.filter(c => !c.singleton) ?? [];
@@ -87,7 +96,10 @@ export const injectableEnvForEnvironment = async (txn: Transaction, env: string,
         ZEUS_ENV_COMMIT: envManifest._.latestDeployedCommit,
         ZEUS_ENV_VERSION: envManifest._.deployedVersion,
         ZEUS_VERSION: zeusInfo.Version,
-        ...(deployParametersToEnvironmentVariables(deployParameters._ ?? {})),
+        ...(deployParametersToEnvironmentVariables({
+            ...(deployParameters._ ?? {}),
+            ...deployEnvUpdates,
+        })),
         ...(contractsToEnvironmentVariables(statics, instances)),
     }
 }

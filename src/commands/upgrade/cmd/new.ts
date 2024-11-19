@@ -10,6 +10,7 @@ import { execSync } from 'child_process';
 import { isUpgrade, TUpgrade } from '../../../metadata/schema';
 import chalk from 'chalk';
 
+
 const handler = async function(_user: TState) {
   const user = assertLoggedIn(_user);
   const metaTxn = await user.metadataStore.begin();
@@ -21,17 +22,12 @@ const handler = async function(_user: TState) {
   const migrationDirectory: string = await search({
     message: 'Upgrade directory name?',
     source: async (input) => {
-      if (!input) {
-        return [];
-      }
-
-      const contents = fs.readdirSync(
-        join(
-          getRepoRoot(),
-          zeusConfig.migrationDirectory,
-        )
+      const migrationDirectory = join(
+        getRepoRoot(),
+        zeusConfig.migrationDirectory,
       );
-      return contents.filter((entry: string) => entry.startsWith(input));
+      const contents = fs.readdirSync(migrationDirectory);
+      return contents.filter((entry: string) => entry.startsWith(input ?? '') && fs.lstatSync(join(migrationDirectory, entry)).isDirectory());
     },
   });
 
@@ -49,12 +45,6 @@ const handler = async function(_user: TState) {
   if (!hasUpgradeManifest) {
       console.error(`* Missing upgrade.json manifest in directory(${migrationDirAbsolute}).`);
       return;
-  }
-
-  const hasScript = migrationDirContents.filter(s => s.endsWith('eoa.s.sol') || s.endsWith('multisig.s.sol'));
-  if (!hasScript) {
-    console.error(`* Upgrade must contain at least 1 [eoa | multisig].s.sol forge script.`);
-    return;
   }
 
   const migrationName = path.basename(migrationDirectory);

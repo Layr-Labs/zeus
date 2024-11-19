@@ -1,4 +1,6 @@
 import { spawn } from "child_process";
+import { decodeAbiParameters, decodeEventLog } from "viem";
+import {abi as zeusScriptAbi} from '../zeusScriptAbi';
 
 export interface Result {
     stdout: string;
@@ -44,6 +46,11 @@ export function getTrace(data: TForgeRun, address: `0x${string}`): TraceItem | n
 
 
 export interface TForgeOutput {
+    stateUpdates: {
+        name: string,
+        value: unknown,
+        internalType: number,   
+    }[],
     output: {
         timestamp: number,
         chain: number, 
@@ -114,21 +121,62 @@ export interface TraceItem {
 type TraceBlock = ["Deployment" | "Execution", { arena: TraceItem[] }];
 
 interface LogItem {
-    address: string;
-    topics: string[];
-    data: string;
+    address: `0x${string}`;
+    topics: [`0x${string}`, ...`0x${string}`[]];
+    data: `0x${string}`;
+};
+
+enum InternalModifiedType {
+    UNMODIFIED = 0,
+    UINT_256 = 1,
+    UINT_32 = 2,
+    UINT_64 = 3,
+    ADDRESS = 4,
+    STRING = 5,
+    BOOL = 6
 };
   
-
-
-
 export function parseForgeOutput(stdout: string): TForgeOutput {
     const lines = stdout.split('\n');
     const jsonLine = lines.find(line => line.trim().startsWith('{'));
     if (jsonLine) {
         try {
-            const parsedJson = JSON.parse(jsonLine);
-            return {output: parsedJson};
+            const parsedJson = JSON.parse(jsonLine) as TForgeOutput['output'];
+            // check for state update logs...
+            const parsedLogs = parsedJson.raw_logs.map((log) => {
+                try {
+                    return decodeEventLog({abi: zeusScriptAbi, data: log.data, topics: log.topics})
+                } catch {
+                    return undefined;
+                }
+            }).filter(v => !!v);
+            const stateUpdates = parsedLogs.map(update => {
+                const parsedValue = (() => {
+                    switch (update.args.internalType as InternalModifiedType) {
+                        case InternalModifiedType.UNMODIFIED:
+                            throw new Error(`Got invalid modified type from zUpdate()...`);
+                        case InternalModifiedType.UINT_256:
+                            return decodeAbiParameters([{type: 'uint256'}], update.args.value).toString()
+                        case InternalModifiedType.UINT_32:
+                            return decodeAbiParameters([{type: 'uint32'}], update.args.value)
+                        case InternalModifiedType.UINT_64:
+                            return decodeAbiParameters([{type: 'uint64'}], update.args.value)
+                        case InternalModifiedType.ADDRESS:
+                            return decodeAbiParameters([{type: 'address'}], update.args.value)
+                        case InternalModifiedType.STRING:
+                            return decodeAbiParameters([{type: 'string'}], update.args.value)
+                        case InternalModifiedType.BOOL:
+                            return decodeAbiParameters([{type: 'bool'}], update.args.value)
+                    }
+                })()[0];
+
+                return {
+                    name: update.args.key,
+                    internalType: update.args.internalType,
+                    value: parsedValue
+                }
+            })
+            return {output: parsedJson, stateUpdates};
         } catch (e) {
             throw new Error(`Failed to parse JSON: ${e}`);
         }

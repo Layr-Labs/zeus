@@ -13,8 +13,15 @@ export interface Txn {
     to: `0x${string}`
 }
 
+export interface HasStateUpdates {
+    stateUpdates: {
+        value: unknown;
+        name: string;
+        internalType: number;
+    }[]
+}
 
-export interface TForgeRequest {
+export interface TForgeRequest extends HasStateUpdates {
     output: TForgeRun; 
 
     forge?: {
@@ -32,7 +39,7 @@ export interface TForgeRequest {
     ready: boolean,
 }
 
-export interface TGnosisRequest {
+export interface TGnosisRequest extends HasStateUpdates {
     safeAddress: `0x${string}`,
     safeTxHash: `0x${string}`,
     senderAddress: `0x${string}`,

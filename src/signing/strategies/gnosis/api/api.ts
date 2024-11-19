@@ -9,12 +9,14 @@ import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/
 import { updateLatestDeploy } from "../../../../commands/deploy/cmd/utils";
 import { SavebleDocument } from "../../../../metadata/metadataStore";
 import { holesky } from "viem/chains";
+
 interface TGnosisBaseArgs {
     safeAddress: string;
     rpcUrl: string;
 }
 
 const TX_SERVICE_HOLESKY = 'https://gateway.holesky-safe.protofire.io';
+// https://gateway.holesky-safe.protofire.io/v1/chains/17000/transactions/0x872Ac6896A7DCd3907704Fab60cc87ab7Cac6A9B/propose (this worked for holesky...)
 
 export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs & T> {
 
@@ -119,7 +121,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
     }
 
     async prepare(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const {output} = await this.runForgeScript(pathToUpgrade);
+        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
         const safeTxn = parseTuple(output.returns['0'].value);
         if (safeTxn.length != 4) {
             throw new Error(`Got invalid output from forge. Expected 4 members, got ${safeTxn?.length}.`);
@@ -154,11 +156,12 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             safeAddress: safeAddress as `0x${string}`,
             safeTxHash: hash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
+            stateUpdates
         }
     }
 
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const {output} = await this.runForgeScript(pathToUpgrade);
+        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
         const safeTxn = parseTuple(output.returns['0'].value);
         if (safeTxn.length != 4) {
             throw new Error(`Got invalid output from forge. Expected 4 members, got ${safeTxn?.length}.`);
@@ -217,6 +220,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             safeTxHash: hash as `0x${string}`,
             senderAddress: signer,
             signature: senderSignature,
+            stateUpdates
         }
     }
 }

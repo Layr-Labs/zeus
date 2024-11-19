@@ -164,6 +164,25 @@ export interface TDeployLock {
     description?: string;
 }
 
+export interface TMutation {
+  // old value of the mutated variable.
+  prev: unknown | undefined;
+
+  // new value of the mutated variable.
+  next: unknown | undefined;
+
+  // the recorded type.
+  internalType: number;
+
+  // the name of the environment value modified. corresponds to `ZEUS_ENV_name` while running.
+  name: string;
+}
+
+export interface TDeployStateMutations {
+  // purposefully marked ? in case the deploy had no mutations at all (and thus didn't create this file.)
+  mutations?: TMutation[];
+}
+
 export interface TTestOutput {
   forge: unknown;
   code: number;
