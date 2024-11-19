@@ -38,6 +38,15 @@ interface ExecSyncError {
     signal: string,
 }
 
+const cleanContractName = (contractName: string) => {
+    if (contractName.endsWith('_Impl')) {
+        return contractName.substring(0, contractName.length - `_Impl`.length);
+    } else if (contractName.endsWith('_Proxy')) {
+        return contractName.substring(0, contractName.length - `_Proxy`.length);
+    }
+    return contractName;
+}
+
 const getChain = (chainId: number) => {
     const chain = Object.values(AllChains).find(value => value.id === chainId);
     if (!chain) {
@@ -149,21 +158,32 @@ const MINUTES = 60 * SECONDS;
 const currentUser = () => execSync('git config --global user.email').toString('utf-8').trim();
 
 const releaseDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<void> = async (deploy, txn) => {
-    const deployLock = await txn.getJSONFile<TDeployLock>(canonicalPaths.deployLock(deploy));
-    if (deployLock._.holder !== currentUser()) {
-        console.warn(`Cannot release deploy lock for ${deploy.env} -- you do not own this lock. (got: ${deployLock._.holder}, expected: ${currentUser()})`);
-        return;
-    }
+    const prompt = ora(`Releasing deploy lock...'`);
+    const spinner = prompt.start();
+    try {
+        const deployLock = await txn.getJSONFile<TDeployLock>(canonicalPaths.deployLock(deploy));
+        if (deployLock._.holder !== currentUser()) {
+            spinner.stopAndPersist({prefixText: '❌'});
+            console.warn(`Cannot release deploy lock for ${deploy.env} -- you do not own this lock. (got: ${deployLock._.holder}, expected: ${currentUser()})`);
+            return;
+        }
 
-    deployLock._.holder = undefined;
-    deployLock._.description = undefined;
-    deployLock._.untilTimestampMs = undefined;
-    await deployLock.save();
+        deployLock._.holder = undefined;
+        deployLock._.description = undefined;
+        deployLock._.untilTimestampMs = undefined;
+        await deployLock.save();
+        spinner.stopAndPersist({prefixText: '✅'});
+    } catch (e) {
+        spinner.stopAndPersist({prefixText: '❌'});
+        throw e;
+    }
 }
 
 const sleepMs = (timeMs: number) => new Promise((resolve) => setTimeout(resolve, timeMs))
 
 const acquireDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<boolean> = async (deploy, txn) => {
+    const prompt = ora(`Acquiring deploy lock...'`);
+    const spinner = prompt.start();
     try {
         const deployLock = await txn.getJSONFile<TDeployLock>(canonicalPaths.deployLock(deploy));
         const currentEmail = currentUser();
@@ -173,6 +193,7 @@ const acquireDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<boolean>
             deployLock._.holder = currentEmail;
             deployLock._.untilTimestampMs = Date.now() + (5 * MINUTES);
             await deployLock.save();
+            spinner.stopAndPersist({prefixText: '✅'});
             return true;
         }
         const isEmptyLock = !deployLock._.holder;
@@ -191,12 +212,15 @@ const acquireDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<boolean>
         const isMyLock = deployLock._.holder === currentEmail;
         if (isMyLock) {
             // you already have the lock for this deploy. you can resume / continue as needed.
+            spinner.stopAndPersist({prefixText: '✅'});
             return true;
         }
 
         console.error(`Deploy lock held by ${deployLock._.holder} (expires ${new Date(deployLock._.untilTimestampMs ?? 0)})`)
+        spinner.stopAndPersist({prefixText: '❌'});
         return false;
     } catch (e) {
+        spinner.stopAndPersist({prefixText: '❌'});
         console.error(`An error occurred acquiring the deploy lock: ${e}`);
         return false;
     }
@@ -411,9 +435,9 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
 
                             // look up any contracts compiled and their associated bytecode.
                             const withDeployedBytecodeHashes = await Promise.all(sigRequest.deployedContracts?.map(async (contract) => {
-                                const contractInfo = JSON.parse(fs.readFileSync(canonicalPaths.contractInformation(getRepoRoot(), contract.contract), 'utf-8')) as ForgeSolidityMetadata;
+                                const contractInfo = JSON.parse(fs.readFileSync(canonicalPaths.contractInformation(getRepoRoot(), cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
                                 // save the contract abi.
-                                const segmentAbi = await metatxn.getJSONFile<ForgeSolidityMetadata>(canonicalPaths.segmentContractAbi({...deploy._, contractName: contract.contract}))
+                                const segmentAbi = await metatxn.getJSONFile<ForgeSolidityMetadata>(canonicalPaths.segmentContractAbi({...deploy._, contractName: cleanContractName(contract.contract)}))
                                 segmentAbi._ = contractInfo;
                                 await segmentAbi.save();
                                 return {
@@ -734,14 +758,19 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     }
 
                     if (multisigTxn._.executionDate && multisigTxn._.transactionHash) {
+                        const _rpcUrl = rpcUrl ?? await freshRpcUrl(deploy._.chainId);
                         const client = createPublicClient({
                             chain: getChain(deploy._.chainId), 
-                            transport: http(rpcUrl),
+                            transport: http(_rpcUrl),
                         })
+
+                        const prompt = ora(`Waiting for transaction receipt: ${multisigTxn._.transactionHash}...`);
+                        const spinner = prompt.start();
                         try {
-                            const receipt = await client.getTransactionReceipt({hash: multisigTxn._.transactionHash as `0x${string}`});
-                            if (receipt.status === 'success') {
-                                console.log(chalk.green(`SafeTxn(${multisigTxn._.safeTxHash}): successful onchain (${receipt.transactionHash})`))
+                            const r = await client.waitForTransactionReceipt({hash: multisigTxn._.transactionHash as `0x${string}`});
+                            if (r.status === 'success') {
+                                spinner.stopAndPersist({prefixText: '✅'});
+                                console.log(chalk.green(`SafeTxn(${multisigTxn._.safeTxHash}): successful onchain (${r.transactionHash})`))
                                 deploy._.metadata[deploy._.segmentId] = {...(deploy._.metadata[deploy._.segmentId] ?? {}), confirmed: true};
                                 await advance(deploy);
                                 await deploy.save();
@@ -754,13 +783,15 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                                 }
                                 break;
                             } else {
-                                console.log(chalk.green(`SafeTxn(${multisigTxn._.safeTxHash}): reverted onchain (${receipt.transactionHash})`))
+                                spinner.stopAndPersist({prefixText: '❌'});
+                                console.log(chalk.green(`SafeTxn(${multisigTxn._.safeTxHash}): reverted onchain (${r.transactionHash})`))
                                 deploy._.phase = 'failed';
                                 await deploy.save();
                                 await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction failed`);
                                 break;
                             } 
                         } catch (e) {
+                            spinner.stopAndPersist({prefixText: '❌'});
                             console.error(`Multisig Transaction (${multisigTxn._.transactionHash}) hasn't landed in a block yet.`)
                             console.error(`Re-run to check status:`)
                             console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);

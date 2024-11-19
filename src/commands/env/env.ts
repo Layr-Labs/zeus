@@ -2,6 +2,7 @@ import { subcommands } from "cmd-ts";
 import newCmd from './cmd/new';
 import list from './cmd/list';
 import edit from './cmd/edit';
+import show from './cmd/show';
 import editSchema from './cmd/editSchema';
 
 export default subcommands({
@@ -12,6 +13,7 @@ export default subcommands({
         "new": newCmd,
         "list": list,
         "edit": edit,
-        "editSchema": editSchema
+        "editSchema": editSchema,
+        "show": show
     }
 });
