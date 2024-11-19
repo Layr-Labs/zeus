@@ -9,6 +9,7 @@ import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/
 import { updateLatestDeploy } from "../../../../commands/deploy/cmd/utils";
 import { SavebleDocument } from "../../../../metadata/metadataStore";
 import { holesky } from "viem/chains";
+import chalk from "chalk";
 
 interface TGnosisBaseArgs {
     safeAddress: string;
@@ -198,6 +199,11 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         const hash = await protocolKitOwner1.getTransactionHash(txn)
         const version = await protocolKitOwner1.getContractVersion();
         spinner.stop();
+        
+        if (stateUpdates) {
+            console.log(chalk.bold.underline(`Updated Environment: `));
+            console.table(stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
+        }
 
         const senderSignature = await this.getSignature(version, txn)
         

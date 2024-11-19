@@ -639,7 +639,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
 
                         if (sigRequest.stateUpdates) {
                             console.log(chalk.bold.underline(`Updated Environment: `));
-                            console.table(sigRequest.stateUpdates);
+                            console.table(sigRequest.stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
                             
                             // save environment updates.
                             const currentEnv = await injectableEnvForEnvironment(metatxn, deploy._.env, deploy._.name);

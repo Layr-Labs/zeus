@@ -14,8 +14,8 @@ const handler = async function(_user: TState, args: {scripts: string[], env: str
     const timeTakenMs: Record<string, number> = {};
 
     await Promise.all(args.scripts.map(async (script) => {
+        const start = Date.now()
         try {
-            const start = Date.now()
             const res = await runTest({upgradePath: script, txn, context: runContext, verbose: args.verbose});
             timeTakenMs[script] = Date.now() - start;
             if (res.code !== 0 || !res.forge.output.success) {
@@ -27,6 +27,7 @@ const handler = async function(_user: TState, args: {scripts: string[], env: str
             }
         } catch (e) {
             result[script] = false;
+            timeTakenMs[script] = Date.now() - start;
             console.error(`❌ [${script}] - test failed ${verboseHelp}`, {cause: e});
         } 
     }));
@@ -35,10 +36,10 @@ const handler = async function(_user: TState, args: {scripts: string[], env: str
     if (isSuccess) {
         console.log(`✅ ${args.scripts.length} test${args.scripts.length > 1 ? 's' : ''} succeeded ${verboseHelp}`)
     } else {
-        console.error(`❌ [${anyFailures.length}/${Object.keys(result).length}] failing. ${verboseHelp}`)
+        console.error(`❌ ${anyFailures.length} tests failed, ${Object.keys(result).length - anyFailures.length} succeeded. ${verboseHelp}`)
     }
 
-    Object.keys(result).forEach(script => {
+    Object.keys(result).sort().forEach(script => {
         console.log(`\t${result[script] === true ? chalk.green('✔️') : chalk.red('✖️')}  ${script}      [${timeTakenMs[script]}ms]`);
     })
     
