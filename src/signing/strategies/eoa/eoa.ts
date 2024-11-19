@@ -4,10 +4,9 @@ import { getRepoRoot } from '../../../commands/configs';
 import { basename } from "path";
 import { existsSync, readFileSync } from "fs";
 import chalk from "chalk";
-import { parseTuples } from "../utils";
 import { TDeploy } from "../../../metadata/schema";
 import * as prompts from '../../../commands/prompts';
-import { getTrace, TForgeRun } from "../../utils";
+import { TForgeRun } from "../../utils";
 import { updateLatestDeploy } from "../../../commands/deploy/cmd/utils";
 
 interface TBaseEOAArgs {
@@ -67,22 +66,12 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
     }
 
     async prepare(pathToUpgrade: string, deploy: TDeploy): Promise<TSignatureRequest | undefined> {
-        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade, {isPrepare: true});
+        const {output, stateUpdates, contractDeploys} = await this.runForgeScript(pathToUpgrade, {isPrepare: true});
         if (!output) {
             throw new Error(`Forge output was missing: (chainId=${deploy.chainId},output=${output})`);
         }
 
         const signer = await this.getSignerAddress();
-
-        const deployedContracts = parseTuples(output.returns['0'].value).map((tuple) => {
-            const addr = tuple[0] as `0x${string}`;
-            const trace = getTrace(output, addr);
-            if (!trace) {
-                console.warn(`Failed to find deployment trace for deploy: ${addr}`);
-                return;
-            }
-            return {address: tuple[0] as `0x${string}`, contract: tuple[1] as string, singleton: tuple[2] as boolean}
-        }).filter(deployment => !!deployment) ?? [];
 
         return { 
             forge: {
@@ -91,22 +80,24 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
             },
             stateUpdates,
             signer,
-            deployedContracts,
+            deployedContracts: contractDeploys.map((ct) => {
+                return {
+                    address: ct.addr,
+                    contract: ct.name,
+                    singleton: ct.singleton
+                }
+            }),
             ready: true,
             output
         }
     }
 
     async requestNew(pathToUpgrade: string, deploy: TDeploy): Promise<TSignatureRequest | undefined> {
-        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
+        const {output, stateUpdates, contractDeploys} = await this.runForgeScript(pathToUpgrade);
         if (!output) {
             throw new Error(`Forge output was missing: (chainId=${deploy.chainId},output=${output})`);
         }
         
-        const deployedContracts = parseTuples(output.returns['0'].value).map((tuple) => {
-            return {contract: tuple[1] as string, address: tuple[0] as `0x${string}`, singleton: tuple[2] as boolean}
-        })
-
         let runLatest: TForgeRun | undefined = undefined;
         let deployLatest: TForgeRun | undefined = undefined;
         const signer = await this.getSignerAddress();
@@ -114,8 +105,8 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
         const deployLatestPath = canonicalPaths.forgeDeployLatestMetadata(getRepoRoot(), basename(pathToUpgrade), deploy.chainId);
         if (!existsSync(deployLatestPath)) {
             console.warn(`This deploy did not broadcast any new contracts. If this was intended, you can ignore this.`);
-            if (Object.keys(deployedContracts).length > 0) {
-                console.error(`HIGH: The 'deployments' returned from this script were non-zero (${Object.keys(deployedContracts).length}), but forge did not broadcast anything.`);
+            if (Object.keys(contractDeploys).length > 0) {
+                console.error(`HIGH: The 'deployments' returned from this script were non-zero (${Object.keys(contractDeploys).length}), but forge did not broadcast anything.`);
             }
         } else {
             deployLatest = JSON.parse(readFileSync(deployLatestPath, {encoding: 'utf-8'})) as TForgeRun;
@@ -133,7 +124,13 @@ export default abstract class EOABaseSigningStrategy<T> extends Strategy<TBaseEO
                 deployLatest
             },
             signer,
-            deployedContracts,
+            deployedContracts: contractDeploys.map((ct) => {
+                return {
+                    address: ct.addr,
+                    contract: ct.name,
+                    singleton: ct.singleton
+                }
+            }),
             ready: true,
         }
     }

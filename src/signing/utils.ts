@@ -51,6 +51,17 @@ export interface TForgeOutput {
         value: unknown,
         internalType: number,   
     }[],
+    contractDeploys: {
+        name: string;
+        addr: `0x${string}`;
+        singleton: boolean;
+    }[],
+    multisigExecuteRequests: {
+        data: `0x${string}`,
+        op: number,
+        to: `0x${string}`,
+        value: bigint,
+    }[],
     output: {
         timestamp: number,
         chain: number, 
@@ -150,7 +161,16 @@ export function parseForgeOutput(stdout: string): TForgeOutput {
                     return undefined;
                 }
             }).filter(v => !!v);
-            const stateUpdates = parsedLogs.map(update => {
+
+            const multisigRequests = parsedLogs.filter(update => update.eventName === 'ZeusMultisigExecute').map(update => {
+                return update.args;
+            });
+
+            const contractDeploys = parsedLogs.filter(update => update.eventName === 'ZeusDeploy').map(update => {
+                return update.args;
+            })
+
+            const stateUpdates = parsedLogs.filter(update => update.eventName === 'ZeusEnvironmentUpdate').map(update => {
                 const parsedValue = (() => {
                     switch (update.args.internalType as InternalModifiedType) {
                         case InternalModifiedType.UNMODIFIED:
@@ -176,7 +196,7 @@ export function parseForgeOutput(stdout: string): TForgeOutput {
                     value: parsedValue
                 }
             })
-            return {output: parsedJson, stateUpdates};
+            return {output: parsedJson, stateUpdates, contractDeploys, multisigExecuteRequests: multisigRequests};
         } catch (e) {
             throw new Error(`Failed to parse JSON: ${e}`);
         }

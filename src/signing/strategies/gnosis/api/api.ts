@@ -2,7 +2,6 @@ import SafeApiKit from "@safe-global/api-kit";
 import Safe from '@safe-global/protocol-kit'
 import { SafeTransaction } from '@safe-global/types-kit';
 import { Strategy, TSignatureRequest } from "../../../strategy";
-import { parseTuple } from "../../utils";
 import ora from "ora";
 import * as prompts from '../../../../commands/prompts';
 import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/schema";
@@ -122,12 +121,13 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
     }
 
     async prepare(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
-        const safeTxn = parseTuple(output.returns['0'].value);
-        if (safeTxn.length != 4) {
-            throw new Error(`Got invalid output from forge. Expected 4 members, got ${safeTxn?.length}.`);
+        const {output, stateUpdates, multisigExecuteRequests} = await this.runForgeScript(pathToUpgrade);
+        if (multisigExecuteRequests?.length != 1) {
+            throw new Error(`Got invalid output from forge. Expected 4 members, got ${multisigExecuteRequests?.length}.`);
         }
-        const [to, value, data, op] = safeTxn;
+
+        const safeTxn = multisigExecuteRequests[0];
+        const {to, value, data, op} = safeTxn;
         const {safeAddress, rpcUrl} = await this.args();
 
         const signer = await this.getSignerAddress();
@@ -142,8 +142,8 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                 {
                     to: to,
                     data,
-                    value,
-                    operation: parseInt(op)
+                    value: value.toString(),
+                    operation: op
                 }
             ],
         })
@@ -154,6 +154,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         spinner.stop();
 
         return {
+            output,
             safeAddress: safeAddress as `0x${string}`,
             safeTxHash: hash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
@@ -162,12 +163,12 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
     }
 
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
-        const safeTxn = parseTuple(output.returns['0'].value);
-        if (safeTxn.length != 4) {
-            throw new Error(`Got invalid output from forge. Expected 4 members, got ${safeTxn?.length}.`);
+        const {output, stateUpdates, multisigExecuteRequests} = await this.runForgeScript(pathToUpgrade);
+        const safeTxn = multisigExecuteRequests[0];
+        if (multisigExecuteRequests.length != 1) {
+            throw new Error(`Got invalid output from forge. Expected 1 multisig multicall, got ${multisigExecuteRequests?.length}.`);
         }
-        const [to, value, data, op] = safeTxn;
+        const {to, value, data, op} = safeTxn;
         const {safeAddress, rpcUrl} = await this.args();
         const overrideTxServiceUrl = this.deploy._.chainId === holesky.id ? TX_SERVICE_HOLESKY : undefined;
 
@@ -188,8 +189,8 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                 {
                     to: to,
                     data,
-                    value,
-                    operation: parseInt(op)
+                    value: value.toString(),
+                    operation: op
                 }
             ],
         })
@@ -222,6 +223,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         }
 
         return {
+            output,
             safeAddress: safeAddress as `0x${string}`,
             safeTxHash: hash as `0x${string}`,
             senderAddress: signer,
