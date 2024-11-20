@@ -94,9 +94,9 @@ export const etherscanApiKey: () => Promise<string | undefined> = async () => {
     }
 };
 
-export const privateKey = async (chainId: number) => {
+export const privateKey = async (chainId: number, overridePrompt: string) => {
     const res = await envVarOrPrompt({
-        title: `Enter an ETH private key (${chainIdName(chainId)})`,
+        title: `${overridePrompt ?? 'Enter an ETH private key'} (${chainIdName(chainId)})`,
         isValid: (text) => {
             try {
                 let pk: string = text;

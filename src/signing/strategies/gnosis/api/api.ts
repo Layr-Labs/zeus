@@ -7,16 +7,13 @@ import * as prompts from '../../../../commands/prompts';
 import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/schema";
 import { updateLatestDeploy } from "../../../../commands/deploy/cmd/utils";
 import { SavebleDocument } from "../../../../metadata/metadataStore";
-import { holesky } from "viem/chains";
 import chalk from "chalk";
+import { overrideTxServiceUrlForChainId } from "./utils";
 
 interface TGnosisBaseArgs {
     safeAddress: string;
     rpcUrl: string;
 }
-
-const TX_SERVICE_HOLESKY = 'https://gateway.holesky-safe.protofire.io';
-// https://gateway.holesky-safe.protofire.io/v1/chains/17000/transactions/0x872Ac6896A7DCd3907704Fab60cc87ab7Cac6A9B/propose (this worked for holesky...)
 
 export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs & T> {
 
@@ -66,11 +63,10 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                     safeAddress: metadata.multisig
                 });
 
-                const overrideTxServiceUrl = deploy._.chainId === holesky.id ? TX_SERVICE_HOLESKY : undefined;
                 const apiKit = new SafeApiKit({
                     chainId: BigInt(deploy._.chainId),
                     // TODO: we probably want the option to inject a custom tx service url here...
-                    txServiceUrl: overrideTxServiceUrl,
+                    txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId),
                 })
                 const tx = await apiKit.getTransaction(metadata.gnosisTransactionHash);
                 if (tx.isExecuted) {
@@ -79,19 +75,6 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
 
                 // prompt for another strategy, which will be used to sign.
                 console.log(`To cancel this transaction, you'll need to submit a rejection transaction to replace the current multisig txn.`)
-                const strategyId = await prompts.pickStrategy([
-                    {id: 'gnosis.eoa', description: 'EOA'},
-                    {id: 'gnosis.ledger', description: 'Ledger'}
-                ])
-
-                const strategy = await (async () => {
-                    const all = await import('../../strategies');
-                    const strategy = all.all.find(s => new s(deploy, this.metatxn).id === strategyId);
-                    if (!strategy) {
-                        throw new Error(`Unknown strategy`);
-                    }
-                    return new strategy(deploy, this.metatxn);
-                })();
 
                 const rejectionTxn = await protocolKitOwner1.createRejectionTransaction(tx.nonce);
                 const hash = await protocolKitOwner1.getTransactionHash(rejectionTxn) as `0x${string}`;
@@ -102,7 +85,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
                     safeTransactionData: rejectionTxn.data,
                     safeTxHash: hash,
                     senderAddress: signer,
-                    senderSignature: await (strategy as unknown as GnosisSigningStrategy<unknown>).getSignature(safeVersion, rejectionTxn),
+                    senderSignature: await this.getSignature(safeVersion, rejectionTxn),
                 })
                 
                 // TODO: there should be a "pending cancellation" phase.
@@ -170,11 +153,10 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         }
         const {to, value, data, op} = safeTxn;
         const {safeAddress, rpcUrl} = await this.args();
-        const overrideTxServiceUrl = this.deploy._.chainId === holesky.id ? TX_SERVICE_HOLESKY : undefined;
 
         const apiKit = new SafeApiKit({
             chainId: BigInt(this.deploy._.chainId),
-            txServiceUrl: overrideTxServiceUrl,
+            txServiceUrl: overrideTxServiceUrlForChainId(this.deploy._.chainId),
         })
 
         const signer = await this.getSignerAddress();

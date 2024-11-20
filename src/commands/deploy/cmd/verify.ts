@@ -29,6 +29,15 @@ const getChain = (chainId: number) => {
     return chain;
 }
 
+const cleanContractName = (contract: string) => {   
+    if (contract.endsWith('_Impl')) {
+        return contract.substring(0, contract.length - `_Impl`.length);
+    } else if (contract.endsWith('_Proxy')) {
+        return contract.substring(0, contract.length - `_Proxy`.length);
+    } 
+    return contract;
+}
+
 const shortenHex = (str: string) => {
     return str.substring(0, 5) + '...' + str.substring(str.length - 4);
 }
@@ -107,7 +116,7 @@ async function handler(_user: TState, args: {env: string}) {
         const onchainBytecode: Record<string, `0x${string}`> = {};
 
         const contractMetadata = Object.fromEntries(deployedContracts._.contracts.map(contract => {
-            const metadata = JSON.parse(readFileSync(canonicalPaths.contractJson(getRepoRoot(), contract.contract), 'utf-8')) as ForgeSolidityMetadata;
+            const metadata = JSON.parse(readFileSync(canonicalPaths.contractJson(getRepoRoot(), cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
             return [contract.contract, metadata];
         }));
 

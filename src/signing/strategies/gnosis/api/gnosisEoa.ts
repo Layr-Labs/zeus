@@ -13,7 +13,7 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
     description = "[Not Private] Gnosis SAFE - signing w/ private key using Gnosis API";
 
     public async promptSubStrategyArgs(): Promise<TGnosisEOAArgs> {
-        const pk = await privateKey(this.deploy._.chainId);
+        const pk = await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE');
         return {
             privateKey: pk
         }

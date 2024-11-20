@@ -24,6 +24,7 @@ import { chainIdName, wouldYouLikeToContinue, rpcUrl as freshRpcUrl, envVarOrPro
 import { computeFairHash } from "../utils";
 import EOABaseSigningStrategy from "../../../signing/strategies/eoa/eoa";
 import { injectableEnvForEnvironment } from "../../run";
+import { multisigBaseUrl, overrideTxServiceUrlForChainId } from "../../../signing/strategies/gnosis/api/utils";
 
 process.on("unhandledRejection", (error) => {
     console.error(error); // This prints error with stack included (as for normal errors)
@@ -698,7 +699,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     const multisigDeploy = await metatxn.getJSONFile<TGnosisRequest>(
                         canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})
                     )
-                    const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId)})
+                    const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId)})
                     const multisigTxn = await safeApi.getTransaction(multisigDeploy._.safeTxHash);
 
                     if (multisigTxn.confirmations?.length === multisigTxn.confirmationsRequired) {
@@ -708,7 +709,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction signers found`);
                     } else {
                         console.error(`Waiting on ${multisigTxn.confirmationsRequired - (multisigTxn.confirmations?.length ?? 0)} more confirmations. `)
-                        console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy._.safeAddress}`)
+                        console.error(`\tShare the following URI: ${multisigBaseUrl(deploy._.chainId)}/transactions/queue?safe=${multisigDeploy._.safeAddress}`)
                         console.error(`Run the following to continue: `);
                         console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
                         return;
@@ -719,7 +720,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     const multisigDeploy = await metatxn.getJSONFile<TGnosisRequest>(
                         canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})
                     )
-                    const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId)})
+                    const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId)})
                     const multisigTxn = await safeApi.getTransaction(multisigDeploy._.safeTxHash);
 
                     const multisigTxnPersist = await metatxn.getJSONFile(canonicalPaths.multisigTransaction({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
@@ -728,7 +729,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     
                     if (!multisigTxn.isExecuted) {
                         console.log(chalk.cyan(`SafeTxn(${multisigDeploy._.safeTxHash}): still waiting for execution.`))
-                        console.error(`\tShare the following URI: https://app.safe.global/transactions/queue?safe=${multisigDeploy._.safeAddress}`)
+                        console.error(`\tShare the following URI: ${multisigBaseUrl(deploy._.chainId)}/transactions/queue?safe=${multisigDeploy._.safeAddress}`)
                         console.error(`Resume deploy with: `)
                         console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
                         await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction awaiting execution`);

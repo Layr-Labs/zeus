@@ -3,7 +3,9 @@ import { URLSearchParams } from 'url';
 import clipboard from 'clipboardy';
 import open from 'open';
 
-const CLIENT_ID = 'Iv23ligjjeZxuYnTzp66'; // zeus app id.
+// const CLIENT_ID = 'Iv23ligjjeZxuYnTzp66'; // zeus app id.
+
+const CLIENT_ID = 'Iv23liqCKmk8aAoijxqf';
 
 const sleep = (timeMs: number) => {
     return new Promise((resolve) => {
@@ -21,6 +23,7 @@ export async function login(): Promise<string> {
     }
     const code = await fetch(`https://github.com/login/device/code?${params.toString()}`, {method: 'POST', headers: new Headers({'Accept': 'application/json'})});
     const resp = await code.json();
+    console.log(resp);
 
     console.log(`1. Navigate to:\n\t${chalk.blue(resp.verification_uri)}\n\n`)
     console.log(`2. Paste the following code:      ${chalk.bold(resp.user_code)}      (${chalk.italic(`expires in ${Math.floor(resp.expires_in/60)} minutes, auto-copied to clipboard!`)})`)
