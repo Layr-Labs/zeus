@@ -9,26 +9,19 @@ import { getLedgerSigner } from "../../ledgerTransport";
 import { TypedDataField } from "ethers";
 import { verifyTypedData } from "viem";
  
-type TGnosisLedgerArgs = unknown;
-
-export class GnosisLedgerStrategy extends GnosisSigningStrategy<TGnosisLedgerArgs> {
+export class GnosisLedgerStrategy extends GnosisSigningStrategy {
     id = "gnosis.api.ledger";
     description = "[Not Private] Gnosis SAFE - signing w/ ledger using Gnosis API";
-
-    public async promptSubStrategyArgs(): Promise<TGnosisLedgerArgs> {
-        return {};
-    }
     
     async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
         const provider = getDefaultProvider();
         const signer = await getLedgerSigner(provider);
-        const args = await this.args();
         const types = getEip712TxTypes(version);
 
         const typedDataArgs = {
             types: types as unknown as Record<string, unknown>,
             domain: {
-                verifyingContract: args.safeAddress as `0x${string}`,
+                verifyingContract: await this.safeAddress.get() as `0x${string}`,
                 chainId: this.deploy._.chainId,
             },
             primaryType: 'SafeTx',

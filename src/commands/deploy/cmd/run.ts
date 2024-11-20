@@ -255,7 +255,7 @@ const executeOrContinueDeployWithLock = async (name: string, env: string, user: 
 }
 
 const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: TState, metatxn: Transaction, rpcUrl: string | undefined) => {
-    let eoaStrategy: EOABaseSigningStrategy<unknown> | undefined = undefined;
+    let eoaStrategy: EOABaseSigningStrategy | undefined = undefined;
     
     try {
         while (true) {
@@ -366,7 +366,10 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     const prompt = ora(`Running 'zeus test'`);
                     const spinner = prompt.start();
                     try {
-                        const res = await runTest({upgradePath: script, txn: metatxn, context: {env: deploy._.env, deploy: deploy._.name}, verbose: false})
+                        const res = await runTest({upgradePath: script, txn: metatxn, context: {env: deploy._.env, deploy: deploy._.name}, verbose: false, json: true})
+                        if (res.code !== 0) {
+                            throw new Error(`One or more tests failed.`);
+                        }
                         const testOutput = await metatxn.getJSONFile<TTestOutput>(canonicalPaths.testRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
                         testOutput._ = res;
                         await testOutput.save();
@@ -378,7 +381,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     }
 
                     console.log(`Zeus would like to simulate this EOA transaction before attempting it for real. Please choose the method you'll use to sign:`)
-                    eoaStrategy = (await promptForStrategy(deploy, metatxn)) as unknown as EOABaseSigningStrategy<unknown>;
+                    eoaStrategy = (await promptForStrategy(deploy, metatxn)) as unknown as EOABaseSigningStrategy;
                     const sigRequest = await eoaStrategy.prepare(script, deploy._) as TForgeRequest;
                     console.log(chalk.yellow(`Please reviewing the following: `))
                     console.log(chalk.yellow(`=====================================================================================`))
@@ -510,7 +513,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         throw new Error('foundry.deploy.json was corrupted.');
                     }
 
-                    const localRpcUrl = (eoaStrategy ? (await eoaStrategy.args()).rpcUrl : await freshRpcUrl(deploy._.chainId));
+                    const localRpcUrl = (eoaStrategy ? (await eoaStrategy.rpcUrl.get()) : await freshRpcUrl(deploy._.chainId));
                     const client = createPublicClient({
                         chain: getChain(deploy._.chainId), 
                         transport: http(localRpcUrl),

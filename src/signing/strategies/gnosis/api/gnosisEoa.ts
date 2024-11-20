@@ -3,35 +3,31 @@ import { GnosisSigningStrategy } from "./api";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 import { checkShouldSignGnosisMessage, privateKey } from "../../../../commands/prompts";
+import { ICachedArg } from "../../../strategy";
+import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
+import { TDeploy } from "../../../../metadata/schema";
 
-interface TGnosisEOAArgs {
-    privateKey: string;
-}
-
-export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
+export class GnosisEOAStrategy extends GnosisSigningStrategy {
     id = "gnosis.api.eoa";
     description = "[Not Private] Gnosis SAFE - signing w/ private key using Gnosis API";
+    privateKey: ICachedArg<`0x${string}`>
 
-    public async promptSubStrategyArgs(): Promise<TGnosisEOAArgs> {
-        const pk = await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE');
-        return {
-            privateKey: pk
-        }
-    }
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
+        super(deploy, transaction, defaultArgs);
+        this.privateKey = this.arg(async () => await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE'))
+    } 
 
     async redactInOutput(): Promise<string[]> {
-        const args = await this.args();
-        return [args.privateKey];
+        return [await this.privateKey.get()];
     }
 
     async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
-        const args = await this.args();
-        const account = privateKeyToAccount(args.privateKey as `0x${string}`);
+        const account = privateKeyToAccount(await this.privateKey.get() as `0x${string}`);
         const types = getEip712TxTypes(version);
         const typedDataParameters = {
             types: types as unknown as Record<string, unknown>,
             domain: {
-                verifyingContract: args.safeAddress as `0x${string}`,
+                verifyingContract: await this.safeAddress.get() as `0x${string}`,
                 chainId: this.deploy._.chainId,
             },
             primaryType: 'SafeTx',
@@ -51,7 +47,6 @@ export class GnosisEOAStrategy extends GnosisSigningStrategy<TGnosisEOAArgs> {
     }
 
     async getSignerAddress(): Promise<`0x${string}`> {
-        const args = await this.args();
-        return privateKeyToAccount(args.privateKey as `0x${string}`).address;
+        return privateKeyToAccount(await this.privateKey.get() as `0x${string}`).address;
     }
 }

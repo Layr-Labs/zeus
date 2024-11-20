@@ -61,19 +61,37 @@ function redact(haystack: string, ...needles: string[]) {
     return out;
 }
 
-export abstract class Strategy<TArgs> {
-    readonly deploy: SavebleDocument<TDeploy>;
-    readonly metatxn: Transaction;
+export interface ICachedArg<T> {
+    get: () => Promise<T>
+}
 
-    public abstract promptArgs(): Promise<TArgs>;
-    private _args: TArgs | undefined;
+class CachedArg<T> implements ICachedArg<T> {
+    cachedValue: T | undefined;
+    _get: () => Promise<T>
 
-    public async args(): Promise<TArgs> {
-        if (this._args === undefined) {
-            this._args = await this.promptArgs();
+    constructor(cachedValue: T | undefined, get: () => Promise<T>) {
+        this.cachedValue = cachedValue;
+        this._get = get;
+    }
+
+    async get(): Promise<T> {
+        if (!this.cachedValue) {
+            this.cachedValue = await this._get();
         }
 
-        return this._args;
+        return this.cachedValue;        
+    }
+}
+
+
+export abstract class Strategy {
+    readonly deploy: SavebleDocument<TDeploy>;
+    readonly metatxn: Transaction;
+    readonly defaultArgs: Record<string, unknown> // pre-seeded args, to avoid user interaction.
+
+    arg<T>(getFn: () => Promise<T>, key?: string): ICachedArg<T> {
+        const defaultValue = key ? this.defaultArgs[key] : undefined;
+        return new CachedArg<T>(defaultValue as T, getFn);
     }
 
     usage(): string {
@@ -139,8 +157,9 @@ export abstract class Strategy<TArgs> {
         } 
     }
 
-    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction) {
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
         this.deploy = deploy;
         this.metatxn = transaction;
+        this.defaultArgs = defaultArgs ?? {};
     } 
 }

@@ -1,39 +1,32 @@
 import SafeApiKit from "@safe-global/api-kit";
 import Safe from '@safe-global/protocol-kit'
 import { SafeTransaction } from '@safe-global/types-kit';
-import { Strategy, TSignatureRequest } from "../../../strategy";
+import { ICachedArg, Strategy, TSignatureRequest } from "../../../strategy";
 import ora from "ora";
 import * as prompts from '../../../../commands/prompts';
 import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/schema";
 import { updateLatestDeploy } from "../../../../commands/deploy/cmd/utils";
-import { SavebleDocument } from "../../../../metadata/metadataStore";
+import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import chalk from "chalk";
 import { overrideTxServiceUrlForChainId } from "./utils";
 
-interface TGnosisBaseArgs {
-    safeAddress: string;
-    rpcUrl: string;
-}
+export abstract class GnosisSigningStrategy extends Strategy {
 
-export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs & T> {
+    safeAddress: ICachedArg<`0x${string}`>
+    rpcUrl: ICachedArg<string>
+
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
+        super(deploy, transaction, defaultArgs);
+        this.safeAddress = this.arg(async () => {
+            return prompts.safeAddress();
+        });
+        this.rpcUrl = this.arg(async () => {
+            return await prompts.rpcUrl(this.deploy._.chainId);
+        });
+    } 
 
     abstract getSignature(safeVersion: string, txn: SafeTransaction): Promise<`0x${string}`>;
     abstract getSignerAddress(): Promise<`0x${string}`>;
-    abstract promptSubStrategyArgs(): Promise<T>;
-
-    public async promptArgs(): Promise<TGnosisBaseArgs & T> {
-        const rpcUrl = await prompts.rpcUrl(this.deploy._.chainId);
-        const safeAddress = await prompts.safeAddress();
-        const baseArgs: TGnosisBaseArgs = {
-            safeAddress: safeAddress,
-            rpcUrl: rpcUrl,
-        };
-        const subcommandArgs = await this.promptSubStrategyArgs();
-        return {
-            ...baseArgs,
-            ...subcommandArgs
-        };
-    }
 
     async forgeArgs(): Promise<string[]> {
         return ['--sig', `execute()`];
@@ -111,13 +104,12 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
 
         const safeTxn = multisigExecuteRequests[0];
         const {to, value, data, op} = safeTxn;
-        const {safeAddress, rpcUrl} = await this.args();
 
         const signer = await this.getSignerAddress();
         const protocolKitOwner1 = await Safe.init({
-            provider: rpcUrl,
+            provider: await this.rpcUrl.get(),
             signer,
-            safeAddress: safeAddress
+            safeAddress: await this.safeAddress.get()
         });
 
         const txn = await protocolKitOwner1.createTransaction({
@@ -138,7 +130,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
 
         return {
             output,
-            safeAddress: safeAddress as `0x${string}`,
+            safeAddress: await this.safeAddress.get() as `0x${string}`,
             safeTxHash: hash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
             stateUpdates
@@ -152,7 +144,6 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
             throw new Error(`Got invalid output from forge. Expected 1 multisig multicall, got ${multisigExecuteRequests?.length}.`);
         }
         const {to, value, data, op} = safeTxn;
-        const {safeAddress, rpcUrl} = await this.args();
 
         const apiKit = new SafeApiKit({
             chainId: BigInt(this.deploy._.chainId),
@@ -161,9 +152,9 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
 
         const signer = await this.getSignerAddress();
         const protocolKitOwner1 = await Safe.init({
-            provider: rpcUrl,
+            provider: await this.rpcUrl.get(),
             signer,
-            safeAddress: safeAddress
+            safeAddress: await this.safeAddress.get()
         });
 
         const txn = await protocolKitOwner1.createTransaction({
@@ -194,7 +185,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
         spinner = prompt.start();
         try {
             await apiKit.proposeTransaction({
-                safeAddress,
+                safeAddress: await this.safeAddress.get(),
                 safeTransactionData: txn.data,
                 safeTxHash: hash,
                 senderAddress: signer,
@@ -206,7 +197,7 @@ export abstract class GnosisSigningStrategy<T> extends Strategy<TGnosisBaseArgs 
 
         return {
             output,
-            safeAddress: safeAddress as `0x${string}`,
+            safeAddress: await this.safeAddress.get() as `0x${string}`,
             safeTxHash: hash as `0x${string}`,
             senderAddress: signer,
             signature: senderSignature,

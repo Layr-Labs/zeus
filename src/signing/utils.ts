@@ -44,6 +44,108 @@ export function getTrace(data: TForgeRun, address: `0x${string}`): TraceItem | n
     return null;
 }
 
+interface DeploymentLog {
+    address: string;
+    topics: string[];
+    data: string;
+}
+
+interface DecodedLog {
+name: string | null;
+params: unknown[] | null; // Replace `any` with specific parameter structure if known
+}
+
+interface RawLog {
+topics: string[];
+data: string;
+}
+
+interface Trace {
+depth: number;
+success: boolean;
+caller: string;
+address: string;
+maybe_precompile: boolean | null;
+selfdestruct_address: string | null;
+selfdestruct_refund_target: string | null;
+selfdestruct_transferred_value: string | null;
+kind: "CREATE" | "CALL" | "STATICCALL";
+value: string;
+data: string;
+output: string | null;
+gas_used: number;
+gas_limit: number;
+status: "Return" | "Stop";
+steps: unknown[];
+decoded: {
+    label: string | null;
+    return_data: string | null;
+    call_data: string | null;
+};
+}
+
+interface ArenaTrace {
+parent: number | null;
+children: number[];
+idx: number;
+trace: Trace;
+logs: {
+    raw_log: RawLog;
+    decoded: DecodedLog;
+    position: number;
+}[];
+ordering: unknown[];
+}
+
+interface Arena {
+parent: number | null;
+children: number[];
+idx: number;
+trace: Trace;
+logs: DeploymentLog[];
+ordering: unknown[];
+}
+
+interface Execution {
+arena: ArenaTrace[];
+}
+
+interface Deployment {
+arena: Arena[];
+}
+
+interface UnitKind {
+Unit: {
+    gas: number;
+};
+}
+
+interface TestResult {
+status: "Success" | "Failure"; // Add other statuses if applicable
+reason: string | null;
+counterexample: unknown | null; // Replace `any` with specific structure if known
+logs: DeploymentLog[];
+decoded_logs: string[];
+kind: UnitKind | null;
+traces: [string, Deployment | Execution][];
+labeled_addresses: Record<string, unknown>; // Replace `any` with specific structure if known
+duration: {
+    secs: number;
+    nanos: number;
+};
+breakpoints: Record<string, unknown>; // Replace `any` with specific structure if known
+gas_snapshots: Record<string, unknown>; // Replace `any` with specific structure if known
+}
+
+type TestResults = Record<string, TestResult>
+
+interface ScriptResult {
+duration: string;
+test_results: TestResults;
+warnings: string[];
+}
+  
+export type TForgeTestOutput = Record<string, ScriptResult>
 
 export interface TForgeOutput {
     stateUpdates: {
@@ -147,6 +249,10 @@ enum InternalModifiedType {
     BOOL = 6
 };
   
+export function parseForgeTestOutput(stdout: string): TForgeTestOutput {
+    return JSON.parse(stdout.trim()) as TForgeTestOutput;
+}   
+
 export function parseForgeOutput(stdout: string): TForgeOutput {
     const lines = stdout.split('\n');
     const jsonLine = lines.find(line => line.trim().startsWith('{'));

@@ -6,7 +6,7 @@ import { GnosisEOAStrategy } from './gnosis/api/gnosisEoa';
 import { GnosisLedgerStrategy } from './gnosis/api/gnosisLedger';
 import { LedgerSigningStrategy } from './eoa/ledger';
 
-export const all: (new (deploy: SavebleDocument<TDeploy>, metadata: Transaction) => Strategy<unknown>)[] = [
+export const all: (new (deploy: SavebleDocument<TDeploy>, metadata: Transaction) => Strategy)[] = [
     EOASigningStrategy,
     LedgerSigningStrategy,
     GnosisEOAStrategy,

@@ -94,7 +94,7 @@ export const etherscanApiKey: () => Promise<string | undefined> = async () => {
     }
 };
 
-export const privateKey = async (chainId: number, overridePrompt?: string) => {
+export const privateKey: (chainId: number, overridePrompt?: string) => Promise<`0x${string}`> = async (chainId, overridePrompt?) => {
     const res = await envVarOrPrompt({
         title: `${overridePrompt ?? 'Enter an ETH private key'} (${chainIdName(chainId)})`,
         isValid: (text) => {
@@ -118,7 +118,7 @@ export const privateKey = async (chainId: number, overridePrompt?: string) => {
     if (!res.startsWith('0x')) {
         return `0x${res}`;
     }
-    return res;
+    return res as `0x${string}`;
 }
 
 const getChainId = async (nodeUrl: string) => {
@@ -202,7 +202,7 @@ export const pickStrategy = async (strategies: TStrategyModel[], overridePrompt?
         prompt: overridePrompt ?? "How would you like to perform this upgrade?",
         choices: strategies.map(s => {
             return {
-                name: s.id,
+                name: s.description,
                 value: s.id,
                 description: s.description,
             }
@@ -244,6 +244,6 @@ export const safeAddress = async () => {
             envVarSearchMessage: 'Enter a multisig address'
         })
         
-        return result;
+        return result as `0x${string}`;
     }
 } 
