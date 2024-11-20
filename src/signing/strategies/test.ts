@@ -21,8 +21,8 @@ export const runTest = async (args: {upgradePath: string, txn: Transaction, cont
         console.table(env);
     }
     const jsonArgs = args.json ? ['--json'] : [];
-    const cmdArgs = ['test', args.upgradePath, ...jsonArgs, `-vvvv`];
-    console.log(`Running command: forge ${cmdArgs.join(' ')}`);
+    const cmdArgs = ['test', args.upgradePath, ...jsonArgs, '--no-match-path', 'override-empty-path',  `-vvvv`];
+    console.log(chalk.italic.white(`Running command: forge ${cmdArgs.join(' ')}`));
 
     const {code, stdout, stderr} = await runWithArgs('forge', cmdArgs, {...process.env, ...env}, args.verbose /* liveOutput */);
     return {
