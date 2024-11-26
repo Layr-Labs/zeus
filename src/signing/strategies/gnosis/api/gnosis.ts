@@ -1,6 +1,6 @@
 import SafeApiKit from "@safe-global/api-kit";
 import Safe from '@safe-global/protocol-kit'
-import { SafeTransaction } from '@safe-global/types-kit';
+import { MetaTransactionData, OperationType, SafeTransaction } from '@safe-global/types-kit';
 import { ICachedArg, Strategy, TSignatureRequest } from "../../../strategy";
 import ora from "ora";
 import * as prompts from '../../../../commands/prompts';
@@ -9,6 +9,7 @@ import { updateLatestDeploy } from "../../../../commands/deploy/cmd/utils";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import chalk from "chalk";
 import { overrideTxServiceUrlForChainId } from "./utils";
+import { TForgeOutput } from "../../../utils";
 
 export abstract class GnosisSigningStrategy extends Strategy {
 
@@ -29,7 +30,8 @@ export abstract class GnosisSigningStrategy extends Strategy {
     abstract getSignerAddress(): Promise<`0x${string}`>;
 
     async forgeArgs(): Promise<string[]> {
-        return ['--sig', `execute()`];
+        process.env.ZEUS_ENV_MULTISIG = await this.safeAddress.get();
+        return ['--sig', `execute()`, `--rpc-url`, await this.rpcUrl.get(), `-vvvv`];
     }
 
     async forgeDryRunArgs(): Promise<string[]> {
@@ -49,7 +51,7 @@ export abstract class GnosisSigningStrategy extends Strategy {
                     return;
                 }
                 const signer = await this.getSignerAddress();
-                const rpcUrl = await prompts.rpcUrl(deploy._.chainId);
+                const rpcUrl = await this.rpcUrl.get();
                 const protocolKitOwner1 = await Safe.init({
                     provider: rpcUrl,
                     signer,
@@ -96,14 +98,35 @@ export abstract class GnosisSigningStrategy extends Strategy {
         throw new Error('uncancellable.');
     }
 
+    filterMultisigRequests(output: TForgeOutput["output"]) {
+        return output.traces.filter(trace => {
+            return trace[0] === "Execution"
+        }).map(
+            trace => trace[1].arena.filter(entry => 
+                entry.trace.success && 
+                entry.trace.kind === "CALL" && 
+                entry.trace.data !== "0x61461954" && // initial script call
+                entry.trace.address !== "0x7109709ecfa91a80626ff3989d68f67f5b1dd12d" // vm call
+            )
+        ).flat().map(trace => {
+            return {
+                to: trace.trace.address,
+                value: trace.trace.value,
+                data: trace.trace.data,
+            }
+        });
+    }
+
     async prepare(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const {output, stateUpdates, multisigExecuteRequests} = await this.runForgeScript(pathToUpgrade);
+        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
+
+        const multisigExecuteRequests = this.filterMultisigRequests(output);
         if (multisigExecuteRequests?.length != 1) {
             throw new Error(`Got invalid output from forge. Expected 4 members, got ${multisigExecuteRequests?.length}.`);
         }
 
         const safeTxn = multisigExecuteRequests[0];
-        const {to, value, data, op} = safeTxn;
+        const {to, value, data} = safeTxn;
 
         const signer = await this.getSignerAddress();
         const protocolKitOwner1 = await Safe.init({
@@ -111,14 +134,14 @@ export abstract class GnosisSigningStrategy extends Strategy {
             signer,
             safeAddress: await this.safeAddress.get()
         });
-
+        
         const txn = await protocolKitOwner1.createTransaction({
             transactions: [
                 {
                     to: to,
                     data,
                     value: value.toString(),
-                    operation: op
+                    operation: OperationType.Call
                 }
             ],
         })
@@ -138,12 +161,10 @@ export abstract class GnosisSigningStrategy extends Strategy {
     }
 
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const {output, stateUpdates, multisigExecuteRequests} = await this.runForgeScript(pathToUpgrade);
-        const safeTxn = multisigExecuteRequests[0];
-        if (multisigExecuteRequests.length != 1) {
-            throw new Error(`Got invalid output from forge. Expected 1 multisig multicall, got ${multisigExecuteRequests?.length}.`);
-        }
-        const {to, value, data, op} = safeTxn;
+        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
+
+        const multisigExecuteRequests = this.filterMultisigRequests(output);
+        multisigExecuteRequests.forEach(req => console.log(JSON.stringify(req, null, 2)));
 
         const apiKit = new SafeApiKit({
             chainId: BigInt(this.deploy._.chainId),
@@ -158,14 +179,15 @@ export abstract class GnosisSigningStrategy extends Strategy {
         });
 
         const txn = await protocolKitOwner1.createTransaction({
-            transactions: [
-                {
-                    to: to,
-                    data,
-                    value: value.toString(),
-                    operation: op
-                }
-            ],
+            transactions: multisigExecuteRequests.map<MetaTransactionData>(req => {
+                return {
+                    to: req.to,
+                    data: req.data,
+                    value: req.value.toString(),
+                    operation: OperationType.Call
+                };
+            })
+            ,
         })
 
         let prompt = ora(`Creating transaction...`);

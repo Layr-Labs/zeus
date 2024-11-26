@@ -158,12 +158,6 @@ export interface TForgeOutput {
         addr: `0x${string}`;
         singleton: boolean;
     }[],
-    multisigExecuteRequests: {
-        data: `0x${string}`,
-        op: number,
-        to: `0x${string}`,
-        value: bigint,
-    }[],
     output: {
         timestamp: number,
         chain: number, 
@@ -270,10 +264,6 @@ export function parseForgeOutput(stdout: string): TForgeOutput {
                 }
             }).filter(v => !!v);
 
-            const multisigRequests = parsedLogs.filter(update => update.eventName === 'ZeusMultisigExecute').map(update => {
-                return update.args;
-            });
-
             const contractDeploys = parsedLogs.filter(update => update.eventName === 'ZeusDeploy').map(update => {
                 return update.args;
             })
@@ -308,7 +298,7 @@ export function parseForgeOutput(stdout: string): TForgeOutput {
                     value: parsedValue
                 }
             })
-            return {output: parsedJson, stateUpdates, contractDeploys, multisigExecuteRequests: multisigRequests};
+            return {output: parsedJson, stateUpdates, contractDeploys};
         } catch (e) {
             throw new Error(`Failed to parse JSON: ${e}`);
         }

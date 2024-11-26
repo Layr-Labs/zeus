@@ -137,8 +137,8 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
 
     const upgradeManifest = await metaTxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(args.upgrade));
     if (!semver.satisfies(envManifest._.deployedVersion ?? '0.0.0', upgradeManifest._.from)) {
-        console.error(`Unsupported upgrade. ${deployJson._.name} requires an environment meet the following version criteria: (${upgradeManifest._.from})`);
-        console.error(`Environment ${deployJson._.env} is currently deployed at '${envManifest._.deployedVersion}'`);
+        console.error(`Unsupported upgrade. ${upgradeManifest._.name} requires an environment meet the following version criteria: (${upgradeManifest._.from})`);
+        console.error(`Environment ${envManifest._.id} is currently deployed at '${envManifest._.deployedVersion}'`);
         return;
     }
 
@@ -394,8 +394,8 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     } else {
                         console.log(chalk.bold(`<none>`));
                     }
-                    console.log(chalk.bold.underline(`Updated Environment: `));
-                    if (sigRequest.stateUpdates) {
+                    if (sigRequest.stateUpdates && Object.keys(sigRequest.stateUpdates).length > 0) {
+                        console.log(chalk.bold.underline(`Updated Environment: `));
                         console.table(sigRequest.stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
                     } else {
                         console.log(chalk.bold(`<none>`))

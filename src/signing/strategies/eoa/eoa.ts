@@ -14,7 +14,7 @@ import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 export default abstract class EOABaseSigningStrategy extends Strategy {
 
     public rpcUrl: ICachedArg<string> 
-    public etherscanApiKey: ICachedArg<string | undefined> 
+    public etherscanApiKey: ICachedArg<string | boolean> 
 
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
         super(deploy, transaction, defaultArgs);
@@ -22,7 +22,11 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
             return await prompts.rpcUrl(this.deploy._.chainId);
         })
         this.etherscanApiKey = this.arg(async () => {
-            return await prompts.etherscanApiKey();
+            const res = await prompts.etherscanApiKey();
+            if (!res) {
+                return false;
+            }
+            return res;
         });
     } 
 
@@ -35,7 +39,7 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
 
     async redactInOutput(): Promise<string[]> {
         const etherscan = await this.etherscanApiKey.get();
-        if (etherscan) {
+        if (etherscan && typeof etherscan === 'string') {
             return [etherscan];
         }
 
@@ -46,15 +50,14 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
         const etherscan = await this.etherscanApiKey.get();
         const rpcUrl = await this.rpcUrl.get();
         const subclassForgeArgs = await this.subclassForgeArgs();
-        
-        const etherscanVerify = etherscan ? [`--etherscan-api-key`,etherscan, `--chain`, `${this.deploy._.chainId}`, `--verify`] : [];
-        return [...subclassForgeArgs, '--broadcast', ...etherscanVerify, '--rpc-url', rpcUrl, '--sig', `deploy()`];
+        const etherscanVerify = (etherscan && typeof etherscan === 'string') ? [`--etherscan-api-key`,etherscan, `--chain`, `${this.deploy._.chainId}`, `--verify`] : [];
+        return [...subclassForgeArgs, '--broadcast', ...etherscanVerify, '--rpc-url', rpcUrl, '--sig', `runAsEOA()`];
     }
 
     async forgeDryRunArgs(): Promise<string[]> {
         const subclassForgeArgs = await this.subclassForgeArgs();
         const rpcUrl = await this.rpcUrl.get();
-        return [...subclassForgeArgs, '--rpc-url', rpcUrl, '--sig', `deploy()`];
+        return [...subclassForgeArgs, '--rpc-url', rpcUrl, '--sig', `runAsEOA()`];
     }
 
     async cancel(): Promise<void> {
