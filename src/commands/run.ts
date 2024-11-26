@@ -94,6 +94,7 @@ export const injectableEnvForEnvironment: (txn: Transaction, env: string, withDe
     return {
         ZEUS_ENV: env,
         ZEUS_ENV_COMMIT: envManifest._.latestDeployedCommit,
+        ZEUS_TEST: 'false', /* test environments should override this */
         ZEUS_ENV_VERSION: envManifest._.deployedVersion,
         ZEUS_VERSION: zeusInfo.Version,
         ...(deployParametersToEnvironmentVariables({

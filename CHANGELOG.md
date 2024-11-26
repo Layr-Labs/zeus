@@ -1,3 +1,6 @@
+0.2.1:
+- Added support for Uint8 and Uint16 in zeus states.
+
 0.2.0:
 - `zeus test` now invokes `forge test` directly and provides way more sensible output.
 - zeus tests are now proper forge integration tests. `ZeusScript` now extends `Test`, and can use `assertEq`.

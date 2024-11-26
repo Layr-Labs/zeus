@@ -246,7 +246,9 @@ enum InternalModifiedType {
     UINT_64 = 3,
     ADDRESS = 4,
     STRING = 5,
-    BOOL = 6
+    BOOL = 6,
+    UINT_16 = 7,
+    UINT_8 = 8
 };
   
 export function parseForgeTestOutput(stdout: string): TForgeTestOutput {
@@ -293,6 +295,10 @@ export function parseForgeOutput(stdout: string): TForgeOutput {
                             return decodeAbiParameters([{type: 'string'}], update.args.value)
                         case InternalModifiedType.BOOL:
                             return decodeAbiParameters([{type: 'bool'}], update.args.value)
+                        case InternalModifiedType.UINT_16:
+                            return decodeAbiParameters([{type: 'uint16'}], update.args.value)
+                        case InternalModifiedType.UINT_8:
+                            return decodeAbiParameters([{type: 'uint8'}], update.args.value)
                     }
                 })()[0];
 
