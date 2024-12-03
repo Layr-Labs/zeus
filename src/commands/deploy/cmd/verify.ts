@@ -244,8 +244,13 @@ async function handler(_user: TState, args: {env: string}) {
                 console.log(chalk.red(`FAILURE`));
             }
 
-            await deployedContracts.save();
-            await metatxn.commit(`[${args.env}] verify deploy ${deploy._.name} - ${isFailure ? 'failure' : 'success'}`)
+            try {
+                await deployedContracts.save();
+                await metatxn.commit(`[${args.env}] verify deploy ${deploy._.name} - ${isFailure ? 'failure' : 'success'}`)
+            } catch (e) {
+                console.warn(`Failed to record verification. You may not have write access.`);
+                console.error(e)
+            }
         }
     } catch (e) {
         console.error(`Failed to verify contracts.`);

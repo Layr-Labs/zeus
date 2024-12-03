@@ -1,3 +1,7 @@
+0.3.3:
+- `zeus deploy verify` no longer fails if it can't write to the repo.
+
+
 0.3.1:
 - Uses --slow on forge by default.
 

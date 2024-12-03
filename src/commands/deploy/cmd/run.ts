@@ -125,9 +125,11 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
         return;
     }
 
-    const upgradePath = normalize(join(getRepoRoot(), repoConfig.migrationDirectory, args.upgrade))
-    if (!existsSync(upgradePath) || !lstatSync(upgradePath).isDirectory() ) {
-        console.error(`Upgrade ${args.upgrade} doesn't exist, or isn't a directory. (searching '${upgradePath}')`)
+    const upgradePath = normalize(join(repoConfig.migrationDirectory, args.upgrade));
+    const absoluteUpgradePath = normalize(join(getRepoRoot(), upgradePath))
+
+    if (!existsSync(absoluteUpgradePath) || !lstatSync(absoluteUpgradePath).isDirectory() ) {
+        console.error(`Upgrade ${args.upgrade} doesn't exist, or isn't a directory. (searching '${absoluteUpgradePath}')`)
         return;
     }
     const blankDeployName = `${formatNow()}-${args.upgrade}`;
