@@ -51,13 +51,13 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
         const rpcUrl = await this.rpcUrl.get();
         const subclassForgeArgs = await this.subclassForgeArgs();
         const etherscanVerify = (etherscan && typeof etherscan === 'string') ? [`--etherscan-api-key`,etherscan, `--chain`, `${this.deploy._.chainId}`, `--verify`] : [];
-        return [...subclassForgeArgs, '--broadcast', ...etherscanVerify, '--rpc-url', rpcUrl, '--sig', `runAsEOA()`];
+        return [...subclassForgeArgs, '--broadcast', '--slow', ...etherscanVerify, '--rpc-url', rpcUrl, '--sig', `runAsEOA()`];
     }
 
     async forgeDryRunArgs(): Promise<string[]> {
         const subclassForgeArgs = await this.subclassForgeArgs();
         const rpcUrl = await this.rpcUrl.get();
-        return [...subclassForgeArgs, '--rpc-url', rpcUrl, '--sig', `runAsEOA()`];
+        return [...subclassForgeArgs, '--rpc-url', '--slow', rpcUrl, '--sig', `runAsEOA()`];
     }
 
     async cancel(): Promise<void> {

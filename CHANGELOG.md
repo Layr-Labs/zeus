@@ -1,3 +1,6 @@
+0.3.1:
+- Uses --slow on forge by default.
+
 0.2.1:
 - Added support for Uint8 and Uint16 in zeus states.
 
