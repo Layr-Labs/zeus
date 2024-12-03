@@ -57,7 +57,7 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
     async forgeDryRunArgs(): Promise<string[]> {
         const subclassForgeArgs = await this.subclassForgeArgs();
         const rpcUrl = await this.rpcUrl.get();
-        return [...subclassForgeArgs, '--rpc-url', '--slow', rpcUrl, '--sig', `runAsEOA()`];
+        return [...subclassForgeArgs, '--slow', '--rpc-url', rpcUrl, '--sig', `runAsEOA()`];
     }
 
     async cancel(): Promise<void> {

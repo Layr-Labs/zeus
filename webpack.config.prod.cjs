@@ -4,7 +4,8 @@ const common = require('./webpack.common.cjs');
 const webpack = require("webpack");
 
 module.exports = merge(common, {
-    mode: 'production',
+    mode: 'development',
+    devtool: 'inline-source-map',
     output: {
         filename: 'bundle.cjs',
         path: path.resolve(__dirname, 'dist'),
