@@ -8,8 +8,6 @@ import { TForgeOutput } from "../../utils";
 export abstract class GnosisSigningStrategy extends Strategy {
     rpcUrl: ICachedArg<string>
 
-    static KEY_SAFE_ADDRESS = `safeAddress`;
-
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
         super(deploy, transaction, defaultArgs);
         this.rpcUrl = this.arg(async () => {
