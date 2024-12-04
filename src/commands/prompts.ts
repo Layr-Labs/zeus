@@ -1,4 +1,3 @@
-import { isAddress } from 'viem';
 import { select } from './utils';
 import { privateKeyToAccount } from 'viem/accounts';
 import { search, input, password as inquirerPassword } from '@inquirer/prompts';
@@ -234,16 +233,3 @@ export const pressAnyButtonToContinue = async (overridePrompt?: string) : Promis
         }]
     });
 }
-
-export const safeAddress = async () => {
-    while (true) {
-        const result = await envVarOrPrompt({
-            title: `Enter the address of your Gnosis Multisig SAFE (or $ENV_VAR)`,
-            isValid: isAddress,
-            directEntryInputType: 'text',
-            envVarSearchMessage: 'Enter a multisig address'
-        })
-        
-        return result as `0x${string}`;
-    }
-} 

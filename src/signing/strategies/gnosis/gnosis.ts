@@ -6,21 +6,18 @@ import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { TForgeOutput } from "../../utils";
 
 export abstract class GnosisSigningStrategy extends Strategy {
-    safeAddress: ICachedArg<`0x${string}`>
     rpcUrl: ICachedArg<string>
+
+    static KEY_SAFE_ADDRESS = `safeAddress`;
 
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
         super(deploy, transaction, defaultArgs);
-        this.safeAddress = this.arg(async () => {
-            return prompts.safeAddress();
-        });
         this.rpcUrl = this.arg(async () => {
             return await prompts.rpcUrl(this.deploy._.chainId);
         });
     } 
 
     async forgeArgs(): Promise<string[]> {
-        process.env.ZEUS_ENV_MULTISIG = await this.safeAddress.get();
         return ['--sig', `execute()`, `--rpc-url`, await this.rpcUrl.get(), `-vvvv`];
     }
 

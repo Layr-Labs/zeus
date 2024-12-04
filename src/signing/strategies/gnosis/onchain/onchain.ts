@@ -33,7 +33,11 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
 
     async prepare(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
         const forge = await this.runForgeScript(pathToUpgrade);
-        const {output, stateUpdates} = forge;
+        const {output, stateUpdates, safeContext} = forge;
+        if (!safeContext) {
+            throw new Error(`Invalid script -- this was not a multisig script.`);
+        }
+
         const multisigExecuteRequests = this.filterMultisigRequests(output);
 
         const safeTxn = multisigExecuteRequests[0];
@@ -55,16 +59,16 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         const protocolKitOwner1 = await Safe.init({
             provider: await this.rpcUrl.get(),
             signer,
-            safeAddress: await this.safeAddress.get()
+            safeAddress: safeContext.addr
         });
-        const safe = getContract({abi, client: walletClient, address: await this.safeAddress.get()})
+        const safe = getContract({abi, client: walletClient, address: safeContext.addr})
         const txn = await protocolKitOwner1.createTransaction({
             transactions: [
                 {
                     to: to,
                     data,
                     value,
-                    operation: OperationType.Call
+                    operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
                 }
             ],
         });
@@ -98,7 +102,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
        
         return {
             output,
-            safeAddress: await this.safeAddress.get() as `0x${string}`,
+            safeAddress: safeContext.addr,
             safeTxHash: txHash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
             stateUpdates,
@@ -112,7 +116,10 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
 
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
         const forge = await this.runForgeScript(pathToUpgrade);
-        const {output, stateUpdates} = forge;
+        const {output, stateUpdates, safeContext} = forge;
+        if (!safeContext) {
+            throw new Error(`Invalid script -- this was not a multisig script.`);
+        }
 
         const multisigExecuteRequests = this.filterMultisigRequests(output);
 
@@ -135,16 +142,16 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         const protocolKitOwner1 = await Safe.init({
             provider: await this.rpcUrl.get(),
             signer,
-            safeAddress: await this.safeAddress.get()
+            safeAddress: safeContext.addr
         });
-        const safe = getContract({abi, client: walletClient, address: await this.safeAddress.get()})
+        const safe = getContract({abi, client: walletClient, address: safeContext.addr})
         const txn = await protocolKitOwner1.createTransaction({
             transactions: [
                 {
                     to: to,
                     data,
                     value,
-                    operation: OperationType.Call
+                    operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
                 }
             ],
         });
@@ -178,7 +185,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
        
         return {
             output,
-            safeAddress: await this.safeAddress.get() as `0x${string}`,
+            safeAddress: safeContext.addr,
             safeTxHash: txHash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
             stateUpdates,
