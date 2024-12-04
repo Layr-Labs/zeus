@@ -65,6 +65,7 @@ export interface MultisigMetadata {
     multisig: `0x${string}`
     confirmed: boolean,
     cancellationTransactionHash: `0x${string}` | undefined;
+    immediateExecutionHash?: `0x${string}`
 }
 
 

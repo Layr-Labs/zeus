@@ -1,13 +1,18 @@
-import ora from "ora";
 import {abi} from './Safe';
 import { ICachedArg, TSignatureRequest } from "../../../strategy";
 import { GnosisSigningStrategy } from "../gnosis";
-import { getContract } from "viem";
+import { createWalletClient, encodePacked, getContract, http } from "viem";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { TDeploy } from "../../../../metadata/schema";
 import { privateKey } from "../../../../commands/prompts";
+import { privateKeyToAccount } from "viem/accounts";
+import * as AllChains from "viem/chains";
+import { OperationType } from '@safe-global/types-kit';
+import Safe from '@safe-global/protocol-kit'
 
-export abstract class GnosisOnchainStrategy extends GnosisSigningStrategy {
+export class GnosisOnchainStrategy extends GnosisSigningStrategy {
+    id = 'gnosis.onchain';
+    description = '[Testnet Only] SAFE Onchain Call via PrivateKey';
 
     privateKey: ICachedArg<`0x${string}`>
 
@@ -16,119 +21,177 @@ export abstract class GnosisOnchainStrategy extends GnosisSigningStrategy {
         this.privateKey = this.arg(async () => await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE'))
     } 
 
+    // see: (https://github.com/safe-global/safe-smart-account/blob/main/contracts/Safe.sol#L313)
+    approvalSignature(signer: `0x${string}`) {
+        const paddedSigner = `0x${'0'.repeat(24)}${signer.slice(2)}` as `0x${string}`;
+        return encodePacked(['bytes32', 'bytes32', 'bytes1'], [
+            paddedSigner, /* r */
+            ('0x' + '0'.repeat(64)) as `0x${string}`, /* s */
+            `0x01` /* v - indicating that this is an approval */
+        ])
+    }
 
     async prepare(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
-
+        const forge = await this.runForgeScript(pathToUpgrade);
+        const {output, stateUpdates} = forge;
         const multisigExecuteRequests = this.filterMultisigRequests(output);
-        if (multisigExecuteRequests?.length != 1) {
-            throw new Error(`Got invalid output from forge. Expected 4 members, got ${multisigExecuteRequests?.length}.`);
-        }
 
         const safeTxn = multisigExecuteRequests[0];
         const {to, value, data} = safeTxn;
 
-        const safe = getContract({abi, address: await this.safeAddress.get(), client: walletClient});
 
+        const chain = Object.values(AllChains).find(value => value.id === this.deploy._.chainId);
+        if (!chain) {
+            throw new Error(`Unsupported chain ${this.deploy._.chainId}`);
+        }
 
-        const signer = await this.getSignerAddress();
+        const walletClient = createWalletClient({
+            account: privateKeyToAccount(await this.privateKey.get()),
+            transport: http(await this.rpcUrl.get()),
+            chain
+        })
+
+        const signer = walletClient.account.address;
+        const protocolKitOwner1 = await Safe.init({
+            provider: await this.rpcUrl.get(),
+            signer,
+            safeAddress: await this.safeAddress.get()
+        });
+        const safe = getContract({abi, client: walletClient, address: await this.safeAddress.get()})
+        const txn = await protocolKitOwner1.createTransaction({
+            transactions: [
+                {
+                    to: to,
+                    data,
+                    value,
+                    operation: OperationType.Call
+                }
+            ],
+        });
+
+        const signatures = this.approvalSignature(signer);
+        const nonce = await safe.read.nonce();
+        const txHash = await safe.read.getTransactionHash([
+            txn.data.to as `0x${string}`,
+            BigInt(txn.data.value),
+            txn.data.data as `0x${string}`,
+            txn.data.operation,
+            BigInt(txn.data.safeTxGas),
+            BigInt(txn.data.baseGas),
+            BigInt(txn.data.gasPrice),
+            txn.data.gasToken as `0x${string}`,
+            txn.data.refundReceiver as `0x${string}`,
+            nonce + 1n,
+        ]);
+        const simulation = await safe.simulate.execTransaction([
+            txn.data.to as `0x${string}`,
+            BigInt(txn.data.value),
+            txn.data.data as `0x${string}`,
+            txn.data.operation,
+            BigInt(txn.data.safeTxGas),
+            BigInt(txn.data.baseGas),
+            BigInt(txn.data.gasPrice),
+            txn.data.gasToken as `0x${string}`,
+            txn.data.refundReceiver as `0x${string}`,
+            signatures
+        ], {});
        
-        // TODO: compute hash of txn
-        const hash = '0x';
-
         return {
             output,
             safeAddress: await this.safeAddress.get() as `0x${string}`,
-            safeTxHash: hash as `0x${string}`,
+            safeTxHash: txHash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
-            stateUpdates
+            stateUpdates,
+            immediateExecution: {
+                transaction: undefined,
+                success: simulation.result,
+                simulation: simulation.request,
+            }
         }
     }
 
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
+        const forge = await this.runForgeScript(pathToUpgrade);
+        const {output, stateUpdates} = forge;
 
         const multisigExecuteRequests = this.filterMultisigRequests(output);
-        if (multisigExecuteRequests?.length != 1) {
-            throw new Error(`Got invalid output from forge. Expected 4 members, got ${multisigExecuteRequests?.length}.`);
-        }
 
         const safeTxn = multisigExecuteRequests[0];
         const {to, value, data} = safeTxn;
 
-        const signer = await this.getSignerAddress();
+
+        const chain = Object.values(AllChains).find(value => value.id === this.deploy._.chainId);
+        if (!chain) {
+            throw new Error(`Unsupported chain ${this.deploy._.chainId}`);
+        }
+
+        const walletClient = createWalletClient({
+            account: privateKeyToAccount(await this.privateKey.get()),
+            transport: http(await this.rpcUrl.get()),
+            chain
+        })
+
+        const signer = walletClient.account.address;
+        const protocolKitOwner1 = await Safe.init({
+            provider: await this.rpcUrl.get(),
+            signer,
+            safeAddress: await this.safeAddress.get()
+        });
+        const safe = getContract({abi, client: walletClient, address: await this.safeAddress.get()})
+        const txn = await protocolKitOwner1.createTransaction({
+            transactions: [
+                {
+                    to: to,
+                    data,
+                    value,
+                    operation: OperationType.Call
+                }
+            ],
+        });
+
+        const signatures = this.approvalSignature(signer);
+        const nonce = await safe.read.nonce();
+        const txHash = await safe.read.getTransactionHash([
+            txn.data.to as `0x${string}`,
+            BigInt(txn.data.value),
+            txn.data.data as `0x${string}`,
+            txn.data.operation,
+            BigInt(txn.data.safeTxGas),
+            BigInt(txn.data.baseGas),
+            BigInt(txn.data.gasPrice),
+            txn.data.gasToken as `0x${string}`,
+            txn.data.refundReceiver as `0x${string}`,
+            nonce + 1n,
+        ]);
+        const tx = await safe.write.execTransaction([
+            txn.data.to as `0x${string}`,
+            BigInt(txn.data.value),
+            txn.data.data as `0x${string}`,
+            txn.data.operation,
+            BigInt(txn.data.safeTxGas),
+            BigInt(txn.data.baseGas),
+            BigInt(txn.data.gasPrice),
+            txn.data.gasToken as `0x${string}`,
+            txn.data.refundReceiver as `0x${string}`,
+            signatures
+        ], {});
        
-        // TODO: compute hash of txn
-        const hash = '0x';
-
-        // TODO: propose txn onchain
-
         return {
             output,
             safeAddress: await this.safeAddress.get() as `0x${string}`,
-            safeTxHash: hash as `0x${string}`,
+            safeTxHash: txHash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
-            stateUpdates
+            stateUpdates,
+            immediateExecution: {
+                transaction: tx,
+                success: true,
+            }
         }
     }
 
 
-    async cancel(deploy: SavebleDocument<TDeploy>): Promise<void> {
-        switch (deploy._.phase as TMultisigPhase) {
-            case "multisig_start":
-            case "multisig_wait_signers":
-            case "multisig_execute": {
-                // cancel the transaction.
-                const metadata = deploy._.metadata[deploy._.segmentId] as MultisigMetadata;
-                if (!metadata || Object.keys(metadata).length === 0) {
-                    console.log(`Cancelling deploy.`);
-                    await updateLatestDeploy(this.metatxn, deploy._.env, undefined, true); // cancel the deploy.
-                    return;
-                }
-                const signer = await this.getSignerAddress();
-                const rpcUrl = await this.rpcUrl.get();
-                const protocolKitOwner1 = await Safe.init({
-                    provider: rpcUrl,
-                    signer,
-                    safeAddress: metadata.multisig
-                });
-
-                const apiKit = new SafeApiKit({
-                    chainId: BigInt(deploy._.chainId),
-                    txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId), // TODO: we probably want the option to inject a custom tx service url here...
-                })
-                const tx = await apiKit.getTransaction(metadata.gnosisTransactionHash);
-                if (tx.isExecuted) {
-                    throw new Error(`Cannot cancel, transaction ${tx.transactionHash} already executed.`);
-                }
-
-                // prompt for another strategy, which will be used to sign.
-                console.log(`To cancel this transaction, you'll need to submit a rejection transaction to replace the current multisig txn.`)
-
-                const rejectionTxn = await protocolKitOwner1.createRejectionTransaction(tx.nonce);
-                const hash = await protocolKitOwner1.getTransactionHash(rejectionTxn) as `0x${string}`;
-                const safeVersion = await protocolKitOwner1.getContractVersion();
-
-                await apiKit.proposeTransaction({
-                    safeAddress: metadata.multisig,
-                    safeTransactionData: rejectionTxn.data,
-                    safeTxHash: hash,
-                    senderAddress: signer,
-                    senderSignature: await this.getSignature(safeVersion, rejectionTxn),
-                })
-                
-                // TODO: there should be a "pending cancellation" phase.
-                deploy._.phase = 'cancelled';
-                (deploy._.metadata[deploy._.segmentId] as MultisigMetadata).cancellationTransactionHash = hash;
-                await updateLatestDeploy(this.metatxn, deploy._.env, undefined, true); // cancel the deploy.
-                return;
-            }
-            case "multisig_wait_confirm":
-                throw new Error('transaction is already awaiting confirmation. cannot be cancelled.');
-            default:
-                break;
-        }
-
+    async cancel(_deploy: SavebleDocument<TDeploy>): Promise<void> {
+        // TODO: I don't think we can cancel this. It either executed or didn't.
         throw new Error('uncancellable.');
     }
 }

@@ -1,5 +1,4 @@
 
-import { SafeTransaction } from '@safe-global/types-kit';
 import { ICachedArg, Strategy } from "../../strategy";
 import * as prompts from '../../../commands/prompts';
 import { TDeploy } from "../../../metadata/schema";
@@ -7,7 +6,6 @@ import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { TForgeOutput } from "../../utils";
 
 export abstract class GnosisSigningStrategy extends Strategy {
-
     safeAddress: ICachedArg<`0x${string}`>
     rpcUrl: ICachedArg<string>
 
@@ -20,9 +18,6 @@ export abstract class GnosisSigningStrategy extends Strategy {
             return await prompts.rpcUrl(this.deploy._.chainId);
         });
     } 
-
-    abstract getSignature(safeVersion: string, txn: SafeTransaction): Promise<`0x${string}`>;
-    abstract getSignerAddress(): Promise<`0x${string}`>;
 
     async forgeArgs(): Promise<string[]> {
         process.env.ZEUS_ENV_MULTISIG = await this.safeAddress.get();

@@ -9,18 +9,18 @@ import { TSignatureRequest } from "../../../strategy";
 import { MetaTransactionData, OperationType } from '@safe-global/types-kit';
 import ora from "ora";
 import chalk from "chalk";
+import { SafeTransaction } from '@safe-global/types-kit';
 
 
 export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
+
+    abstract getSignature(safeVersion: string, txn: SafeTransaction): Promise<`0x${string}`>;
+    abstract getSignerAddress(): Promise<`0x${string}`>;
 
     async prepare(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
         const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
 
         const multisigExecuteRequests = this.filterMultisigRequests(output);
-        if (multisigExecuteRequests?.length != 1) {
-            throw new Error(`Got invalid output from forge. Expected 4 members, got ${multisigExecuteRequests?.length}.`);
-        }
-
         const safeTxn = multisigExecuteRequests[0];
         const {to, value, data} = safeTxn;
 

@@ -73,7 +73,7 @@ export function isTerminalPhase(state: TDeployPhase): boolean {
 
 export const supportedSigners: Record<TSegmentType, string[]> = {
     "eoa": ["eoa", "ledger"],
-    "multisig": ["gnosis.api.eoa", "gnosis.api.ledger"],
+    "multisig": ["gnosis.api.eoa", "gnosis.api.ledger", "gnosis.onchain"],
     "script": [],
 }
 
