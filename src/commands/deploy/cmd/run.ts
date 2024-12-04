@@ -2,7 +2,7 @@ import { command } from "cmd-ts";
 import * as allArgs from '../../args';
 import { TState, requires, loggedIn, isLoggedIn, TLoggedInState } from "../../inject";
 import { configs, getRepoRoot } from '../../configs';
-import { getActiveDeploy, updateLatestDeploy, advance, promptForStrategy, isTerminalPhase } from "./utils";
+import { getActiveDeploy, updateLatestDeploy, advance, promptForStrategy, isTerminalPhase, advanceSegment } from "./utils";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
 import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
@@ -12,10 +12,10 @@ import { createPublicClient, http, TransactionReceiptNotFoundError } from "viem"
 import * as AllChains from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
-import { ArgumentValidFn, ForgeSolidityMetadata, Segment, TArtifactScriptRun, TDeploy, TDeployedContractsManifest, TDeployLock, TDeployPhase, TDeployStateMutations, TEnvironmentManifest, TMutation, TTestOutput, TUpgrade } from "../../../metadata/schema";
+import { ArgumentValidFn, ForgeSolidityMetadata, MultisigMetadata, Segment, TArtifactScriptRun, TDeploy, TDeployedContractsManifest, TDeployLock, TDeployPhase, TDeployStateMutations, TEnvironmentManifest, TMutation, TTestOutput, TUpgrade } from "../../../metadata/schema";
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
-import { GnosisEOAStrategy } from "../../../signing/strategies/gnosis/api/gnosisEoa";
+import { GnosisSigningStrategy } from "../../../signing/strategies/gnosis/gnosis";
 import semver from 'semver';
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { execSync } from "child_process";
@@ -659,13 +659,18 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         deploy._.metadata[deploy._.segmentId] = {
                             type: "multisig",
                             signer: sigRequest.senderAddress,
-                            signerType: strategy instanceof GnosisEOAStrategy ? 'eoa' : 'ledger', // TODO: fragile
+                            signerType: strategy instanceof GnosisSigningStrategy ? 'eoa' : 'ledger', // TODO: fragile
                             gnosisTransactionHash: sigRequest.safeTxHash as `0x${string}`,
                             gnosisCalldata: undefined, // ommitting this so that a third party can't execute immediately.
                             multisig: sigRequest.safeAddress,
                             confirmed: false,
                             cancellationTransactionHash: undefined
                         };
+
+                        if (sigRequest.immediateExecution && !sigRequest.immediateExecution.success) {
+                            console.error(`This strategy attempted to immediately execute your request. It was unsuccessful. (${sigRequest.immediateExecution.transaction})`);
+                            return;
+                        }
 
                         if (sigRequest.stateUpdates) {
                             console.log(chalk.bold.underline(`Updated Environment: `));
@@ -691,9 +696,19 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         const multisigRun = await metatxn.getJSONFile<TGnosisRequest>(canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
                         multisigRun._ = sigRequest;
                         await multisigRun.save();
-                        await advance(deploy);
-                        await deploy.save();
-                        await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction started`);
+
+                        if (sigRequest.immediateExecution && sigRequest.immediateExecution.transaction) {
+                            (deploy._.metadata[deploy._.segmentId] as MultisigMetadata).confirmed = true;
+                            (deploy._.metadata[deploy._.segmentId] as MultisigMetadata).immediateExecutionHash = sigRequest.immediateExecution.transaction;
+                            console.log(`Transaction recorded: ${sigRequest.immediateExecution.transaction}`)
+                            await advanceSegment(deploy);
+                            await deploy.save();
+                            await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction completed instantly`);
+                        } else {
+                            await advance(deploy);
+                            await deploy.save();
+                            await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction started`);
+                        }
                     } else {
                         console.error(`Missing expected script: ${script}. Please check your local copy and try again.`)
                         return;

@@ -1,6 +1,7 @@
 0.3.3:
 - `zeus deploy verify` no longer fails if it can't write to the repo.
-
+- Fixed a bug where the multisig step incorrectly reported multiple transactions.
+- Introduced support for Testnet 1/N Multisig Immediate execution.
 
 0.3.1:
 - Uses --slow on forge by default.

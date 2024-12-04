@@ -1,4 +1,4 @@
-import { GnosisSigningStrategy } from "./gnosis";
+import { GnosisApiStrategy } from "./gnosisApi";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 import { getDefaultProvider } from 'ethers'
@@ -9,7 +9,7 @@ import { getLedgerSigner } from "../../ledgerTransport";
 import { TypedDataField } from "ethers";
 import { verifyTypedData } from "viem";
  
-export class GnosisLedgerStrategy extends GnosisSigningStrategy {
+export class GnosisLedgerStrategy extends GnosisApiStrategy {
     id = "gnosis.api.ledger";
     description = "[Not Private] Gnosis SAFE - signing w/ ledger using Gnosis API";
     

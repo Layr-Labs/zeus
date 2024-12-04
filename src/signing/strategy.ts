@@ -44,6 +44,11 @@ export interface TGnosisRequest extends HasStateUpdates {
     safeTxHash: `0x${string}`,
     senderAddress: `0x${string}`,
     signature?: `0x${string}`
+    immediateExecution?: {
+        transaction: `0x${string}` | undefined,
+        success: boolean,
+        simulation?: unknown
+    }
 }
 
 export interface TSignedGnosisRequest extends TGnosisRequest {
