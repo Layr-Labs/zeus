@@ -14,11 +14,14 @@ import { SafeTransaction } from '@safe-global/types-kit';
 
 export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
 
-    abstract getSignature(safeVersion: string, txn: SafeTransaction): Promise<`0x${string}`>;
+    abstract getSignature(safeVersion: string, txn: SafeTransaction, safeAddress: `0x${string}`): Promise<`0x${string}`>;
     abstract getSignerAddress(): Promise<`0x${string}`>;
 
     async prepare(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
+        const {output, stateUpdates, safeContext} = await this.runForgeScript(pathToUpgrade);
+        if (!safeContext) {
+            throw new Error(`Invalid script -- this was not a multisig script.`);
+        }
 
         const multisigExecuteRequests = this.filterMultisigRequests(output);
         const safeTxn = multisigExecuteRequests[0];
@@ -28,7 +31,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         const protocolKitOwner1 = await Safe.init({
             provider: await this.rpcUrl.get(),
             signer,
-            safeAddress: await this.safeAddress.get()
+            safeAddress: safeContext.addr
         });
         
         const txn = await protocolKitOwner1.createTransaction({
@@ -37,7 +40,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
                     to: to,
                     data,
                     value: value.toString(),
-                    operation: OperationType.Call
+                    operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
                 }
             ],
         })
@@ -49,7 +52,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
 
         return {
             output,
-            safeAddress: await this.safeAddress.get() as `0x${string}`,
+            safeAddress: safeContext.addr,
             safeTxHash: hash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
             stateUpdates
@@ -57,7 +60,10 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
     }
 
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const {output, stateUpdates} = await this.runForgeScript(pathToUpgrade);
+        const {output, stateUpdates, safeContext} = await this.runForgeScript(pathToUpgrade);
+        if (!safeContext) {
+            throw new Error(`Invalid script -- this was not a multisig script.`);
+        }
 
         const multisigExecuteRequests = this.filterMultisigRequests(output);
         multisigExecuteRequests.forEach(req => console.log(JSON.stringify(req, null, 2)));
@@ -71,7 +77,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         const protocolKitOwner1 = await Safe.init({
             provider: await this.rpcUrl.get(),
             signer,
-            safeAddress: await this.safeAddress.get()
+            safeAddress: safeContext.addr
         });
 
         const txn = await protocolKitOwner1.createTransaction({
@@ -80,7 +86,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
                     to: req.to,
                     data: req.data,
                     value: req.value.toString(),
-                    operation: OperationType.Call
+                    operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
                 };
             })
             ,
@@ -97,13 +103,13 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             console.table(stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
         }
 
-        const senderSignature = await this.getSignature(version, txn)
+        const senderSignature = await this.getSignature(version, txn, safeContext.addr)
         
         prompt = ora(`Sending transction to Gnosis SAFE UI...`);
         spinner = prompt.start();
         try {
             await apiKit.proposeTransaction({
-                safeAddress: await this.safeAddress.get(),
+                safeAddress: safeContext.addr,
                 safeTransactionData: txn.data,
                 safeTxHash: hash,
                 senderAddress: signer,
@@ -115,7 +121,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
 
         return {
             output,
-            safeAddress: await this.safeAddress.get() as `0x${string}`,
+            safeAddress: safeContext.addr,
             safeTxHash: hash as `0x${string}`,
             senderAddress: signer,
             signature: senderSignature,
@@ -165,7 +171,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
                     safeTransactionData: rejectionTxn.data,
                     safeTxHash: hash,
                     senderAddress: signer,
-                    senderSignature: await this.getSignature(safeVersion, rejectionTxn),
+                    senderSignature: await this.getSignature(safeVersion, rejectionTxn, metadata.multisig),
                 })
                 
                 // TODO: there should be a "pending cancellation" phase.

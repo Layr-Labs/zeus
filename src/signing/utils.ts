@@ -148,6 +148,10 @@ warnings: string[];
 export type TForgeTestOutput = Record<string, ScriptResult>
 
 export interface TForgeOutput {
+    safeContext?: {
+        addr: `0x${string}`;
+        callType: number;
+    },
     stateUpdates: {
         name: string,
         value: unknown,
@@ -268,6 +272,8 @@ export function parseForgeOutput(stdout: string): TForgeOutput {
                 return update.args;
             })
 
+            const safeContext = parsedLogs.find(update => update.eventName === `ZeusRequireMultisig`)?.args;
+
             const stateUpdates = parsedLogs.filter(update => update.eventName === 'ZeusEnvironmentUpdate').map(update => {
                 const parsedValue = (() => {
                     switch (update.args.internalType as InternalModifiedType) {
@@ -298,7 +304,7 @@ export function parseForgeOutput(stdout: string): TForgeOutput {
                     value: parsedValue
                 }
             })
-            return {output: parsedJson, stateUpdates, contractDeploys};
+            return {output: parsedJson, stateUpdates, contractDeploys, safeContext};
         } catch (e) {
             throw new Error(`Failed to parse JSON: ${e}`);
         }

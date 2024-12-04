@@ -21,13 +21,13 @@ export class GnosisEOAApiStrategy extends GnosisApiStrategy {
         return [await this.privateKey.get()];
     }
 
-    async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
+    async getSignature(version: string, txn: SafeTransaction, safeAddress: `0x${string}`): Promise<`0x${string}`> {
         const account = privateKeyToAccount(await this.privateKey.get() as `0x${string}`);
         const types = getEip712TxTypes(version);
         const typedDataParameters = {
             types: types as unknown as Record<string, unknown>,
             domain: {
-                verifyingContract: await this.safeAddress.get() as `0x${string}`,
+                verifyingContract: safeAddress as `0x${string}`,
                 chainId: this.deploy._.chainId,
             },
             primaryType: 'SafeTx',

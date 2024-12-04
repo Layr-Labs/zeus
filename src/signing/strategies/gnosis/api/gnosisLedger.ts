@@ -13,7 +13,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
     id = "gnosis.api.ledger";
     description = "[Not Private] Gnosis SAFE - signing w/ ledger using Gnosis API";
     
-    async getSignature(version: string, txn: SafeTransaction): Promise<`0x${string}`> {
+    async getSignature(version: string, txn: SafeTransaction, safeAddress: `0x${string}`): Promise<`0x${string}`> {
         const provider = getDefaultProvider();
         const signer = await getLedgerSigner(provider);
         const types = getEip712TxTypes(version);
@@ -21,7 +21,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
         const typedDataArgs = {
             types: types as unknown as Record<string, unknown>,
             domain: {
-                verifyingContract: await this.safeAddress.get() as `0x${string}`,
+                verifyingContract: safeAddress,
                 chainId: this.deploy._.chainId,
             },
             primaryType: 'SafeTx',
