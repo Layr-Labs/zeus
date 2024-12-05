@@ -1,3 +1,11 @@
+**[pending]** 
+0.4.1:
+- Linux support
+
+**[past]**
+0.4.0:
+- Support for the updated `options()` syntax in multisig upgrade scripts.
+
 0.3.3:
 - `zeus deploy verify` no longer fails if it can't write to the repo.
 - Fixed a bug where the multisig step incorrectly reported multiple transactions.

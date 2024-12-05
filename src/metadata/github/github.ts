@@ -27,8 +27,12 @@ export async function login(): Promise<string> {
     console.log(`1. Navigate to:\n\t${chalk.blue(resp.verification_uri)}\n\n`)
     console.log(`2. Paste the following code:      ${chalk.bold(resp.user_code)}      (${chalk.italic(`expires in ${Math.floor(resp.expires_in/60)} minutes, auto-copied to clipboard!`)})`)
 
-    clipboard.writeSync(resp.user_code);
-    open(resp.verification_uri);
+    try {
+        clipboard.writeSync(resp.user_code);
+        open(resp.verification_uri);
+    } catch {
+        /* for non-supporting platforms. */
+    };
 
     const t = setTimeout(() => {
         state.didTimeout = true;
