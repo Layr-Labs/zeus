@@ -6,6 +6,7 @@ import { TDeployedContract, TEnvironmentManifest } from '../metadata/schema';
 import { canonicalPaths } from '../metadata/paths';
 import { Transaction } from '../metadata/metadataStore';
 import { loadExistingEnvs } from './env/cmd/list';
+import { isAddress } from 'viem';
 
 const findContract: ((env: string, contractName: string, instance: number | undefined, txn: Transaction) => Promise<TDeployedContract | undefined>) = async (env, contractName, instance, txn) => {
     const envManifest = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(env));
@@ -16,21 +17,26 @@ const findContract: ((env: string, contractName: string, instance: number | unde
     }
 }
 
-const handler = async function(_user: TState, args: {contract: string, env: string | undefined, instance: number}) {
+const handler = async function(_user: TState, args: {contractOrAddress: string, env: string | undefined, instance: number}) {
     const user = assertLoggedIn(_user);
     const txn = await user.metadataStore.begin();
+
+    if (isAddress(args.contractOrAddress)) {
+        // TODO: look it up in all environments.
+        return;
+    }
     
     if (args.env) {
-        const contract = await findContract(args.env, args.contract, args.instance, txn);
+        const contract = await findContract(args.env, args.contractOrAddress, args.instance, txn);
         if (!contract) {
-            throw new Error(`No such contract '${args.contract}' in ${args.env}`);
+            throw new Error(`No such contract '${args.contractOrAddress}' in ${args.env}`);
         }
         console.log(JSON.stringify(contract));
     } else {
         // load it in every environment...
         const envs = await loadExistingEnvs(txn);
         const data = (await Promise.allSettled(envs.map(async env => {
-            const deployedContract = await findContract(env.name, args.contract, args.instance, txn);
+            const deployedContract = await findContract(env.name, args.contractOrAddress, args.instance, txn);
             return {
                 environment: env.name,
                 address: deployedContract?.address ?? '<not deployed>',
@@ -55,7 +61,7 @@ const cmd = command({
     args: {
         json,
         env: allArgs.envOptional,
-        contract: positional({
+        contractOrAddress: positional({
             type: string
         }),
         instance: option({
