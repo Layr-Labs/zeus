@@ -1,4 +1,7 @@
 **[pending]** 
+0.4.2:
+- Fixes an issue with the Gnosis API for non-checksummed addresses.
+
 0.4.1:
 - Linux support
 

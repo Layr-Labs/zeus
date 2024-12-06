@@ -1,5 +1,5 @@
 import { spawn } from "child_process";
-import { decodeAbiParameters, decodeEventLog } from "viem";
+import { decodeAbiParameters, decodeEventLog, getAddress } from "viem";
 import {abi as zeusScriptAbi} from '../zeusScriptAbi';
 
 export interface Result {
@@ -273,6 +273,10 @@ export function parseForgeOutput(stdout: string): TForgeOutput {
             })
 
             const safeContext = parsedLogs.find(update => update.eventName === `ZeusRequireMultisig`)?.args;
+            if (safeContext && safeContext.addr) {
+                // checksum all addresseds brought back.
+                safeContext.addr = getAddress(safeContext.addr)
+            }
 
             const stateUpdates = parsedLogs.filter(update => update.eventName === 'ZeusEnvironmentUpdate').map(update => {
                 const parsedValue = (() => {
