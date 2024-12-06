@@ -9,6 +9,7 @@ import { TSignatureRequest } from "../../../strategy";
 import { MetaTransactionData, OperationType } from '@safe-global/types-kit';
 import ora from "ora";
 import chalk from "chalk";
+import { getAddress, hexToNumber } from "viem";
 import { SafeTransaction } from '@safe-global/types-kit';
 
 
@@ -27,19 +28,19 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         const safeTxn = multisigExecuteRequests[0];
         const {to, value, data} = safeTxn;
 
-        const signer = await this.getSignerAddress();
+        const signer = getAddress(await this.getSignerAddress());
         const protocolKitOwner1 = await Safe.init({
             provider: await this.rpcUrl.get(),
             signer,
-            safeAddress: safeContext.addr
+            safeAddress: getAddress(safeContext.addr)
         });
         
         const txn = await protocolKitOwner1.createTransaction({
             transactions: [
                 {
-                    to: to,
+                    to: getAddress(to),
                     data,
-                    value: value.toString(),
+                    value: hexToNumber(value as `0x${string}`).toString(),
                     operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
                 }
             ],
@@ -73,23 +74,22 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             txServiceUrl: overrideTxServiceUrlForChainId(this.deploy._.chainId),
         })
 
-        const signer = await this.getSignerAddress();
+        const signer = getAddress(await this.getSignerAddress());
         const protocolKitOwner1 = await Safe.init({
             provider: await this.rpcUrl.get(),
             signer,
-            safeAddress: safeContext.addr
+            safeAddress: getAddress(safeContext.addr)
         });
 
         const txn = await protocolKitOwner1.createTransaction({
             transactions: multisigExecuteRequests.map<MetaTransactionData>(req => {
                 return {
-                    to: req.to,
+                    to: getAddress(req.to),
                     data: req.data,
-                    value: req.value.toString(),
+                    value: hexToNumber(req.value as `0x${string}`).toString(),
                     operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
                 };
             })
-            ,
         })
 
         let prompt = ora(`Creating transaction...`);
@@ -105,14 +105,14 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
 
         const senderSignature = await this.getSignature(version, txn, safeContext.addr)
         
-        prompt = ora(`Sending transction to Gnosis SAFE UI...`);
+        prompt = ora(`Sending transction to Gnosis SAFE UI... (safe=${ getAddress(safeContext.addr)})`);
         spinner = prompt.start();
         try {
             await apiKit.proposeTransaction({
-                safeAddress: safeContext.addr,
+                safeAddress: getAddress(safeContext.addr),
                 safeTransactionData: txn.data,
                 safeTxHash: hash,
-                senderAddress: signer,
+                senderAddress: getAddress(signer),
                 senderSignature,
             })
         } finally {
