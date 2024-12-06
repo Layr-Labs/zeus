@@ -1,7 +1,9 @@
 **[pending]** 
-0.4.3:
 
 **[historical]**
+0.4.3:
+- `zeus test` output is now colored. 
+
 0.4.2:
 - Fixes an issue with the Gnosis API, caused by an earlier change to MultisigTransaction communication.
 

@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import { injectableEnvForEnvironment } from "../../commands/run";
 import { Transaction } from "../../metadata/metadataStore";
-import { parseForgeTestOutput, runWithArgs } from "../utils";
+import { parseForgeTestOutput, runWithArgs, runWithArgsLive } from "../utils";
 import * as allChains from 'viem/chains';
 import { canonicalPaths } from "../../metadata/paths";
 import { TEnvironmentManifest } from "../../metadata/schema";
@@ -17,7 +17,7 @@ type TRunContextWithDeploy = TRunContextWithEnv & {
 
 type TRunContext = undefined | TRunContextWithDeploy | TRunContextWithEnv;
 
-export const runTest = async (args: {upgradePath: string, txn: Transaction, context: TRunContext, verbose: boolean, json: boolean}) => {
+export const runTest = async (args: {upgradePath: string, txn: Transaction, context: TRunContext, verbose: boolean, json: boolean, rawOutput?: boolean}) => {
     const deployContext = (args.context as TRunContextWithDeploy | undefined);
     const _env: Record<string, string> = deployContext?.env ? (await injectableEnvForEnvironment(args.txn, deployContext.env)) : {};
     const env = {
@@ -43,6 +43,16 @@ export const runTest = async (args: {upgradePath: string, txn: Transaction, cont
     const jsonArgs = args.json ? ['--json'] : [];
     const cmdArgs = ['test', args.upgradePath, ...jsonArgs, ...additionalArgs, '--no-match-path', 'override-empty-path',  `-vvvv`];
     console.log(chalk.italic.white(`Running command: forge ${cmdArgs.join(' ')}`));
+
+    if (args.rawOutput) {
+        const {code} = await runWithArgsLive(`forge`, cmdArgs, {...process.env, ...env});
+        return {
+            forge: undefined,
+            code,
+            stdout: '',
+            stderr: ''
+        };
+    }
 
     const {code, stdout, stderr} = await runWithArgs('forge', cmdArgs, {...process.env, ...env}, args.verbose /* liveOutput */);
     return {

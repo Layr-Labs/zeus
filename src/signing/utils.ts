@@ -2,10 +2,14 @@ import { spawn } from "child_process";
 import { decodeAbiParameters, decodeEventLog, getAddress } from "viem";
 import {abi as zeusScriptAbi} from '../zeusScriptAbi';
 
-export interface Result {
+
+export interface MinimalResult {
+    code: number;       
+}
+
+export interface Result extends MinimalResult {
     stdout: string;
     stderr: string;
-    code: number;       
 }
 
 export interface TForgeRun {
@@ -315,6 +319,27 @@ export function parseForgeOutput(stdout: string): TForgeOutput {
     } else {
         throw new Error('No JSON output found.');
     }
+}
+
+export function runWithArgsLive(cmd: string, args: string[], env: Record<string, string | undefined>): Promise<MinimalResult> {
+    return new Promise((resolve, reject) => {
+        try {
+            const child = spawn(cmd, args, {stdio: 'inherit', env: {
+                ...process.env,
+                ...env,
+            }});
+
+            child.on('close', (code) => {
+                if (code != 0) {
+                    reject({code})
+                } else {
+                    resolve({code})
+                }
+            });
+        } catch (e) {
+            reject(e);
+        }
+    });
 }
 
 export function runWithArgs(cmd: string, args: string[], env: Record<string, string | undefined>, liveOutput = false): Promise<Result> {

@@ -16,7 +16,7 @@ const handler = async function(_user: TState, args: {scripts: string[], env: str
     await Promise.all(args.scripts.map(async (script) => {
         const start = Date.now()
         try {
-            const res = await runTest({upgradePath: script, txn, context: runContext, verbose: args.verbose, json: false});
+            const res = await runTest({upgradePath: script, txn, context: runContext, verbose: args.verbose, json: false, rawOutput: true});
             timeTakenMs[script] = Date.now() - start;
             if (res.code !== 0) {
                 console.error(`❌ [${script}] - test failed ${verboseHelp}`);
