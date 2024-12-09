@@ -1,6 +1,9 @@
 **[pending]** 
 
 **[historical]**
+0.5.0:
+- zeus now supports logged out mode
+
 0.4.3:
 - `zeus test` output is now colored. 
 
