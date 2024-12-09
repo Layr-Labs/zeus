@@ -24,7 +24,7 @@ const main = async () => {
         name: 'zeus',
         description: `
         metadata: ${hasZeusHost ? chalk.green(zeusHost) : chalk.red(zeusHost)}
-        ${isLoggedIn ? chalk.green('logged in!') : chalk.red('logged out')}
+        ${isLoggedIn ? chalk.green('logged in!') : chalk.red('<read only>')}
 
         ${chalk.italic(`(zeus v${zeusInfo.Version}-${process.env.ZEUS_BUILD})`)}
         `,

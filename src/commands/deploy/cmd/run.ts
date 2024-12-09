@@ -1,6 +1,6 @@
 import { command } from "cmd-ts";
 import * as allArgs from '../../args';
-import { TState, requires, loggedIn, isLoggedIn, TLoggedInState } from "../../inject";
+import { TState, requires, loggedIn, isLoggedIn, TLoggedInState, inRepo } from "../../inject";
 import { configs, getRepoRoot } from '../../configs';
 import { getActiveDeploy, updateLatestDeploy, advance, promptForStrategy, isTerminalPhase, advanceSegment } from "./utils";
 import { join, normalize } from 'path';
@@ -855,5 +855,5 @@ export default command({
         json: allArgs.json,
         rpcUrl: allArgs.rpcUrl,
     },
-    handler: requires(handler, loggedIn),
+    handler: requires(handler, loggedIn, inRepo),
 })

@@ -1,6 +1,6 @@
 import {command, positional, string} from 'cmd-ts';
 import {json} from '../../args';
-import { assertLoggedIn, loggedIn, requires, TState } from '../../inject';
+import { assertInRepo, inRepo, requires, TState } from '../../inject';
 import { canonicalPaths } from '../../../metadata/paths';
 import { TEnvironmentManifest, TUpgrade } from '../../../metadata/schema';
 import * as allArgs from '../../args';
@@ -10,7 +10,7 @@ import chalk from 'chalk';
 import { SavebleDocument } from '../../../metadata/metadataStore';
 
 const handler = async function(_user: TState, args: {version: string, env: string}) {
-    const user = assertLoggedIn(_user);
+    const user = assertInRepo(_user);
     const metaTxn = await user.metadataStore.begin();
 
     const upgrades = await metaTxn.getDirectory(canonicalPaths.allUpgrades());
@@ -63,6 +63,6 @@ const cmd = command({
         env: allArgs.env,
         version: positional({type: string})
     },
-    handler: requires(handler, loggedIn),
+    handler: requires(handler, inRepo),
 })
 export default cmd;

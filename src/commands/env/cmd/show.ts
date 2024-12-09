@@ -1,6 +1,6 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
-import { assertLoggedIn, loggedIn, requires, TState } from '../../inject';
+import { assertInRepo, inRepo, requires, TState } from '../../inject';
 import * as allArgs from '../../args';
 import chalk from 'chalk';
 import { loadExistingEnvs } from './list';
@@ -8,7 +8,7 @@ import { injectableEnvForEnvironment } from '../../run';
 
 
 async function handler(_user: TState, args: {json: boolean |undefined, env: string}): Promise<void> {
-    const user = assertLoggedIn(_user);
+    const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin({verbose: true});
     const envs = await loadExistingEnvs(txn);
 
@@ -35,7 +35,7 @@ const cmd = command({
         env: allArgs.envPositional,
         json,
     },
-    handler: requires(handler, loggedIn),
+    handler: requires(handler, inRepo),
 })
 
 export default cmd;

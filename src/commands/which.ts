@@ -1,6 +1,6 @@
 import {command, number, option, positional, string} from 'cmd-ts';
 import {json} from './args';
-import { assertLoggedIn, inRepo, loggedIn, requires, TState } from './inject';
+import { assertInRepo, inRepo, requires, TState } from './inject';
 import * as allArgs from './args';
 import { TDeployedContract, TEnvironmentManifest } from '../metadata/schema';
 import { canonicalPaths } from '../metadata/paths';
@@ -18,7 +18,7 @@ const findContract: ((env: string, contractName: string, instance: number | unde
 }
 
 const handler = async function(_user: TState, args: {contractOrAddress: string, env: string | undefined, instance: number}) {
-    const user = assertLoggedIn(_user);
+    const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin();
 
     if (isAddress(args.contractOrAddress)) {
@@ -71,6 +71,6 @@ const cmd = command({
             defaultValue: () => 0
         })
     },
-    handler: requires(handler, loggedIn, inRepo),
+    handler: requires(handler, inRepo),
 })
 export default cmd;

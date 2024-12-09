@@ -1,12 +1,12 @@
 import {command, restPositionals, string} from 'cmd-ts';
 import {json} from './args';
-import { assertLoggedIn, loggedIn, requires, TState } from './inject';
+import { assertInRepo, inRepo, requires, TState } from './inject';
 import { runTest } from '../signing/strategies/test';
 import * as allArgs from  './args';
 import chalk from 'chalk';
 
 const handler = async function(_user: TState, args: {scripts: string[], env: string | undefined, verbose: boolean}) {
-    const user = assertLoggedIn(_user);
+    const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin();
     const runContext = (args.env) ? {env: args.env} : undefined;
     const result: Record<string, boolean> = {};
@@ -59,6 +59,6 @@ const cmd = command({
             description: 'Path to script to test.'
         })
     },
-    handler: requires(handler, loggedIn),
+    handler: requires(handler, inRepo),
 })
 export default cmd;

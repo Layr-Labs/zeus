@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import { MetadataStore } from '../metadata/metadataStore';
 import { GithubMetadataStore } from '../metadata/github/GithubMetadataStore';
 import { configs } from './configs';
+import { LocalCloneMetadataStore } from '../metadata/clone/LocalCloneMetadataStore';
 
 // a super-set of logged in and logged out state.
 export interface TState {
@@ -11,7 +12,12 @@ export interface TState {
     zeusHostOwner: string | undefined;
     zeusHostRepo: string | undefined;
     metadataStore?: MetadataStore | undefined;
+    login: () => Promise<void>
 }
+
+export interface TInRepoState extends TState {
+    metadataStore: MetadataStore
+};
 
 export interface TLoggedInState extends TState {
     metadataStore: MetadataStore
@@ -20,6 +26,18 @@ export interface TLoggedInState extends TState {
 
 export function isLoggedIn(state: TState): state is TLoggedInState {
     return !!state.github;
+}
+
+export function isInRepo(state: TState): state is TInRepoState {
+    return !!state.metadataStore;
+}
+
+export function assertInRepo(state: TState): TInRepoState {
+    if (!isInRepo(state)) {
+        throw new Error(`requires inRepo`);
+    }
+
+    return state;
 }
 
 export function assertLoggedIn(state: TState): TLoggedInState {
@@ -37,8 +55,16 @@ export async function load(): Promise<TState> {
 
     let zeusHostOwner: string | undefined;
     let zeusHostRepo: string | undefined;
+    const zeusHost = zeusRepo?.zeusHost;
     let metadataStore: MetadataStore | undefined;
-    
+
+    const isLoggedIn = await (async () => {
+        if (zeusProfile?.accessToken) {
+            return await GithubMetadataStore.isAuthTokenValid(zeusProfile.accessToken);
+        }
+        return false;
+    })();
+
     if (zeusRepo) {
         try {
             const urlObj = new URL(zeusRepo.zeusHost);
@@ -46,21 +72,45 @@ export async function load(): Promise<TState> {
             const [owner, repo] = pathComponents.slice(-2);
             zeusHostOwner = owner;
             zeusHostRepo = repo;
-            metadataStore = new GithubMetadataStore({owner: zeusHostOwner, repo: zeusHostRepo});
-            await metadataStore.initialize();
         } catch {
             console.warn('invalid ZEUS_HOST. Expected a github url.');
         };
     }
 
-    if (zeusProfile?.accessToken && metadataStore && !await metadataStore.isLoggedIn()) {
-        console.log("logging out automatically.");
-        await configs.zeusProfile.write({
-            accessToken: undefined
-        })
+    if (isLoggedIn) {
+        // logged in experience.
+        metadataStore = 
+            (zeusHost !== undefined && zeusHostOwner !== undefined && zeusHostRepo !== undefined) ? 
+            new GithubMetadataStore({owner: zeusHostOwner, repo: zeusHostRepo}) : undefined;
+    } else {
+        // logged out.
+        if (zeusProfile?.accessToken) {
+            // overwrite invalid old access token.
+            console.warn("access token invalid - logging out automatically.");
+            await configs.zeusProfile.write({
+                accessToken: undefined
+            })
+        }
+        
+        metadataStore = zeusHost ? new LocalCloneMetadataStore(zeusHost) : undefined;
+    }
+
+    if (metadataStore) {
+        await metadataStore.initialize();
     }
 
     return {
+        login: async () => {
+            if (isLoggedIn) {
+                console.warn(`warning: already logged in.`);
+            }
+
+            if (zeusHost !== undefined && zeusHostOwner !== undefined && zeusHostRepo !== undefined) {
+                await new GithubMetadataStore({owner: zeusHostOwner, repo: zeusHostRepo}).login();
+            } else {
+                throw new Error(`This must be run from within a repo with a '.zeus' file.`);
+            }
+        },
         zeusHostOwner,
         zeusHostRepo,
         metadataStore,

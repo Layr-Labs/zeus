@@ -1,6 +1,6 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
-import { assertLoggedIn, loggedIn, requires, TState } from '../../inject';
+import { assertLoggedIn, inRepo, requires, TState } from '../../inject';
 import { canonicalPaths } from '../../../metadata/paths';
 import { TEnvironmentManifest, TUpgrade } from '../../../metadata/schema';
 import { envOptional } from '../../args';
@@ -58,6 +58,6 @@ const cmd = command({
         json,
         env: envOptional
     },
-    handler: requires(handler, loggedIn),
+    handler: requires(handler, inRepo),
 })
 export default cmd;

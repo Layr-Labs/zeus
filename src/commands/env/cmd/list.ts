@@ -1,6 +1,6 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
-import { assertLoggedIn, loggedIn, requires, TState } from '../../inject';
+import { assertInRepo, inRepo, requires, TState } from '../../inject';
 import { Transaction } from '../../../metadata/metadataStore';
 import { TEnvironmentManifest } from '../../../metadata/schema';
 import { canonicalPaths } from '../../../metadata/paths';
@@ -12,7 +12,7 @@ export const loadExistingEnvs = async (txn: Transaction) => {
 };
 
 async function handler(_user: TState, args: {json: boolean |undefined}): Promise<void> {
-    const user = assertLoggedIn(_user);
+    const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin();
     const envs = await loadExistingEnvs(txn);
 
@@ -39,7 +39,7 @@ const cmd = command({
     args: {
         json,
     },
-    handler: requires(handler, loggedIn),
+    handler: requires(handler, inRepo),
 })
 
 export default cmd;

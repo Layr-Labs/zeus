@@ -1,12 +1,12 @@
 import { command } from "cmd-ts";
-import { assertLoggedIn, inRepo, loggedIn, requires, TState } from "../../inject";
+import { assertInRepo, inRepo, requires, TState } from "../../inject";
 import chalk from "chalk";
 import * as allArgs from "../../args";
 import { getActiveDeploy } from "./utils";
 import { EOAPhase, MultisigPhase } from "../../../metadata/schema";
 
 async function handler(_user: TState, {env}: {env: string}) {
-    const user = assertLoggedIn(_user);
+    const user = assertInRepo(_user);
     const metatxn = await user.metadataStore.begin();
 
     const deploy = await getActiveDeploy(metatxn, env);
@@ -71,7 +71,7 @@ const cmd = command({
     args: {
         env: allArgs.env,
     },
-    handler: requires(handler, loggedIn, inRepo),
+    handler: requires(handler, inRepo),
 })
 
 export default cmd;

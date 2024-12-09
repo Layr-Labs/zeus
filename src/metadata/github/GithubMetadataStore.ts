@@ -70,14 +70,18 @@ export class GithubMetadataStore implements MetadataStore {
         return new GithubTransaction(this.owner, this.repo, branch, this.getOctokit(), response.data.commit.sha, args?.verbose ?? false);
     }
 
-    async isLoggedIn(): Promise<boolean> {
-        const client = new Octokit({auth: this.accessToken})
+    static async isAuthTokenValid(token: string) {
+        const client = new Octokit({auth: token});
         try {
             await client.rest.users.getAuthenticated();
             return true;
         } catch {
             return false;
         }
+    }
+
+    async isLoggedIn(): Promise<boolean> {
+        return this.accessToken !== undefined && await GithubMetadataStore.isAuthTokenValid(this.accessToken);
     }
 }
 
