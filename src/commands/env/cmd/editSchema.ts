@@ -1,5 +1,5 @@
 import {command} from 'cmd-ts';
-import { assertLoggedIn, loggedIn, requires, TState } from '../../inject';
+import { assertLoggedIn, inRepo, loggedIn, requires, TState } from '../../inject';
 import { canonicalPaths } from '../../../metadata/paths';
 import { editor } from '@inquirer/prompts';
 import { wouldYouLikeToContinue } from '../../prompts';
@@ -85,7 +85,7 @@ const cmd = command({
     description: 'Edit the parameter schema for the repo.',
     version: '1.0.0',
     args: {},
-    handler: requires(handler, loggedIn),
+    handler: requires(handler, loggedIn, inRepo),
 })
 
 export default cmd;

@@ -4,7 +4,7 @@ import { inRepo, requires, TState } from '../inject';
 
 async function handler(user: TState) {
     try {
-        await user.metadataStore?.login();
+        await user.login();
         console.log(`Happy deploying!`);
     } catch(e) {
         console.error(`failed logging in: ${e}`)

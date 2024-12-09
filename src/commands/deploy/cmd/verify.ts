@@ -1,7 +1,7 @@
 import { command } from "cmd-ts";
 import {json} from '../../args';
 import * as allArgs from '../../args';
-import { assertLoggedIn, inRepo, loggedIn, requires, TState } from "../../inject";
+import { assertInRepo, inRepo, requires, TState } from "../../inject";
 import { loadExistingEnvs } from "../../env/cmd/list";
 import { execSync } from "child_process";
 import ora from "ora";
@@ -44,7 +44,7 @@ const shortenHex = (str: string) => {
 
 async function handler(_user: TState, args: {env: string}) {
     try {
-        const user = assertLoggedIn(_user);
+        const user = assertInRepo(_user);
         const metatxn = await user.metadataStore.begin();
         const envs = await loadExistingEnvs(metatxn);
         if (!envs.find(e => e.name === args.env)) {
@@ -267,7 +267,7 @@ const cmd = command({
         env: allArgs.env,
         json,
     },
-    handler: requires(handler, inRepo, loggedIn),
+    handler: requires(handler, inRepo),
 })
 
 export default cmd;

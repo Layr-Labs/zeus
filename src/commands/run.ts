@@ -1,6 +1,6 @@
 import {command, option} from 'cmd-ts';
 import {json} from './args';
-import { assertLoggedIn, inRepo, loggedIn, requires, TState } from './inject';
+import { assertInRepo, inRepo, requires, TState } from './inject';
 import { loadExistingEnvs } from './env/cmd/list';
 import { execSync } from 'child_process';
 import { canonicalPaths } from '../metadata/paths';
@@ -106,7 +106,7 @@ export const injectableEnvForEnvironment: (txn: Transaction, env: string, withDe
 }
 
 const handler = async function(_user: TState, args: {env: string, command: string}) {
-    const user = assertLoggedIn(_user);
+    const user = assertInRepo(_user);
     const txn = await user.metadataStore?.begin();
     const envs = await loadExistingEnvs(txn);
 
@@ -131,8 +131,6 @@ const cmd = command({
             description: 'A full shell command to run.'
         })
     },
-    // does this really require being logged in????
-    // we likely need a logged out read-only metadataStore as well.
-    handler: requires(handler, inRepo, loggedIn),
+    handler: requires(handler, inRepo),
 })
 export default cmd;

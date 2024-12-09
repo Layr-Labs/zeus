@@ -23,7 +23,7 @@ jest.unstable_mockModule('../../commands/configs', () => ({
 import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 const GMS = await import('../../metadata/github/GithubMetadataStore');
 const GHT = await import('../../metadata/github/GithubTransaction');
-import type { GithubMetadataStore } from '../../metadata/github/GithubMetadataStore';
+import { GithubMetadataStore } from '../../metadata/github/GithubMetadataStore';
 import type { GithubTransaction } from '../../metadata/github/GithubTransaction';
 const { configs } = await import('../../commands/configs');
 
@@ -44,6 +44,7 @@ describe('GithubMetadataStore', () => {
 
     beforeEach(() => {
         store = new GMS.GithubMetadataStore({ owner: 'testOwner', repo: 'testRepo', branch: 'testBranch' });
+        GMS.GithubMetadataStore.isAuthTokenValid = jest.fn<typeof GithubMetadataStore.isAuthTokenValid>().mockResolvedValue(true);
     });
 
     describe('getOctokit', () => {
@@ -119,9 +120,7 @@ describe('GithubMetadataStore', () => {
 
     describe('isLoggedIn', () => {
         it('should return true if the user is authenticated', async () => {
-            // @ts-expect-error typing isn't straightforward on the mocked instance.
-            mockOctokitInstance.rest.users.getAuthenticated.mockResolvedValue({});
-
+            store.accessToken = "test";
             const result = await store.isLoggedIn();
             expect(result).toBe(true);
         });
