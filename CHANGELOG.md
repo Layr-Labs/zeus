@@ -1,6 +1,7 @@
 **[pending]** 
 0.5.1:
 - `zeus upgrade new` has been renamed `zeus upgrade register` and now supports updating existing upgrades.
+- `zeus which` now supports addresses, and will tell you what an address is on any network. Neat!
 
 **[historical]**
 0.5.0:
