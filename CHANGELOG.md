@@ -1,4 +1,6 @@
 **[pending]** 
+0.5.1:
+- `zeus upgrade new` has been renamed `zeus upgrade register` and now supports updating existing upgrades.
 
 **[historical]**
 0.5.0:

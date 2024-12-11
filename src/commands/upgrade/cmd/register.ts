@@ -20,7 +20,7 @@ const handler = async function(_user: TState) {
   }
 
   const migrationDirectory: string = await search({
-    message: 'Upgrade directory name?',
+    message: 'Upgrade directory?',
     source: async (input) => {
       const migrationDirectory = join(
         getRepoRoot(),
@@ -53,9 +53,11 @@ const handler = async function(_user: TState) {
   const manifest = await metaTxn.getJSONFile<TUpgrade>(
     canonicalPaths.upgradeManifest(migrationName)
   );
+
+  let isUpdate = false;
   if (manifest._?.name !== undefined) {
-    console.error(`The upgrade '${migrationName}' (${manifest._.name}) already exists.`)
-    return;
+    isUpdate = true;
+    console.warn(`Warning: the upgrade '${migrationName}' (${manifest._.name}) already exists and will be overwritten.`)
   }
 
   // check that upgrade.json is valid.
@@ -102,7 +104,7 @@ const handler = async function(_user: TState) {
   }
   const scripts = migrationDirContents.filter(s => s.endsWith('.s.sol'));
 
-  console.log(`Creating the following upgrade:`)
+  console.log(`${isUpdate ? 'Updating' : 'Creating'} the following upgrade:`)
   console.log(`\t${chalk.bold(upgrade.name)}`);
   console.log(`\t\trequires: ${upgrade.from}`)
   console.log(`\t\tupgrades to: ${upgrade.to}`)
@@ -128,14 +130,14 @@ const handler = async function(_user: TState) {
   const upgradeManifestPersist = await metaTxn.getJSONFile(canonicalPaths.upgradeManifest(migrationName));
   upgradeManifestPersist._ = upgrade;
   upgradeManifestPersist.save();
-  await metaTxn.commit(`Created upgrade ${upgrade.name}`);
+  await metaTxn.commit(`${isUpdate ? 'Updating' : 'Creating'} upgrade ${upgrade.name}`);
 
   console.log(chalk.green(`+ created upgrade (${upgrade.name})`));
 };
 
 const cmd = command({
-    name: 'new',
-    description: 'register a new upgrade',
+    name: 'register',
+    description: 'register an upgrade with zeus -- this may create or update an existing upgrade.',
     version: '1.0.0',
     args: {
         json,
