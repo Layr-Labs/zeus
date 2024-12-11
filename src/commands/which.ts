@@ -22,7 +22,33 @@ const handler = async function(_user: TState, args: {contractOrAddress: string, 
     const txn = await user.metadataStore.begin();
 
     if (isAddress(args.contractOrAddress)) {
-        // TODO: look it up in all environments.
+        const envs = await loadExistingEnvs(txn);
+        const manifests = await Promise.all(envs.map(async env => {
+            return await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(env.name));
+        }))
+
+        // Record<environment name, symbol>
+        const hits: [string, string][] = [];
+        manifests.forEach(manifest => {
+            if (manifest._.contracts) {
+                const instanceCounter: Record<string, number> = {};
+                manifest._.contracts.instances?.forEach(instance => {
+                    const whichInstance = instanceCounter[instance.contract] ?? 0;
+                    if (instance.address.toLowerCase() == args.contractOrAddress.toLowerCase()) {
+                        hits.push([manifest._.id, `${instance.contract}_${whichInstance}`]);
+                    }
+                    instanceCounter[instance.contract] = whichInstance + 1;
+                });
+                Object.keys(manifest._.contracts.static ?? {}).forEach(name => {
+                    const contr = manifest._.contracts.static[name];
+                    if (contr.address.toLowerCase() == args.contractOrAddress.toLowerCase()) {
+                        hits.push([manifest._.id, name]);
+                    }
+                });
+            }
+        })
+
+        console.table(hits);
         return;
     }
     
