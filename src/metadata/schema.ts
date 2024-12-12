@@ -319,7 +319,7 @@ export function isUpgrade(_obj: unknown): _obj is TUpgrade {
         return false;
     }
     const obj = _obj as Record<string, string>;
-    if (!obj.name || obj.name.length > 20 || !/^[a-zA-Z0-9.-]+$/.test(obj.name)){ 
+    if (!obj.name || !/^[a-zA-Z0-9.-]+$/.test(obj.name)){ 
         console.error('invalid upgrade name.');
         return false;
     }
