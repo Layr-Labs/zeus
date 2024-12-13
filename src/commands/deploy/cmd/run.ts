@@ -308,7 +308,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         const updatedStatics = 
                             Object.fromEntries(
                                 Object.keys(deployedStatic)
-                                    .filter(contract => deployedStatic[contract].address !== envManifest._.contracts.static[contract].address)
+                                    .filter(contract => deployedStatic[contract].address !== envManifest._.contracts.static[contract]?.address)
                                     .map(contract => [['name', contract], ['old', envManifest._.contracts.static[contract]?.address ?? '<none>'], ['new', deployedStatic[contract].address]])
                             );
                         if (updatedStatics) {
