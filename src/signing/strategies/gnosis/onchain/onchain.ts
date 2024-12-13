@@ -38,11 +38,13 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
 
-        const multisigExecuteRequests = this.filterMultisigRequests(output);
-
+        const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
+        
         const safeTxn = multisigExecuteRequests[0];
         const {to, value, data} = safeTxn;
 
+        console.log(`Multisig transaction to execute: `)
+        console.table(safeTxn);
 
         const chain = Object.values(AllChains).find(value => value.id === this.deploy._.chainId);
         if (!chain) {
@@ -121,11 +123,13 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
 
-        const multisigExecuteRequests = this.filterMultisigRequests(output);
+        const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
 
         const safeTxn = multisigExecuteRequests[0];
         const {to, value, data} = safeTxn;
 
+        console.log(`Multisig transaction to execute: `)
+        console.table(safeTxn);
 
         const chain = Object.values(AllChains).find(value => value.id === this.deploy._.chainId);
         if (!chain) {

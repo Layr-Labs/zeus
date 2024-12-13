@@ -23,7 +23,7 @@ export abstract class GnosisSigningStrategy extends Strategy {
         return await this.forgeArgs();
     }
 
-    filterMultisigRequests(output: TForgeOutput["output"]) {
+    filterMultisigRequests(output: TForgeOutput["output"], _multisig: `0x${string}`) {
         return output.traces.filter(trace => {
             return trace[0] === "Execution"
         }).map(
