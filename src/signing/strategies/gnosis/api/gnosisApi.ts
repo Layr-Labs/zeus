@@ -6,7 +6,7 @@ import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/
 import { updateLatestDeploy } from "../../../../commands/deploy/cmd/utils";
 import { overrideTxServiceUrlForChainId } from "./utils";
 import { TSignatureRequest } from "../../../strategy";
-import { MetaTransactionData, OperationType } from '@safe-global/types-kit';
+import { OperationType } from '@safe-global/types-kit';
 import ora from "ora";
 import chalk from "chalk";
 import { getAddress, hexToNumber } from "viem";
@@ -24,9 +24,13 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
 
-        const multisigExecuteRequests = this.filterMultisigRequests(output);
+        const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
+
         const safeTxn = multisigExecuteRequests[0];
         const {to, value, data} = safeTxn;
+
+        console.log(`Multisig transaction to execute: `)
+        console.table(safeTxn);
 
         const signer = getAddress(await this.getSignerAddress());
         const protocolKitOwner1 = await Safe.init({
@@ -66,9 +70,15 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
 
-        const multisigExecuteRequests = this.filterMultisigRequests(output);
+        const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
         multisigExecuteRequests.forEach(req => console.log(JSON.stringify(req, null, 2)));
 
+        const safeTxn = multisigExecuteRequests[0];
+        const {to, value, data} = safeTxn;
+
+        console.log(`Multisig transaction to execute: `)
+        console.table(safeTxn);
+        
         const apiKit = new SafeApiKit({
             chainId: BigInt(this.deploy._.chainId),
             txServiceUrl: overrideTxServiceUrlForChainId(this.deploy._.chainId),
@@ -82,14 +92,12 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         });
 
         const txn = await protocolKitOwner1.createTransaction({
-            transactions: multisigExecuteRequests.map<MetaTransactionData>(req => {
-                return {
-                    to: getAddress(req.to),
-                    data: req.data,
-                    value: hexToNumber(req.value as `0x${string}`).toString(),
-                    operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
-                };
-            })
+            transactions: [{
+                to: getAddress(to),
+                data: data,
+                value: hexToNumber(value as `0x${string}`).toString(),
+                operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
+            }]
         })
 
         let prompt = ora(`Creating transaction...`);
