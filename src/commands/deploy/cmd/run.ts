@@ -609,7 +609,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     const cliArgString = Object.keys(cliArgs).map(key => `--${key} "${cliArgs[key]}"`).join(' ');
                     const scriptRun: TArtifactScriptRun = (() => {
                         try {
-                            const res = execSync(`${script} ${cliArgString}`, {stdio: 'inherit', env: {...process.env, ...env, ...envArgs}}).toString();
+                            const res = execSync(`${script} ${cliArgString}`, {stdio: 'inherit', env: {...process.env, ...env, ...envArgs}})?.toString();
                             return {
                                 success: true,
                                 exitCode: 0,
@@ -619,6 +619,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                             };
                         } catch (e) {
                             const err = e as ExecSyncError;
+                            console.log(`Script failed with error ${err}`);
                             return {
                                 success: false,
                                 exitCode: err.status,
