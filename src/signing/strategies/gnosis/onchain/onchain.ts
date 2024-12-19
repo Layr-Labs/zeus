@@ -63,6 +63,12 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             signer,
             safeAddress: safeContext.addr
         });
+
+        const threshold = await protocolKitOwner1.getThreshold();
+        if (threshold !== 1) {
+            console.warn(`Warning -- this strategy may not work with non 1/N multisigs.`);
+        }
+
         const safe = getContract({abi, client: walletClient, address: safeContext.addr})
         const txn = await protocolKitOwner1.createTransaction({
             transactions: [
@@ -148,6 +154,12 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             signer,
             safeAddress: safeContext.addr
         });
+
+        const threshold = await protocolKitOwner1.getThreshold();
+        if (threshold !== 1) {
+            console.warn(`Warning -- this strategy may not work with non 1/N multisigs.`);
+        }
+
         const safe = getContract({abi, client: walletClient, address: safeContext.addr})
         const txn = await protocolKitOwner1.createTransaction({
             transactions: [

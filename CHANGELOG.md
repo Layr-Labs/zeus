@@ -1,4 +1,11 @@
 **[pending]** 
+0.5.4:
+- Fixes: 
+    - `zeus upgrade list`, which erroneously stated that it required being logged in.
+    - The onchain multisig strategy now warns if being used for a non 1/N multisig.
+    - Fixes the script phase, which failed unnecessarily.
+    - Added warnings to 1/N vs. non-1/N multisigs.
+
 0.5.2:
 - Fixes an arbitrary restriction on upgrade name length
 

@@ -309,7 +309,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                             Object.fromEntries(
                                 Object.keys(deployedStatic)
                                     .filter(contract => deployedStatic[contract].address !== envManifest._.contracts.static[contract]?.address)
-                                    .map(contract => [['name', contract], ['old', envManifest._.contracts.static[contract]?.address ?? '<none>'], ['new', deployedStatic[contract].address]])
+                                    .map(contract => [['name', contract], ['oldAddress', envManifest._.contracts.static[contract]?.address ?? '<none>'], ['newAddress', deployedStatic[contract].address]])
                             );
                         if (updatedStatics) {
                             console.log(chalk.bold.underline(`Updated static contracts:`))

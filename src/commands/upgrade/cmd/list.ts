@@ -1,13 +1,13 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
-import { assertLoggedIn, inRepo, requires, TState } from '../../inject';
+import { assertInRepo, inRepo, requires, TState } from '../../inject';
 import { canonicalPaths } from '../../../metadata/paths';
 import { TEnvironmentManifest, TUpgrade } from '../../../metadata/schema';
 import { envOptional } from '../../args';
 import semver from 'semver';
 
 const handler = async function(_user: TState, args: {env: string | undefined}) {
-    const user = assertLoggedIn(_user);
+    const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin();
 
     const forRequiredVersion = await (async () => {
