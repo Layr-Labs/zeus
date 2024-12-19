@@ -1,4 +1,7 @@
 **[pending]** 
+0.5.5:
+- Fixed the script phase.
+
 0.5.4:
 - Fixes: 
     - `zeus upgrade list`, which erroneously stated that it required being logged in.
