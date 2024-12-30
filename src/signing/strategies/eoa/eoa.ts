@@ -1,4 +1,4 @@
-import { ICachedArg, Strategy, TSignatureRequest } from "../../strategy";
+import { ICachedArg, Strategy, TSignatureRequest, TStrategyOptions } from "../../strategy";
 import { canonicalPaths } from "../../../metadata/paths";
 import { getRepoRoot } from '../../../commands/configs';
 import { basename } from "path";
@@ -16,12 +16,16 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
     public rpcUrl: ICachedArg<string> 
     public etherscanApiKey: ICachedArg<string | boolean> 
 
-    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
-        super(deploy, transaction, defaultArgs);
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
+        super(deploy, transaction, options);
         this.rpcUrl = this.arg(async () => {
             return await prompts.rpcUrl(this.deploy._.chainId);
-        })
+        }, 'overrideRpcUrl')
         this.etherscanApiKey = this.arg(async () => {
+            if (options?.defaultArgs?.fork) {
+                return false;
+            }
+
             const res = await prompts.etherscanApiKey();
             if (!res) {
                 return false;

@@ -5,13 +5,14 @@ import { configs, getRepoRoot } from '../../configs';
 import { getActiveDeploy, updateLatestDeploy, advance, promptForStrategy, isTerminalPhase, advanceSegment } from "./utils";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
-import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
+import { TExecuteOptions, TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
 import chalk from "chalk";
 import { canonicalPaths } from "../../../metadata/paths";
-import { createPublicClient, http, TransactionReceiptNotFoundError } from "viem";
+import { createPublicClient, createTestClient, http, TestClient, toHex, TransactionReceiptNotFoundError } from "viem";
 import * as AllChains from "viem/chains";
 import ora from 'ora';
 import fs from 'fs';
+import * as allChains from 'viem/chains';
 import { ArgumentValidFn, ForgeSolidityMetadata, MultisigMetadata, Segment, TArtifactScriptRun, TDeploy, TDeployedContractsManifest, TDeployLock, TDeployPhase, TDeployStateMutations, TEnvironmentManifest, TMutation, TTestOutput, TUpgrade } from "../../../metadata/schema";
 import SafeApiKit from "@safe-global/api-kit";
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
@@ -25,6 +26,11 @@ import { computeFairHash } from "../utils";
 import EOABaseSigningStrategy from "../../../signing/strategies/eoa/eoa";
 import { injectableEnvForEnvironment } from "../../run";
 import { multisigBaseUrl, overrideTxServiceUrlForChainId } from "../../../signing/strategies/gnosis/api/utils";
+import EOASigningStrategy from "../../../signing/strategies/eoa/privateKey";
+import { GnosisOnchainStrategy } from "../../../signing/strategies/gnosis/onchain/onchain";
+import { AnvilOptions, AnvilService } from '@foundry-rs/hardhat-anvil/dist/src/anvil-service';
+import { mnemonicToAccount } from 'viem/accounts'
+import { TenderlyVirtualTestnetClient } from "./utils-tenderly";
 
 process.on("unhandledRejection", (error) => {
     console.error(error); // This prints error with stack included (as for normal errors)
@@ -92,67 +98,188 @@ function formatNow() {
     return `${year}-${month}-${day}-${hours}-${minutes}`;
 }
 
-export async function handler(_user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string | undefined}) {
+const ANVIL_MNENOMIC = 'test test test test test test test test test test test junk';
+const DEFAULT_ANVIL_PATH = "m/44'/60'/0'/0/";
+const DEFAULT_ANVIL_PORT = 8546;
+const DEFAULT_ANVIL_URI = `http://127.0.0.1:8546/`;
+
+const isValidFork = (fork: string | undefined) => {
+    return [undefined, `anvil`, `tenderly`].includes(fork);
+} 
+
+
+const throwIfUnset = (envVar: string | undefined, msg: string) => {
+    if (!envVar) {
+        throw new Error(msg);
+    }
+    return envVar;
+}
+
+export async function handler(_user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string | undefined, nonInteractive: boolean | undefined, fork: string | undefined}) {
     if (!isLoggedIn(_user)) {
         return;
     }
+
+    if (!isValidFork(args.fork)) {
+        throw new Error(`Invalid value for 'fork' - expected one of (tenderly, anvil)`);
+    }
     
     const user: TLoggedInState = _user;
-    const metaTxn = await user.metadataStore.begin();
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
         return;
     }
 
-    const deploy = await getActiveDeploy(metaTxn, args.env);
-    if (deploy) {
-        if (args.upgrade || !args.resume) {
-            console.error(`Existing deploy in progress. Please rerun with --resume (and not --upgrade, as the current upgrade is ${deploy._.upgrade}).`)
-            console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`)
+    let anvil: AnvilService | undefined;
+    let overrideEoaPk: `0x${string}` | undefined;
+    let overrideRpcUrl: string | undefined;
+    let testClient: TestClient | undefined;
+    
+
+    if (args.fork) {
+        user.metadataStore = user.loggedOutMetadataStore; // force log out.
+    }
+    const metaTxn = await user.metadataStore.begin();
+    const envManifest = await metaTxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
+
+    const chain = Object.values((allChains as unknown as AllChains.Chain<undefined>[])).find(chain => chain.id === envManifest._.chainId)
+    const forkUrl = chain?.rpcUrls ? Object.values(chain.rpcUrls)[0].http[0] : undefined;
+            
+    switch (args.fork) {
+        case `tenderly`: {
+            const tenderly = new TenderlyVirtualTestnetClient(
+                throwIfUnset(process.env.TENDERLY_API_KEY, "Expected TENDERLY_API_KEY to be set."),
+                throwIfUnset(process.env.TENDERLY_ACCOUNT_SLUG, "Expected TENDERLY_ACCOUNT_SLUG to be set."),
+                throwIfUnset(process.env.TENDERLY_PROJECT_SLUG, "Expected TENDERLY_PROJECT_SLUG to be set."),
+            );
+
+            // TODO: continue from here
+            const vnetId = await tenderly.createVirtualNetwork({
+                slug: `z-${args.env}-${formatNow()}`,
+                display_name: `zeus testnet`,
+                description: `CLI-created zeus testnet`,
+                fork_config: {
+                    network_id: envManifest._.chainId.toString(),
+                },
+                virtual_network_config: {
+                    chain_config: {
+                        chain_id: envManifest._.chainId
+                    },
+                    sync_state_config: {
+                        enabled: false
+                    },
+                    explorer_page_config: {
+                        enabled: false
+                    }
+                }
+            })
+
+            break;
+        }
+        case `anvil`: {
+            const opts: AnvilOptions = {
+                hdPath: DEFAULT_ANVIL_PATH,
+                mnemonic: ANVIL_MNENOMIC,
+                url: DEFAULT_ANVIL_URI,
+                port: DEFAULT_ANVIL_PORT,
+                hostname: DEFAULT_ANVIL_URI,
+                forkUrl: forkUrl?.trim(),
+                launch: true,
+                accounts: {
+                    mnemonic: ANVIL_MNENOMIC,
+                    path: DEFAULT_ANVIL_PATH
+                }
+            };
+            anvil = await AnvilService.create(opts, false);
+            testClient = createTestClient({
+                mode: 'anvil',
+                transport: http(DEFAULT_ANVIL_URI)
+            });
+            const pkRaw = mnemonicToAccount(ANVIL_MNENOMIC, {accountIndex: 0}).getHdKey().privateKey;
+            if (!pkRaw) {
+                throw new Error(`Invalid private key for anvil test account.`);
+            }
+            overrideEoaPk = toHex(pkRaw);
+            overrideRpcUrl = DEFAULT_ANVIL_URI;
+            break;
+        }
+        // TODO: tenderly
+        case undefined:
+            break;
+        default:
+            throw new Error(`Unsupported fork type: ${args.fork}`);
+    }
+    try {
+        const deploy = await getActiveDeploy(metaTxn, args.env);
+        if (deploy) {
+            if (args.upgrade || !args.resume) {
+                console.error(`Existing deploy in progress. Please rerun with --resume (and not --upgrade, as the current upgrade is ${deploy._.upgrade}).`)
+                console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`)
+                return;
+            }
+
+            console.log(`[${chainIdName(deploy._.chainId)}] Resuming existing deploy... (began at ${deploy._.startTime})`);
+            return await executeOrContinueDeployWithLock(deploy._.name, deploy._.env, user, {
+                rpcUrl: args.rpcUrl, 
+                nonInteractive: !!args.nonInteractive,
+                fork: args.fork,
+                anvil,
+                testClient,
+                overrideEoaPk,
+                overrideRpcUrl
+            });
+        } else if (args.resume) {
+            console.error(`Nothing to resume.`);
             return;
         }
 
-        console.log(`[${chainIdName(deploy._.chainId)}] Resuming existing deploy... (began at ${deploy._.startTime})`);
-        return await executeOrContinueDeployWithLock(deploy._.name, deploy._.env, user, args.rpcUrl);
-    } else if (args.resume) {
-        console.error(`Nothing to resume.`);
-        return;
+        if (!args.upgrade) {
+            console.error(`Must specify --upgrade <upgradeName>`);
+            return;
+        }
+
+        const upgradePath = normalize(join(repoConfig.migrationDirectory, args.upgrade));
+        const absoluteUpgradePath = normalize(join(getRepoRoot(), upgradePath))
+
+        if (!existsSync(absoluteUpgradePath) || !lstatSync(absoluteUpgradePath).isDirectory() ) {
+            console.error(`Upgrade ${args.upgrade} doesn't exist, or isn't a directory. (searching '${absoluteUpgradePath}')`)
+            return;
+        }
+        const blankDeployName = `${formatNow()}-${args.upgrade}`;
+        const envManifest = await metaTxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
+        const deployJsonPath = canonicalPaths.deployStatus({env: args.env, name: blankDeployName});
+        const deployJson = await metaTxn.getJSONFile<TDeploy>(deployJsonPath);
+
+        const upgradeManifest = await metaTxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(args.upgrade));
+        if (!semver.satisfies(envManifest._.deployedVersion ?? '0.0.0', upgradeManifest._.from)) {
+            console.error(`Unsupported upgrade. ${upgradeManifest._.name} requires an environment meet the following version criteria: (${upgradeManifest._.from})`);
+            console.error(`Environment ${envManifest._.id} is currently deployed at '${envManifest._.deployedVersion}'`);
+            return;
+        }
+
+        deployJson._ = blankDeploy({name: blankDeployName, chainId: envManifest._.chainId, env: args.env, upgrade: args.upgrade, upgradePath, segments: upgradeManifest._.phases.map((phase, idx) => {
+            return {...phase, id: idx};
+        })});;
+        await deployJson.save();
+
+        console.log(chalk.green(`+ creating deploy: ${deployJsonPath}`));
+        console.log(chalk.green(`+ started deploy (${envManifest?._.deployedVersion ?? '0.0.0'}) => (${upgradeManifest._.to}) (requires: ${upgradeManifest._.from})`));
+        await metaTxn.commit(`started deploy: ${deployJson._.env}/${deployJson._.name}`);
+        await executeOrContinueDeployWithLock(deployJson._.name, deployJson._.env, user, {
+            rpcUrl: args.rpcUrl, 
+            nonInteractive: !!args.nonInteractive,
+            fork: args.fork,
+            anvil,
+            testClient,
+            overrideEoaPk,
+            overrideRpcUrl
+        });
+    } finally {
+        // shut down anvil after running
+        anvil?.stopServer();
+        await anvil?.waitUntilClosed();
     }
-
-    if (!args.upgrade) {
-        console.error(`Must specify --upgrade <upgradeName>`);
-        return;
-    }
-
-    const upgradePath = normalize(join(repoConfig.migrationDirectory, args.upgrade));
-    const absoluteUpgradePath = normalize(join(getRepoRoot(), upgradePath))
-
-    if (!existsSync(absoluteUpgradePath) || !lstatSync(absoluteUpgradePath).isDirectory() ) {
-        console.error(`Upgrade ${args.upgrade} doesn't exist, or isn't a directory. (searching '${absoluteUpgradePath}')`)
-        return;
-    }
-    const blankDeployName = `${formatNow()}-${args.upgrade}`;
-    const envManifest = await metaTxn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
-    const deployJsonPath = canonicalPaths.deployStatus({env: args.env, name: blankDeployName});
-    const deployJson = await metaTxn.getJSONFile<TDeploy>(deployJsonPath);
-
-    const upgradeManifest = await metaTxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(args.upgrade));
-    if (!semver.satisfies(envManifest._.deployedVersion ?? '0.0.0', upgradeManifest._.from)) {
-        console.error(`Unsupported upgrade. ${upgradeManifest._.name} requires an environment meet the following version criteria: (${upgradeManifest._.from})`);
-        console.error(`Environment ${envManifest._.id} is currently deployed at '${envManifest._.deployedVersion}'`);
-        return;
-    }
-
-    deployJson._ = blankDeploy({name: blankDeployName, chainId: envManifest._.chainId, env: args.env, upgrade: args.upgrade, upgradePath, segments: upgradeManifest._.phases.map((phase, idx) => {
-        return {...phase, id: idx};
-    })});;
-    await deployJson.save();
-
-    console.log(chalk.green(`+ creating deploy: ${deployJsonPath}`));
-    console.log(chalk.green(`+ started deploy (${envManifest?._.deployedVersion ?? '0.0.0'}) => (${upgradeManifest._.to}) (requires: ${upgradeManifest._.from})`));
-    await metaTxn.commit(`started deploy: ${deployJson._.env}/${deployJson._.name}`);
-    await executeOrContinueDeployWithLock(deployJson._.name, deployJson._.env, user, args.rpcUrl);
 }
 
 const SECONDS = 1000;
@@ -229,35 +356,53 @@ const acquireDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<boolean>
     }
 };
 
-const executeOrContinueDeployWithLock = async (name: string, env: string, user: TLoggedInState, rpcUrl: string | undefined) => {
+const executeOrContinueDeployWithLock = async (name: string, env: string, user: TLoggedInState, options: TExecuteOptions) => {
+    const shouldUseLock = !options.fork;
+    if (options.fork) {
+        // explicitly choose the logged out metadata store, to avoid writing anything.
+        user.metadataStore = user.loggedOutMetadataStore;
+        options.nonInteractive = true;
+    }
+
     const txn = await user.metadataStore.begin();
     const deploy = await txn.getJSONFile<TDeploy>(canonicalPaths.deployStatus({name, env}))
-    const isLocked = await acquireDeployLock(deploy._, txn)
-    if (!isLocked) {
-        console.error(`Fatal: failed to acquire deploy lock.`);
-        return;
-    } else {
-        if (txn.hasChanges()) {
-            await txn.commit(`acquired deploy lock`);
+
+    if (shouldUseLock) {
+        const isLocked = await acquireDeployLock(deploy._, txn)
+        if (!isLocked) {
+            console.error(`Fatal: failed to acquire deploy lock.`);
+            return;
+        } else {
+            if (txn.hasChanges()) {
+                await txn.commit(`acquired deploy lock`);
+            }
         }
     }
 
     try {
         const txn = await user.metadataStore.begin();
         const deploy = await txn.getJSONFile<TDeploy>(canonicalPaths.deployStatus({name, env}))
-        await executeOrContinueDeploy(deploy, user, txn, rpcUrl);
+        await executeOrContinueDeploy(deploy, user, txn, options);
         if (txn.hasChanges()) {
             console.warn(`Deploy failed to save all changes. If you didn't manually exit, this could be a bug.`)
         }
     } finally {
-        const tx = await user.metadataStore.begin();
-        await releaseDeployLock(deploy._, tx);
-        await tx.commit('releasing deploy lock');
+        if (shouldUseLock) {
+            const tx = await user.metadataStore.begin();
+            await releaseDeployLock(deploy._, tx);
+            await tx.commit('releasing deploy lock');
+        }
     }
 }
 
-const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: TState, metatxn: Transaction, rpcUrl: string | undefined) => {
+const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: TState, metatxn: Transaction, options: TExecuteOptions) => {
     let eoaStrategy: EOABaseSigningStrategy | undefined = undefined;
+    let multisigStrategy: GnosisSigningStrategy | undefined = undefined;
+
+    if (options.nonInteractive || options.fork) {
+        eoaStrategy = new EOASigningStrategy(deploy, metatxn, {defaultArgs: options, nonInteractive: true})
+        multisigStrategy = new GnosisOnchainStrategy(deploy, metatxn, {defaultArgs: options, nonInteractive: true});
+    }
     
     try {
         while (true) {
@@ -382,29 +527,31 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                         throw e;
                     }
 
-                    console.log(`Zeus would like to simulate this EOA transaction before attempting it for real. Please choose the method you'll use to sign:`)
-                    eoaStrategy = (await promptForStrategy(deploy, metatxn)) as unknown as EOABaseSigningStrategy;
-                    const sigRequest = await eoaStrategy.prepare(script, deploy._) as TForgeRequest;
-                    console.log(chalk.yellow(`Please reviewing the following: `))
-                    console.log(chalk.yellow(`=====================================================================================`))
-                    console.log(chalk.bold.underline(`Forge output: `))
-                    console.log(JSON.stringify(sigRequest.forge, null, 2));
-                    console.log(JSON.stringify(sigRequest.output, null, 2));
-                    console.log(chalk.bold.underline(`Deployed Contracts: `))
-                    if (sigRequest.deployedContracts && Object.keys(sigRequest.deployedContracts).length > 0) {
-                        console.table(sigRequest.deployedContracts)
-                    } else {
-                        console.log(chalk.bold(`<none>`));
-                    }
-                    if (sigRequest.stateUpdates && Object.keys(sigRequest.stateUpdates).length > 0) {
-                        console.log(chalk.bold.underline(`Updated Environment: `));
-                        console.table(sigRequest.stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
-                    } else {
-                        console.log(chalk.bold(`<none>`))
-                    }
-                    console.log(chalk.yellow(`=====================================================================================`))
-                    if (!await wouldYouLikeToContinue()) {
-                        return;
+                    if (!options.nonInteractive && !options.fork) {
+                        console.log(`Zeus would like to simulate this EOA transaction before attempting it for real. Please choose the method you'll use to sign:`)
+                        eoaStrategy = (await promptForStrategy(deploy, metatxn)) as unknown as EOABaseSigningStrategy;
+                        const sigRequest = await eoaStrategy.prepare(script, deploy._) as TForgeRequest;
+                        console.log(chalk.yellow(`Please reviewing the following: `))
+                        console.log(chalk.yellow(`=====================================================================================`))
+                        console.log(chalk.bold.underline(`Forge output: `))
+                        console.log(JSON.stringify(sigRequest.forge, null, 2));
+                        console.log(JSON.stringify(sigRequest.output, null, 2));
+                        console.log(chalk.bold.underline(`Deployed Contracts: `))
+                        if (sigRequest.deployedContracts && Object.keys(sigRequest.deployedContracts).length > 0) {
+                            console.table(sigRequest.deployedContracts)
+                        } else {
+                            console.log(chalk.bold(`<none>`));
+                        }
+                        if (sigRequest.stateUpdates && Object.keys(sigRequest.stateUpdates).length > 0) {
+                            console.log(chalk.bold.underline(`Updated Environment: `));
+                            console.table(sigRequest.stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
+                        } else {
+                            console.log(chalk.bold(`<none>`))
+                        }
+                        console.log(chalk.yellow(`=====================================================================================`))
+                        if (!await wouldYouLikeToContinue()) {
+                            return;
+                        }
                     }
 
                     await advance(deploy);
@@ -471,7 +618,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                                 console.log();
                             }
 
-                            if (sigRequest.stateUpdates) {
+                            if (sigRequest.stateUpdates && Object.keys(sigRequest.stateUpdates).length > 0) {
                                 console.log(chalk.bold.underline(`Updated Environment: `));
                                 console.table(sigRequest.stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
                                 
@@ -570,10 +717,12 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     await deploy.save();
                     await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction confirmed`);
 
-                    if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
-                        console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
-                        console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
-                        return;
+                    if (!options.nonInteractive) {
+                        if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
+                            console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
+                            console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
+                            return;
+                        }
                     }
                     break;
                 }
@@ -654,12 +803,12 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                 case "multisig_start": {             
                     const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);   
                     if (existsSync(script)) {
-                        const strategy =  await promptForStrategy(deploy, metatxn);
-                        const sigRequest = await strategy.requestNew(script, deploy._) as TGnosisRequest;
+                        multisigStrategy = multisigStrategy ?? (await promptForStrategy(deploy, metatxn) as GnosisSigningStrategy);
+                        const sigRequest = await multisigStrategy.requestNew(script, deploy._) as TGnosisRequest;
                         deploy._.metadata[deploy._.segmentId] = {
                             type: "multisig",
                             signer: sigRequest.senderAddress,
-                            signerType: strategy instanceof GnosisSigningStrategy ? 'eoa' : 'ledger', // TODO: fragile
+                            signerType: multisigStrategy.id,
                             gnosisTransactionHash: sigRequest.safeTxHash as `0x${string}`,
                             gnosisCalldata: undefined, // ommitting this so that a third party can't execute immediately.
                             multisig: sigRequest.safeAddress,
@@ -672,7 +821,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                             return;
                         }
 
-                        if (sigRequest.stateUpdates) {
+                        if (sigRequest.stateUpdates && Object.keys(sigRequest.stateUpdates).length > 0) {
                             console.log(chalk.bold.underline(`Updated Environment: `));
                             console.table(sigRequest.stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
                             
@@ -779,7 +928,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                     }
 
                     if (multisigTxn._.executionDate && multisigTxn._.transactionHash) {
-                        const _rpcUrl = rpcUrl ?? await freshRpcUrl(deploy._.chainId);
+                        const _rpcUrl = options.rpcUrl ?? await freshRpcUrl(deploy._.chainId);
                         const client = createPublicClient({
                             chain: getChain(deploy._.chainId), 
                             transport: http(_rpcUrl),
@@ -796,7 +945,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                                 await advance(deploy);
                                 await deploy.save();
                                 
-                                if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
+                                if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase) && !options.nonInteractive) {
                                     console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
                                     console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
                                     await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction success`);
@@ -854,6 +1003,8 @@ export default command({
         resume: allArgs.resume,
         json: allArgs.json,
         rpcUrl: allArgs.rpcUrl,
+        nonInteractive: allArgs.nonInteractive,
+        fork: allArgs.fork
     },
     handler: requires(handler, loggedIn, inRepo),
 })

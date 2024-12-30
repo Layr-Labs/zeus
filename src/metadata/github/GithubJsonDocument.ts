@@ -103,11 +103,6 @@ export class GithubJsonDocument<T extends string | object> implements SavebleDoc
         this.branch = github.branch;
     }
 
-    async updateJSON<T>(path: string, contents: T): Promise<void> {
-        const content = JSON.stringify(contents, null, 2);
-        return await this.updateFile(path, content);
-    }
-
     async updateFile(path: string, contents: string): Promise<void> {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const getContent = this.octokit.rest.repos.getContent;

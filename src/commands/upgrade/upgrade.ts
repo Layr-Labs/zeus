@@ -1,7 +1,7 @@
 import { subcommands } from "cmd-ts";
 import registerCmd from './cmd/register';
 import listCmd from './cmd/list';
-import envCmd from './cmd/env';
+import pathCmd from './cmd/path';
 
 export default subcommands({
     name: 'upgrade',
@@ -10,6 +10,6 @@ export default subcommands({
     cmds: {
         "register": registerCmd,
         "list": listCmd,
-        "env": envCmd,
+        "path": pathCmd
     }
 });

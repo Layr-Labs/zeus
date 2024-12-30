@@ -12,24 +12,27 @@ export interface TState {
     zeusHostOwner: string | undefined;
     zeusHostRepo: string | undefined;
     metadataStore?: MetadataStore | undefined;
+    loggedOutMetadataStore?: MetadataStore | undefined;
     login: () => Promise<void>
 }
 
 export interface TInRepoState extends TState {
     metadataStore: MetadataStore
+    loggedOutMetadataStore: MetadataStore | undefined;
 };
 
 export interface TLoggedInState extends TState {
     metadataStore: MetadataStore
+    loggedOutMetadataStore: MetadataStore;
     github: Octokit
 };
 
 export function isLoggedIn(state: TState): state is TLoggedInState {
-    return !!state.github;
+    return !!state.github && isInRepo(state);
 }
 
 export function isInRepo(state: TState): state is TInRepoState {
-    return !!state.metadataStore;
+    return !!state.metadataStore && !!state.loggedOutMetadataStore;
 }
 
 export function assertInRepo(state: TState): TInRepoState {
@@ -99,6 +102,9 @@ export async function load(): Promise<TState> {
         await metadataStore.initialize();
     }
 
+    const localStore =  zeusHost ? new LocalCloneMetadataStore(zeusHost) : undefined;
+    await localStore?.initialize();
+
     return {
         login: async () => {
             if (isLoggedIn) {
@@ -114,6 +120,7 @@ export async function load(): Promise<TState> {
         zeusHostOwner,
         zeusHostRepo,
         metadataStore,
+        loggedOutMetadataStore: localStore,
         github: metadataStore ? (metadataStore as unknown as GithubMetadataStore)?.octokit : undefined,
     };
 }

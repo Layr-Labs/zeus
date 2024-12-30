@@ -83,11 +83,11 @@ async function handler(_user: TState, args: {env: string}) {
 
         const strategy = await (async () => {
             const all = await import('../../../signing/strategies/strategies');
-            const strategy = all.all.find(s => new s(deploy, metatxn).id === strategyId);
+            const strategy = all.all.find(s => new s(deploy, metatxn, {}).id === strategyId);
             if (!strategy) {
                 throw new Error(`Unknown strategy`);
             }
-            return new strategy(deploy, metatxn);
+            return new strategy(deploy, metatxn, {});
         })();
 
         const eoaPhases = deploy._.segments.filter(segment => segment.id <= deploy._.segmentId)

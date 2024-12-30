@@ -1,7 +1,7 @@
 import { privateKeyToAccount } from 'viem/accounts';
 import * as prompts from '../../../commands/prompts';
 import EOABaseSigningStrategy from "./eoa";
-import { ICachedArg } from '../../strategy';
+import { ICachedArg, TStrategyOptions } from '../../strategy';
 import { SavebleDocument, Transaction } from '../../../metadata/metadataStore';
 import { TDeploy } from '../../../metadata/schema';
 
@@ -9,13 +9,13 @@ import { TDeploy } from '../../../metadata/schema';
 export default class EOASigningStrategy extends EOABaseSigningStrategy {
     id = "eoa";
     description = "Signing w/ private key";
-    privateKey: ICachedArg<string>
+    privateKey: ICachedArg<`0x${string}`>
 
-    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
-        super(deploy, transaction, defaultArgs);
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options: TStrategyOptions) {
+        super(deploy, transaction, options);
         this.privateKey = this.arg(async () => {
             return await prompts.privateKey(this.deploy._.chainId);
-        });
+        }, "overrideEoaPk");
     } 
 
     async subclassForgeArgs(): Promise<string[]> {

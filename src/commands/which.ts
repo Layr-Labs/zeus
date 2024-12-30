@@ -26,10 +26,13 @@ const handler = async function(_user: TState, args: {contractOrAddress: string, 
         const manifests = await Promise.all(envs.map(async env => {
             return await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(env.name));
         }))
+        const deployParameters = await Promise.all(envs.map(async env => {
+            return await txn.getJSONFile<Record<string, unknown>>(canonicalPaths.deployParameters('', env.name));
+        }));
 
         // Record<environment name, symbol>
         const hits: [string, string][] = [];
-        manifests.forEach(manifest => {
+        manifests.forEach((manifest, i) => {
             if (manifest._.contracts) {
                 const instanceCounter: Record<string, number> = {};
                 manifest._.contracts.instances?.forEach(instance => {
@@ -46,9 +49,20 @@ const handler = async function(_user: TState, args: {contractOrAddress: string, 
                     }
                 });
             }
+
+            const params = deployParameters[i]._;
+            Object.entries(params).forEach(([key, value]) => {
+                if (`${value}`.toLowerCase() === args.contractOrAddress.toLowerCase()) {
+                    hits.push([manifest._.id, key]);
+                }
+            });
         })
 
-        console.table(hits);
+        if (Object.keys(hits).length > 0) {
+            console.table(hits);
+        } else {
+            console.error(`<no matches>`);
+        }
         return;
     }
     

@@ -5,6 +5,8 @@ import tmp from 'tmp';
 import ora from 'ora';
 import { TDeploy, TDeployedContractSparse } from '../metadata/schema';
 import { injectableEnvForEnvironment } from '../commands/run';
+import { AnvilService } from '@foundry-rs/hardhat-anvil/dist/src/anvil-service';
+import { TestClient } from 'viem';
 
 tmp.setGracefulCleanup();
 
@@ -58,6 +60,18 @@ export interface TSignedGnosisRequest extends TGnosisRequest {
 export type TSignatureRequest = TForgeRequest | TGnosisRequest;
 
 
+export type TForkType = 'anvil' | 'tenderly';
+
+export interface TExecuteOptions {
+    rpcUrl?: string | undefined, 
+    nonInteractive?: boolean,
+    fork?: TForkType,
+    anvil?: AnvilService,
+    testClient?: TestClient,
+    overrideRpcUrl?: string,
+    overrideEoaPk?: `0x${string}`
+}
+
 function redact(haystack: string, ...needles: string[]) {
     let out = haystack;
     for (const needle of needles) {
@@ -68,15 +82,26 @@ function redact(haystack: string, ...needles: string[]) {
 
 export interface ICachedArg<T> {
     get: () => Promise<T>
+    getImmediately: () => T
 }
 
 class CachedArg<T> implements ICachedArg<T> {
     cachedValue: T | undefined;
     _get: () => Promise<T>
+    throwOnUnset: boolean;
 
-    constructor(cachedValue: T | undefined, get: () => Promise<T>) {
+    constructor(cachedValue: T | undefined, get: () => Promise<T>, throwOnUnset: boolean) {
         this.cachedValue = cachedValue;
         this._get = get;
+        this.throwOnUnset = throwOnUnset;
+    }
+
+    getImmediately(): T {
+        if (this.cachedValue === undefined) {
+            throw new Error(`Required interaction, but requested non-interactive argument.`);
+        }
+
+        return this.cachedValue;
     }
 
     async get(): Promise<T> {
@@ -88,15 +113,21 @@ class CachedArg<T> implements ICachedArg<T> {
     }
 }
 
+export interface TStrategyOptions { 
+    defaultArgs?: TExecuteOptions,
+    nonInteractive?: boolean,
+};
 
 export abstract class Strategy {
     readonly deploy: SavebleDocument<TDeploy>;
     readonly metatxn: Transaction;
-    readonly defaultArgs: Record<string, unknown> // pre-seeded args, to avoid user interaction.
+    readonly defaultArgs: TExecuteOptions; // pre-seeded args, to avoid user interaction.
+    readonly nonInteractive: boolean;
+    readonly options: TStrategyOptions | undefined;
 
-    arg<T>(getFn: () => Promise<T>, key?: string): ICachedArg<T> {
+    arg<T>(getFn: () => Promise<T>, key?: keyof TExecuteOptions): ICachedArg<T> {
         const defaultValue = key ? this.defaultArgs[key] : undefined;
-        return new CachedArg<T>(defaultValue as T, getFn);
+        return new CachedArg<T>(defaultValue as T, getFn, this.nonInteractive);
     }
 
     usage(): string {
@@ -162,9 +193,11 @@ export abstract class Strategy {
         } 
     }
 
-    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
         this.deploy = deploy;
         this.metatxn = transaction;
-        this.defaultArgs = defaultArgs ?? {};
+        this.options = options;
+        this.defaultArgs = options?.defaultArgs ?? {};
+        this.nonInteractive = !!options?.nonInteractive;
     } 
 }

@@ -1,5 +1,5 @@
 
-import { ICachedArg, Strategy } from "../../strategy";
+import { ICachedArg, Strategy, TStrategyOptions } from "../../strategy";
 import * as prompts from '../../../commands/prompts';
 import { TDeploy } from "../../../metadata/schema";
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
@@ -8,11 +8,11 @@ import { TForgeOutput } from "../../utils";
 export abstract class GnosisSigningStrategy extends Strategy {
     rpcUrl: ICachedArg<string>
 
-    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
-        super(deploy, transaction, defaultArgs);
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
+        super(deploy, transaction, options);
         this.rpcUrl = this.arg(async () => {
             return await prompts.rpcUrl(this.deploy._.chainId);
-        });
+        }, 'overrideRpcUrl');
     } 
 
     async forgeArgs(): Promise<string[]> {

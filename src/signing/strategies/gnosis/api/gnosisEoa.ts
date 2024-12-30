@@ -3,7 +3,7 @@ import { GnosisApiStrategy } from "./gnosisApi";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 import { checkShouldSignGnosisMessage, privateKey } from "../../../../commands/prompts";
-import { ICachedArg } from "../../../strategy";
+import { ICachedArg, TStrategyOptions } from "../../../strategy";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { TDeploy } from "../../../../metadata/schema";
 
@@ -12,8 +12,8 @@ export class GnosisEOAApiStrategy extends GnosisApiStrategy {
     description = "[Not Private] Gnosis SAFE - signing w/ private key using Gnosis API";
     privateKey: ICachedArg<`0x${string}`>
 
-    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
-        super(deploy, transaction, defaultArgs);
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options: TStrategyOptions) {
+        super(deploy, transaction, options);
         this.privateKey = this.arg(async () => await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE'))
     } 
 
