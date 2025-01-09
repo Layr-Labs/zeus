@@ -1,7 +1,10 @@
 import { select } from './utils';
-import { privateKeyToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { search, input, password as inquirerPassword } from '@inquirer/prompts';
 import chalk from 'chalk';
+import * as AllChains from "viem/chains";
+import { createPublicClient, getContract, http } from 'viem';
+import { abi } from "../signing/strategies/gnosis/onchain/Safe";
 
 export const checkShouldSignGnosisMessage = async (message: unknown) => {
     console.log(chalk.bold(`Zeus would like to sign the following EIP-712 message for Gnosis: `))
@@ -81,7 +84,7 @@ export const envVarOrPrompt: (args: {
     }
 }
 
-export const etherscanApiKey: () => Promise<string | undefined> = async () => {
+export const etherscanApiKey: () => Promise<string | false> = async () => {
     const res = await wouldYouLikeToContinue(`Would you like to verify contracts on etherscan?`);
     if (res) {
         return await envVarOrPrompt({
@@ -91,6 +94,8 @@ export const etherscanApiKey: () => Promise<string | undefined> = async () => {
             envVarSearchMessage: `Enter a 34-character etherscan API key`
         })
     }
+
+    return false;
 };
 
 export const privateKey: (chainId: number, overridePrompt?: string) => Promise<`0x${string}`> = async (chainId, overridePrompt?) => {
@@ -118,6 +123,49 @@ export const privateKey: (chainId: number, overridePrompt?: string) => Promise<`
         return `0x${res}`;
     }
     return res as `0x${string}`;
+}
+
+export const derivationPath = async () => {
+    const cont = await wouldYouLikeToContinue("Would you like to use a custom derivation path? (NOTE: the default 'm/44'/60'/0'/0/0' will be used otherwise)");
+    if (!cont) {
+        return false;
+    }
+
+    return envVarOrPrompt({
+        title: `Enter the derivation path (e.g m/44'/60'/0'/0/0)`,
+        directEntryInputType: 'text',
+        isValid: (path: string) => {
+            try {
+                mnemonicToAccount('bean spread behind outdoor cotton discover leaf dance captain once intact learn success height cool', {path: path as `m/44'/60'/${string}`})
+                return true;
+            } catch {
+                return false;
+            }
+        }
+    })
+}
+
+export const signerKey = async (chainId: number, rpcUrl: string, overridePrompt: string | undefined, safeAddress: `0x${string}`) => {
+    let attempt = 0;
+    const publicClient = createPublicClient({
+        chain: Object.values(AllChains as unknown as AllChains.Chain<undefined>[]).find(chain => chain.id === chainId),
+        transport: http(rpcUrl)
+    })
+    const safe = getContract({client: publicClient, abi, address: safeAddress});
+
+    while (attempt++ < 3) {        
+        const pk = await privateKey(chainId, overridePrompt);
+        const providedAddress = privateKeyToAccount(pk).address;
+        if (!await safe.read.isOwner([providedAddress])) {
+            console.error(`Warning: The provided privateKey is for ${providedAddress}, which is not an owner of Safe(${safeAddress}, chainId=${chainId})`)
+            console.error(`Please choose another key.`);
+            continue;
+        } else {
+            return pk;
+        }
+    }
+    
+    throw new Error(`Failed to provide a signer.`);
 }
 
 const getChainId = async (nodeUrl: string) => {

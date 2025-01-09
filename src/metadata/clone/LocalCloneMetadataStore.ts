@@ -14,15 +14,12 @@ import { LocalCloneTransaction } from './LocalCloneTransaction';
 export class LocalCloneMetadataStore implements MetadataStore {
     private remoteRepoUrl: string;
     private localPath?: string;
-    private loggedIn = false;
 
     constructor(remoteRepoUrl: string) {
         this.remoteRepoUrl = remoteRepoUrl;
     }
 
     async login(): Promise<boolean> {
-        // For a read-only local clone, we can say login is always successful.
-        this.loggedIn = true;
         return true;
     }
 
@@ -46,6 +43,6 @@ export class LocalCloneMetadataStore implements MetadataStore {
             console.log(`Starting transaction in: ${this.localPath}`);
         }
 
-        return new LocalCloneTransaction(this.localPath);
+        return new LocalCloneTransaction(this.localPath, !!options?.verbose);
     }
 }

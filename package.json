@@ -1,11 +1,13 @@
 {
   "name": "@layr-labs/zeus",
-  "version": "0.5.5",
+  "version": "1.0.0",
   "description": "web3 deployer / metadata manager",
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc",
-    "test": "TS_NODE_PROJECT=tsconfig.json NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" NODE_NO_WARNINGS=1 npx jest --coverage",
+    "test-coverage": "TS_NODE_PROJECT=tsconfig.json NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" NODE_NO_WARNINGS=1 npx jest --coverage",
+    "test": "TS_NODE_PROJECT=tsconfig.json NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" NODE_NO_WARNINGS=1 npx jest --coverage --runInBand",
+    "test-debug": "TS_NODE_PROJECT=tsconfig.json  NODE_NO_WARNINGS=1 node --experimental-vm-modules --inspect-brk ./node_modules/jest/bin/jest",
     "start": "node dist/index.js",
     "debug": "node --inspect-brk dist/index.js",
     "lint": "eslint .",
@@ -26,6 +28,7 @@
   "license": "ISC",
   "dependencies": {
     "@ethers-ext/signer-ledger": "^6.0.0-beta.1",
+    "@foundry-rs/hardhat-anvil": "^0.1.7",
     "@inquirer/prompts": "^6.0.1",
     "@inquirer/search": "^3.0.0",
     "@ledgerhq/errors": "^6.19.1",

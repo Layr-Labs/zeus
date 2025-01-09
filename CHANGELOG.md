@@ -1,4 +1,20 @@
-**[pending]** 
+
+**[Current]** 
+1.0.0:
+    bugfixes:
+        - `zeus verify` no longer prompts for an etherscan api key.
+        - `zeus deploy cancel` no longer unnecessarily prompts for a strategy in cases where a transaction is not needed to abort the deploy.
+        - major refactor to the core deploy logic to enable deeper testing.
+        - fixed a bug where zeus could not find the forge metadata
+        - fixed a bug where the etherscan API key was requested multiple times.
+    features:
+        - [BETA] Introduce: `zeus deploy run [--fork anvil]`, which can be used to apply several protocol upgrades onto a local anvil.
+        - `zeus which` now searches for both deployed contracts _and_ environment parameters.
+        - Multisig steps will now check onchain that the provided address is a signer for the SAFE before proceeding. 
+        - Multisig + EOA steps now support signing with a non-default derivation path.
+
+
+**[Historical]** 
 0.5.5:
 - Fixed the script phase.
 

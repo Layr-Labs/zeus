@@ -16,8 +16,9 @@ export default {
         "jestGlobalMocks.ts",
         ".module.ts",
         "<rootDir>/src/app/main.ts",
-        ".mock.ts"
-    ],
+        ".mock.ts",
+        "src/tests"
+  ],
   coverageDirectory: "../coverage/",
   collectCoverageFrom: [
     '**/*.{ts,tsx}',

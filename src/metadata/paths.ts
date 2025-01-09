@@ -30,7 +30,7 @@ export const canonicalPaths = {
     deployParametersSchema: (repoRoot: string) => join(repoRoot, 'parameters.schema.json'),
 
     // updated immediately after a forge script execution.
-    forgeDeployLatestMetadata: (repoRoot: string, scriptName: string, chainId: number) =>       join(repoRoot, `broadcast`, scriptName, `${chainId}`, `deploy-latest.json`),
+    forgeDeployLatestMetadata: (repoRoot: string, scriptName: string, chainId: number, functionName: string) =>       join(repoRoot, `broadcast`, scriptName, `${chainId}`, `${functionName}-latest.json`),
 
     contractJson: (repoRoot: string, contractName: string) => join(repoRoot, `out`, `${contractName}.sol`, `${contractName}.json`),
 

@@ -1,6 +1,8 @@
 import { flag, option, string, optional, positional } from "cmd-ts";
 
 export const env = option({ type: string, long: 'env', short: 'e', description: "An environment, one returned from `zeus env list`" })
+export const versionOptional = option({ type: string, long: 'version', description: "The version to specify."});
+
 export const envOptional = option({ type: optional(string), long: 'env', short: 'e', description: "An environment, one returned from `zeus env list`" })
 export const envPositional = positional({ type: string, description: "An environment, one returned from `zeus env list`" })
 
@@ -15,3 +17,19 @@ export const json = flag({
     short: 'j',
 });
 export const rpcUrl = option({ type: optional(string), long: 'rpcUrl', short: 'r'})
+export const requiredRpcUrl = option({ type: string, long: 'rpcUrl', short: 'r', description: "Provide an RPC url."});
+
+export const signer = option({type: string, long: 'signer', short: 's', description: "An ethereum private key"});
+
+export const nonInteractive = flag({
+    long: 'nonInteractive',
+    short: 'n',
+});
+
+
+export const fork = option({
+    long: 'fork',
+    short: 'f',
+    description: 'one of: anvil',
+    type: optional(string)
+});

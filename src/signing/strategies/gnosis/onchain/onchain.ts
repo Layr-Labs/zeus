@@ -1,10 +1,10 @@
 import {abi} from './Safe';
-import { ICachedArg, TSignatureRequest } from "../../../strategy";
+import { ICachedArg, TSignatureRequest, TStrategyOptions } from "../../../strategy";
 import { GnosisSigningStrategy } from "../gnosis";
-import { createWalletClient, encodePacked, getContract, http } from "viem";
+import { createPublicClient, createWalletClient, encodePacked, getContract, hexToBigInt, http, parseEther } from "viem";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { TDeploy } from "../../../../metadata/schema";
-import { privateKey } from "../../../../commands/prompts";
+import { privateKey, signerKey } from "../../../../commands/prompts";
 import { privateKeyToAccount } from "viem/accounts";
 import * as AllChains from "viem/chains";
 import { OperationType } from '@safe-global/types-kit';
@@ -12,13 +12,19 @@ import Safe from '@safe-global/protocol-kit'
 
 export class GnosisOnchainStrategy extends GnosisSigningStrategy {
     id = 'gnosis.onchain';
-    description = '[Testnet Only] SAFE Onchain Call via PrivateKey';
+    description = 'Onchain Safe.execTransaction() (for 1/N multisigs only)';
 
     privateKey: ICachedArg<`0x${string}`>
 
-    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
-        super(deploy, transaction, defaultArgs);
-        this.privateKey = this.arg(async () => await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE'))
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
+        super(deploy, transaction, options);
+        this.privateKey = this.arg(async () => {
+            if (!this.forMultisig) {
+                return await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE')
+            } else {
+                return await signerKey(deploy._.chainId, await this.rpcUrl.get(), `Enter the private key of a signer for your SAFE(${this.forMultisig})`, this.forMultisig)
+            }
+        })
     } 
 
     // see: (https://github.com/safe-global/safe-smart-account/blob/main/contracts/Safe.sol#L313)
@@ -37,6 +43,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         if (!safeContext) {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
+        this.forMultisig = safeContext.addr;
 
         const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
         
@@ -66,7 +73,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
 
         const threshold = await protocolKitOwner1.getThreshold();
         if (threshold !== 1) {
-            console.warn(`Warning -- this strategy may not work with non 1/N multisigs.`);
+            console.warn(`Warning -- this strategy does not work with non 1/N multisigs.`);
         }
 
         const safe = getContract({abi, client: walletClient, address: safeContext.addr})
@@ -128,6 +135,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         if (!safeContext) {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
+        this.forMultisig = safeContext.addr;
 
         const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
 
@@ -140,6 +148,52 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         const chain = Object.values(AllChains).find(value => value.id === this.deploy._.chainId);
         if (!chain) {
             throw new Error(`Unsupported chain ${this.deploy._.chainId}`);
+        }
+
+        if (this.options?.defaultArgs?.fork) {
+            // this is going to be immediate.
+            const testClient = this.options?.defaultArgs?.testClient;
+            if (!testClient) {
+                throw new Error(`Expected not-null.`);
+            }
+
+            // spoof some additional eth
+            await testClient.setBalance({address: safeContext.addr, value: parseEther('10000')})
+
+            // execute immediately
+            console.info(`Using sendUnsignedTransaction to simulate multisig call...`);
+            const tx = await testClient.sendUnsignedTransaction({
+                from: safeContext.addr,
+                to: to as `0x${string}`,
+                value: hexToBigInt(value as `0x${string}`),
+                data: data as `0x${string}`
+            })
+
+            const rpcUrl = await this.rpcUrl.get();
+
+            const publicClient = createPublicClient({chain, transport: http(rpcUrl)});
+            const lastBlock = await publicClient.getBlock();
+
+            // simulate time passing after all transactions, to prevent any clashes with timelocks etc.
+            const nextTimestamp = lastBlock.timestamp + (60n * 60n * 24n * 30n);
+            console.info(`Current time: ${new Date(Number(lastBlock.timestamp * 1000n))}`)
+            console.info(`Warping forward to: ${new Date(Number(nextTimestamp * 1000n))}`);
+            await testClient.setNextBlockTimestamp({
+                timestamp: lastBlock.timestamp + (60n * 60n * 24n * 30n) /* warp forward 30 days after all txns */
+            })
+            await testClient.mine({blocks: 1000});
+
+            return {
+                output,
+                safeAddress: safeContext.addr,
+                safeTxHash: tx as `0x${string}`,
+                senderAddress: `0x0`,
+                stateUpdates,
+                immediateExecution: {
+                    transaction: tx,
+                    success: true,
+                }
+            }
         }
 
         const walletClient = createWalletClient({
@@ -211,10 +265,10 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             }
         }
     }
-
-
+    
     async cancel(_deploy: SavebleDocument<TDeploy>): Promise<void> {
-        // TODO: I don't think we can cancel this. It either executed or didn't.
-        throw new Error('uncancellable.');
+        // TODO: We _could_ technically support queueing something onchain via approveHash
+        // but for now it makes more sense to exclude this.
+        throw new Error('This method doesnt support cancellation.');
     }
 }
