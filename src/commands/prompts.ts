@@ -132,7 +132,7 @@ export const derivationPath = async () => {
     }
 
     return envVarOrPrompt({
-        title: `Enter the derivation path`,
+        title: `Enter the derivation path (e.g m/44'/60'/0'/0/0)`,
         directEntryInputType: 'text',
         isValid: (path: string) => {
             try {
