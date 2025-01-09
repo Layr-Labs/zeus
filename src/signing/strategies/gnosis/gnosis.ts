@@ -16,10 +16,6 @@ export abstract class GnosisSigningStrategy extends Strategy {
         }, 'rpcUrl');
     }
 
-    async run(_deploy: TDeploy): Promise<boolean> {
-        return false;
-    }
-
     async forgeArgs(): Promise<string[]> {
         return ['--sig', `execute()`, `--rpc-url`, await this.rpcUrl.get(), `-vvvv`];
     }

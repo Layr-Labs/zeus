@@ -27,8 +27,6 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
     }
         
     switch (deploy._.phase) {
-        // global states
-        
         // eoa states
         case "eoa_validate": {
             const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);

@@ -14,18 +14,24 @@ export class LedgerSigningStrategy extends EOABaseSigningStrategy {
 
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
         super(deploy, transaction, options);
-        this.derivationPath= this.arg(async () => {
+        this.derivationPath = this.arg(async () => {
             return await prompts.derivationPath();
-        })
+        }, 'derivationPath')
     }
 
     async getSignerAddress(): Promise<`0x${string}`> {
         console.warn(`If your ledger is not working, you may need to open LedgerLive, navigate to: Accounts -> <Signer> -> Receive and follow the prompts on device. Once your Ledger says "Application is Ready", you can force quit LedgerLive and retry Zeus.`)
-        
+        const dpArg = await (async () => {
+            const dp = await this.derivationPath.get();
+            if (dp !== true && dp !== false) {
+                return dp
+            }
+        })()
+
         const rpc = await this.rpcUrl.get();
         const provider = new JsonRpcProvider(rpc);
 
-        const signer = await getLedgerSigner(provider, undefined);
+        const signer = await getLedgerSigner(provider, dpArg);
         return await signer.getAddress() as `0x${string}`;
     }
 

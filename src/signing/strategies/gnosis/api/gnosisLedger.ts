@@ -26,7 +26,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
         super(deploy, transaction, options);
         this.derivationPath= this.arg(async () => {
             return await prompts.derivationPath();
-        })
+        }, 'derivationPath')
     }
     
     async getSignature(version: string, txn: SafeTransaction, safeAddress: `0x${string}`): Promise<`0x${string}`> {
@@ -130,8 +130,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
                             throw new Error(`This ledger path (${derivationPath}) produced address (${res}), which is not a signer on the multisig (${this.forMultisig})`);
                         }
                     }
-
-                    // TODO: likely want to check that `res` is a signer for the SAFE.
+                    
                     spinner.stopAndPersist({symbol: chalk.green('✔'), suffixText: res});
                     return res;
                 } catch (e) {

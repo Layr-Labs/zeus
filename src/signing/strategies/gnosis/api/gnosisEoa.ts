@@ -21,7 +21,7 @@ export class GnosisEOAApiStrategy extends GnosisApiStrategy {
                 // we know which SAFE this is for, so we can filter for owners of that specifically.
                 return await signerKey(deploy._.chainId, await this.rpcUrl.get(), `Enter the private key of a signer for your SAFE(${this.forMultisig})`, this.forMultisig)
             }
-        })
+        }, 'overrideEoaPk')
     } 
 
     async redactInOutput(): Promise<string[]> {
