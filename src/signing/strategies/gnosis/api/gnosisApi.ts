@@ -3,7 +3,6 @@ import SafeApiKit from "@safe-global/api-kit";
 import Safe from '@safe-global/protocol-kit'
 import { SavebleDocument } from "../../../../metadata/metadataStore";
 import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/schema";
-import { updateLatestDeploy } from "../../../../commands/deploy/cmd/utils";
 import { overrideTxServiceUrlForChainId } from "./utils";
 import { TSignatureRequest } from "../../../strategy";
 import { OperationType } from '@safe-global/types-kit';
@@ -146,8 +145,6 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
                 // cancel the transaction.
                 const metadata = deploy._.metadata[deploy._.segmentId] as MultisigMetadata;
                 if (!metadata || Object.keys(metadata).length === 0) {
-                    console.log(`Cancelling deploy.`);
-                    await updateLatestDeploy(this.metatxn, deploy._.env, undefined, true); // cancel the deploy.
                     return;
                 }
                 const signer = await this.getSignerAddress();
@@ -181,11 +178,6 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
                     senderAddress: signer,
                     senderSignature: await this.getSignature(safeVersion, rejectionTxn, metadata.multisig),
                 })
-                
-                // TODO: there should be a "pending cancellation" phase.
-                deploy._.phase = 'cancelled';
-                (deploy._.metadata[deploy._.segmentId] as MultisigMetadata).cancellationTransactionHash = hash;
-                await updateLatestDeploy(this.metatxn, deploy._.env, undefined, true); // cancel the deploy.
                 return;
             }
             case "multisig_wait_confirm":

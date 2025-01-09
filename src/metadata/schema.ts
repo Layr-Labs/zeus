@@ -44,7 +44,7 @@ export enum MultisigPhase {
 }
 export type TMultisigPhase = `${MultisigPhase}`;
 
-export type TSegmentType = "eoa" | "multisig" | "script";
+export type TSegmentType = "eoa" | "multisig" | "script" | "system";
 
 export type TScriptPhase = "script_run";
 
@@ -59,7 +59,7 @@ export interface EOAMetadata {
 export interface MultisigMetadata {
     type: "multisig",
     signer: `0x${string}`, // the signatory to the multisig transaction.
-    signerType: "eoa" | "ledger",
+    signerType: string, // gnosis.api
     gnosisTransactionHash: `0x${string}`, // for later referencing the transaction.
     gnosisCalldata?: `0x${string}`, // for later executing the transaction
     multisig: `0x${string}`
@@ -133,7 +133,8 @@ export interface TPhase {
   // eoa: should be treated as an upgrade from a single wallet, broadcast literally as-is.
   // multisig: transactions are encoded as a multicall and sent to gnosis.
   // script: a script is executed (i.e via zeus run) as part of the phase.
-  type: 'eoa' | 'multisig' | 'script'
+  // system: a committment phase (complete, failed, "", etc.)
+  type: 'eoa' | 'multisig' | 'script' | 'system'
 
   // path, relative to the manifest's location.
   filename: string; 

@@ -1,35 +1,86 @@
 import { Transaction, SavebleDocument, TDirectory } from "../metadataStore";
 import { LocalSavebleDocument } from "./LocalCloneSaveableDocument";
-import path from 'path';
+import path, { join } from 'path';
 import { promises as fs } from 'fs';
+
+const exists = async (path: string) => {
+    try {
+        await fs.access(path);
+        return true;
+    } catch {
+        return false;
+    }
+}
 
 // -------------------------------------------------------
 // LocalCloneTransaction
 // -------------------------------------------------------
 export class LocalCloneTransaction implements Transaction {
     private basePath: string;
+    readonly verbose: boolean;
+    _files: SavebleDocument<unknown>[] = [];
 
-    constructor(basePath: string) {
+    constructor(basePath: string, verbose: boolean) {
         this.basePath = basePath;
+        this.verbose = verbose;
+    }
+
+    toString(): string {
+        if (!this.hasChanges()) {
+            return "<empty>"
+        } else {
+            const changelog = this._files.filter(f => f.dirty).map(f => f.path)
+            return JSON.stringify(changelog, null, 2);
+        }
     }
 
     async getFile(filePath: string): Promise<SavebleDocument<string>> {
+        const existingFile = this._files.find(f => f.path === filePath);
+        if (existingFile) {
+            // NOTE: trying to take out a lease on a doc that isn't the same type will mess stuff up.
+            return existingFile as unknown as SavebleDocument<string>;
+        }
+
         const fullPath = path.join(this.basePath, filePath);
-        const data = await fs.readFile(fullPath, 'utf8');
-        // For a string file, parsed version is just the string itself.
-        return new LocalSavebleDocument<string>(filePath, data, data);
+        const data = await (async () => {
+            try {
+                return await fs.readFile(fullPath, 'utf8');
+            } catch {
+                return ''
+            }
+        })();
+        
+        const f = new LocalSavebleDocument<string>(this.basePath, filePath, data, data, true, {verbose: this.verbose});
+        this._files.push(f);
+        return f;
     }
 
     async getJSONFile<T extends object>(filePath: string): Promise<SavebleDocument<T>> {
+        const existingFile = this._files.find(f => f.path === filePath);
+        if (existingFile) {
+            // NOTE: trying to take out a lease on a doc that isn't the same type will mess stuff up.
+            return existingFile as unknown as SavebleDocument<T>;
+        }
+
         const fullPath = path.join(this.basePath, filePath);
-        const data = await fs.readFile(fullPath, 'utf8');
+    
+        const data = await (async () => {
+            try {
+                return await fs.readFile(fullPath, 'utf8');
+            } catch {
+                return '{}'
+            }
+        })();
+
         let parsed: T;
         try {
             parsed = JSON.parse(data);
         } catch (e) {
             throw new Error(`Failed to parse JSON from ${filePath}: ${e}`);
         }
-        return new LocalSavebleDocument<T>(filePath, data, parsed);
+        const f = new LocalSavebleDocument<T>(this.basePath, filePath, data, parsed, true, {verbose: this.verbose});
+        this._files.push(f);
+        return f;
     }
 
     async getDirectory(dirPath: string): Promise<TDirectory> {
@@ -42,8 +93,26 @@ export class LocalCloneTransaction implements Transaction {
     }
 
     async commit(_log: string): Promise<void> {
-        // This is read-only, so committing is not allowed.
-        throw new Error('This store is read-only. commit() not allowed.');
+        const changedFiles = this._files.filter(f => { 
+            return !f.upToDate
+        });
+
+        if (!changedFiles || changedFiles.length === 0) {
+            return;
+        }
+
+        for (const f of changedFiles) {
+            const toWrite = f.pendingSaveableContents();
+            const outPath = join(this.basePath, f.path);
+
+            const basePath = path.dirname(outPath);
+            if (!await exists(basePath)) {
+                await fs.mkdir(basePath);
+            }
+
+            await fs.writeFile(outPath, toWrite);
+            f.wasSavedOptimistically();
+        }
     }
 
     hasChanges(): boolean {

@@ -5,6 +5,8 @@ import tmp from 'tmp';
 import ora from 'ora';
 import { TDeploy, TDeployedContractSparse } from '../metadata/schema';
 import { injectableEnvForEnvironment } from '../commands/run';
+import { AnvilService } from '@foundry-rs/hardhat-anvil/dist/src/anvil-service';
+import { TestClient } from 'viem';
 
 tmp.setGracefulCleanup();
 
@@ -19,6 +21,13 @@ export interface HasStateUpdates {
         name: string;
         internalType: number;
     }[]
+}
+
+// check the transactions created by the previous step.
+export interface TFoundryDeploy {
+    transactions: {
+        hash: `0x${string}`
+    }[] | undefined;
 }
 
 export interface TForgeRequest extends HasStateUpdates {
@@ -57,6 +66,17 @@ export interface TSignedGnosisRequest extends TGnosisRequest {
 
 export type TSignatureRequest = TForgeRequest | TGnosisRequest;
 
+export type TForkType = 'anvil' | 'tenderly';
+
+export interface TExecuteOptions {
+    nonInteractive?: boolean,
+    fork?: TForkType,
+    etherscanApiKey?: string | boolean,
+    anvil?: AnvilService,
+    testClient?: TestClient,
+    rpcUrl?: string,
+    overrideEoaPk?: `0x${string}`
+}
 
 function redact(haystack: string, ...needles: string[]) {
     let out = haystack;
@@ -68,15 +88,26 @@ function redact(haystack: string, ...needles: string[]) {
 
 export interface ICachedArg<T> {
     get: () => Promise<T>
+    getImmediately: () => T
 }
 
 class CachedArg<T> implements ICachedArg<T> {
     cachedValue: T | undefined;
     _get: () => Promise<T>
+    throwOnUnset: boolean;
 
-    constructor(cachedValue: T | undefined, get: () => Promise<T>) {
+    constructor(cachedValue: T | undefined, get: () => Promise<T>, throwOnUnset: boolean) {
         this.cachedValue = cachedValue;
         this._get = get;
+        this.throwOnUnset = throwOnUnset;
+    }
+
+    getImmediately(): T {
+        if (this.cachedValue === undefined) {
+            throw new Error(`Required interaction, but requested non-interactive argument.`);
+        }
+
+        return this.cachedValue;
     }
 
     async get(): Promise<T> {
@@ -89,14 +120,36 @@ class CachedArg<T> implements ICachedArg<T> {
 }
 
 
+export class HaltDeployError extends Error {
+    readonly phase: string;
+    readonly segmentId: number;
+    readonly deploy: string;
+    readonly complete: boolean;
+
+    constructor(deploy: SavebleDocument<TDeploy>, reason: string, complete = false) {
+        super(`The deploy halted: ${reason}`);
+        this.phase = deploy._.phase;
+        this.deploy = deploy._.name;
+        this.segmentId = deploy._.segmentId;
+        this.complete = complete ?? false;
+    }
+}
+
+export interface TStrategyOptions { 
+    defaultArgs?: TExecuteOptions,
+    nonInteractive?: boolean,
+};
+
 export abstract class Strategy {
     readonly deploy: SavebleDocument<TDeploy>;
     readonly metatxn: Transaction;
-    readonly defaultArgs: Record<string, unknown> // pre-seeded args, to avoid user interaction.
+    readonly defaultArgs: TExecuteOptions; // pre-seeded args, to avoid user interaction.
+    readonly nonInteractive: boolean;
+    readonly options: TStrategyOptions | undefined;
 
-    arg<T>(getFn: () => Promise<T>, key?: string): ICachedArg<T> {
+    arg<T>(getFn: () => Promise<T>, key?: keyof TExecuteOptions): ICachedArg<T> {
         const defaultValue = key ? this.defaultArgs[key] : undefined;
-        return new CachedArg<T>(defaultValue as T, getFn);
+        return new CachedArg<T>(defaultValue as T, getFn, this.nonInteractive);
     }
 
     usage(): string {
@@ -162,9 +215,11 @@ export abstract class Strategy {
         } 
     }
 
-    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
-        this.deploy = deploy;
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
         this.metatxn = transaction;
-        this.defaultArgs = defaultArgs ?? {};
+        this.deploy = deploy;
+        this.options = options;
+        this.defaultArgs = options?.defaultArgs ?? {};
+        this.nonInteractive = !!options?.nonInteractive;
     } 
 }

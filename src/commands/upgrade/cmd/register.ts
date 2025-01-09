@@ -4,7 +4,7 @@ import { assertLoggedIn, inRepo, loggedIn, requires, TState } from '../../inject
 import { configs, getRepoRoot } from '../../configs';
 import { search, select } from '@inquirer/prompts';
 import path, { join } from 'path';
-import fs from 'fs';
+import * as fs from 'fs';
 import { canonicalPaths } from '../../../metadata/paths';
 import { execSync } from 'child_process';
 import { isUpgrade, TUpgrade } from '../../../metadata/schema';

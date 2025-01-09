@@ -17,6 +17,13 @@ import fs from 'fs';
 const GJD = await import('../../metadata/github/GithubJsonDocument');
 import type { GithubJsonDocument } from '../../metadata/github/GithubJsonDocument';
 
+jest.unstable_mockModule('../../commands/prompts', () => ({
+    pickStrategy: jest.fn<() => Promise<string>>(),
+    rpcUrl: jest.fn<() => Promise<string>>().mockRejectedValue(new Error('yo')),
+    privateKey: jest.fn<() => Promise<string>>().mockResolvedValue(`0x0`),
+    wouldYouLikeToContinue: jest.fn<() => Promise<boolean>>()
+}));
+
 describe('GithubJsonDocument', () => {
     let mockOctokitInstance: jest.Mocked<Octokit>;
     let githubJsonDocument: SavebleDocument<string | object>;

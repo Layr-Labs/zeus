@@ -1,4 +1,4 @@
-import { ICachedArg, Strategy, TSignatureRequest } from "../../strategy";
+import { ICachedArg, Strategy, TSignatureRequest, TStrategyOptions } from "../../strategy";
 import { canonicalPaths } from "../../../metadata/paths";
 import { getRepoRoot } from '../../../commands/configs';
 import { basename } from "path";
@@ -16,18 +16,22 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
     public rpcUrl: ICachedArg<string> 
     public etherscanApiKey: ICachedArg<string | boolean> 
 
-    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, defaultArgs?: Record<string, unknown>) {
-        super(deploy, transaction, defaultArgs);
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
+        super(deploy, transaction, options);
         this.rpcUrl = this.arg(async () => {
             return await prompts.rpcUrl(this.deploy._.chainId);
-        })
+        }, 'rpcUrl')
         this.etherscanApiKey = this.arg(async () => {
+            if (options?.defaultArgs?.fork) {
+                return false;
+            }
+
             const res = await prompts.etherscanApiKey();
             if (!res) {
                 return false;
             }
             return res;
-        });
+        }, 'etherscanApiKey');
     } 
 
     abstract subclassForgeArgs(): Promise<string[]>;
@@ -102,7 +106,7 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
         let deployLatest: TForgeRun | undefined = undefined;
         const signer = await this.getSignerAddress();
 
-        const deployLatestPath = canonicalPaths.forgeDeployLatestMetadata(getRepoRoot(), basename(pathToUpgrade), deploy.chainId);
+        const deployLatestPath = canonicalPaths.forgeDeployLatestMetadata(getRepoRoot(), basename(pathToUpgrade), deploy.chainId, 'runAsEOA');
         if (!existsSync(deployLatestPath)) {
             console.warn(`This deploy did not broadcast any new contracts. If this was intended, you can ignore this.`);
             if (Object.keys(contractDeploys).length > 0) {

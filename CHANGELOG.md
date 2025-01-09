@@ -1,4 +1,15 @@
-**[pending]** 
+
+**[Current]** 
+1.0.0:
+    bugfixes:
+        - `zeus verify` no longer prompts for an etherscan api key.
+        - `zeus deploy cancel` no longer unnecessarily prompts for a strategy in cases where a transaction is not needed to abort the deploy.
+        - major refactor to the core deploy logic to enable deeper testing.
+    features:
+        - Introduce: `zeus deploy run [--fork anvil | tenderly]`, which can be used to apply several protocol upgrades onto an anvil or tenderly RPC.
+        - `zeus which` now searches for both deployed contracts _and_ environment parameters.
+
+**[Historical]** 
 0.5.5:
 - Fixed the script phase.
 

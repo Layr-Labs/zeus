@@ -1,7 +1,7 @@
 import { SavebleDocument } from '../metadataStore';
 import { Octokit } from 'octokit';
 import tmp from 'tmp';
-import fs from 'fs';
+import * as fs from 'fs';
 import { execSync } from 'child_process';
 import path from 'path';
 import chalk from 'chalk';
@@ -101,11 +101,6 @@ export class GithubJsonDocument<T extends string | object> implements SavebleDoc
         this.repo = github.repo;
         this.options = options;
         this.branch = github.branch;
-    }
-
-    async updateJSON<T>(path: string, contents: T): Promise<void> {
-        const content = JSON.stringify(contents, null, 2);
-        return await this.updateFile(path, content);
     }
 
     async updateFile(path: string, contents: string): Promise<void> {

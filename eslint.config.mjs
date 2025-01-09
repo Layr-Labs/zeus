@@ -13,6 +13,8 @@ export default tseslint.config(
         'node_modules',
         'webpack.*.cjs',
         'eslint.config.mjs',
+        `src/tests`,
+        `__mocks__`
     ]
   },
   {

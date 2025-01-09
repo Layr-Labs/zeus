@@ -5,7 +5,6 @@ import { canonicalPaths } from '../../../metadata/paths';
 import { TEnvironmentManifest, TUpgrade } from '../../../metadata/schema';
 import * as allArgs from '../../args';
 import { findUpgradePaths } from '../utils';
-import { wouldYouLikeToContinue } from '../../prompts';
 import chalk from 'chalk';
 import { SavebleDocument } from '../../../metadata/metadataStore';
 
@@ -45,13 +44,6 @@ const handler = async function(_user: TState, args: {version: string, env: strin
         console.log(`\t• ${upgrade?._.name}: ${prev} -> ${upgrade._.to}`);
         prev = upgrade._.to;
     }
-
-    if (!await wouldYouLikeToContinue('This will start a series of deploys. Would you like to continue?')) {
-        console.error(`Quitting.`);
-        return;
-    }
-
-    console.error(`Abort: unimplemented.`);
 };  
 
 const cmd = command({
