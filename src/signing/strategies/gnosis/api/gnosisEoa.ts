@@ -2,23 +2,36 @@ import { privateKeyToAccount } from "viem/accounts";
 import { GnosisApiStrategy } from "./gnosisApi";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
-import { checkShouldSignGnosisMessage, privateKey } from "../../../../commands/prompts";
+import { checkShouldSignGnosisMessage, privateKey, signerKey } from "../../../../commands/prompts";
 import { ICachedArg, TStrategyOptions } from "../../../strategy";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { TDeploy } from "../../../../metadata/schema";
 
 export class GnosisEOAApiStrategy extends GnosisApiStrategy {
     id = "gnosis.api.eoa";
-    description = "[Not Private] Gnosis SAFE - signing w/ private key using Gnosis API";
+    description = "Gnosis API - Private Key (Not For Private Hotfixes)";
     privateKey: ICachedArg<`0x${string}`>
 
-    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options: TStrategyOptions) {
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options: TStrategyOptions | undefined) {
         super(deploy, transaction, options);
-        this.privateKey = this.arg(async () => await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE'))
+        this.privateKey = this.arg(async () => {
+            if (!this.forMultisig) {
+                return await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE')
+            } else {
+                // we know which SAFE this is for, so we can filter for owners of that specifically.
+                return await signerKey(deploy._.chainId, await this.rpcUrl.get(), `Enter the private key of a signer for your SAFE(${this.forMultisig})`, this.forMultisig)
+            }
+        })
     } 
 
     async redactInOutput(): Promise<string[]> {
-        return [await this.privateKey.get()];
+        try {
+            // NOTE: if getImmediately() doesn't return anything, then there is not yet anything _to_ redact...
+            // you just can't cache the result of this call.
+            return [this.privateKey.getImmediately()]
+        } catch {
+            return [];
+        }
     }
 
     async getSignature(version: string, txn: SafeTransaction, safeAddress: `0x${string}`): Promise<`0x${string}`> {

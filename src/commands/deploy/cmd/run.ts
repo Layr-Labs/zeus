@@ -35,7 +35,8 @@ const DEFAULT_ANVIL_PORT = 8546;
 const DEFAULT_ANVIL_URI = `http://127.0.0.1:8546/`;
 
 const isValidFork = (fork: string | undefined) => {
-    return [undefined, `anvil`, `tenderly`].includes(fork);
+    // TODO(tenderly) - support tenderly.
+    return [undefined, `anvil`].includes(fork);
 } 
 
 
@@ -84,7 +85,7 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
                 throwIfUnset(process.env.TENDERLY_PROJECT_SLUG, "Expected TENDERLY_PROJECT_SLUG to be set."),
             );
 
-            // TODO: continue from here
+            // TODO(tenderly): continue from here
             const _vnetId = await tenderly.createVirtualNetwork({
                 slug: `z-${args.env}-${formatNow()}`,
                 display_name: `zeus testnet`,

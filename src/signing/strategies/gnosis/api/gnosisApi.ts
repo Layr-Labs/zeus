@@ -22,6 +22,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         if (!safeContext) {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
+        this.forMultisig = safeContext.addr;
 
         const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
 
@@ -68,6 +69,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         if (!safeContext) {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
+        this.forMultisig = safeContext.addr;
 
         const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
         multisigExecuteRequests.forEach(req => console.log(JSON.stringify(req, null, 2)));

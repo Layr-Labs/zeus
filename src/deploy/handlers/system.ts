@@ -7,6 +7,12 @@ import { HaltDeployError, TStrategyOptions } from "../../signing/strategy";
 import { PhaseTypeHandler } from "./base";
 
 export async function executeSystemPhase(deploy: SavebleDocument<TDeploy>, metatxn: Transaction, _options: TStrategyOptions): Promise<void> {
+    const waitIfAnvil = async () => {
+        if (_options.defaultArgs?.anvil !== undefined) {
+            console.log(`This deploy created a local anvil instance. Waiting for CTRL-C to close.`);
+            await _options.defaultArgs.anvil.waitUntilClosed();
+        }
+    }
     switch (deploy._.phase) {
         case "":
             await advance(deploy);
@@ -23,7 +29,7 @@ export async function executeSystemPhase(deploy: SavebleDocument<TDeploy>, metat
             const deployedEnvironmentMutations = await metatxn.getJSONFile<TDeployStateMutations>(canonicalPaths.deployStateMutations(deploy._));
             const deployParameters = await metatxn.getJSONFile<Record<string, unknown>>(canonicalPaths.deployParameters('', deploy._.env));
 
-            if (deployedEnvironmentMutations._.mutations) {
+            if (deployedEnvironmentMutations._.mutations && deployedEnvironmentMutations._.mutations.length > 0) {
                 console.log(chalk.bold.underline(`Updated environment constants:`));
                 console.log();
                 console.table(deployedEnvironmentMutations._.mutations.map(mut => {return {...mut, internalType: undefined}}));
@@ -84,12 +90,14 @@ export async function executeSystemPhase(deploy: SavebleDocument<TDeploy>, metat
             envManifest.save();
             deploy.save();
             await metatxn.commit(`Deploy ${deploy._.name} completed!`);
+            await waitIfAnvil();
             throw new HaltDeployError(deploy, 'Deploy completed', true /* complete */);
         }
         case "failed": {
             console.error(`The deploy failed. ❌`);
             await updateLatestDeploy(metatxn, deploy._.env, undefined, true);
             await metatxn.commit(`Deploy ${deploy._.name} failed.`);
+            await waitIfAnvil();
             throw new HaltDeployError(deploy, 'Deploy failed', true /* complete */);
         }
         case "cancelled":
@@ -97,6 +105,7 @@ export async function executeSystemPhase(deploy: SavebleDocument<TDeploy>, metat
             await updateLatestDeploy(metatxn, deploy._.env, undefined, true);
             await deploy.save();
             await metatxn.commit(`Deploy ${deploy._.name} cancelled.`);
+            await waitIfAnvil();
             throw new HaltDeployError(deploy, 'Deploy cancelled.', true /* complete */);
     }
 }

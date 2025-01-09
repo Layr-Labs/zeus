@@ -211,7 +211,7 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
                             for (const txn of (foundryDeploy._.transactions ?? [])) {
                                 if (txn?.hash) {
                                     const receipt = await client.getTransactionReceipt({hash: txn.hash});
-                                    console.log(`Got receipt: ${receipt}`);
+                                    console.log(`Got receipt: ${receipt?.transactionHash}`);
                                     if (receipt.status === "success") {
                                         console.log(`${chalk.green('✔')} Transaction(${txn.hash})`);
                                     } else {

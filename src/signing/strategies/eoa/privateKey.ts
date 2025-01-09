@@ -11,7 +11,7 @@ export default class EOASigningStrategy extends EOABaseSigningStrategy {
     description = "Signing w/ private key";
     privateKey: ICachedArg<`0x${string}`>
 
-    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options: TStrategyOptions) {
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options: TStrategyOptions | undefined) {
         super(deploy, transaction, options);
         this.privateKey = this.arg(async () => {
             return await prompts.privateKey(this.deploy._.chainId);

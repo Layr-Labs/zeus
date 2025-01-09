@@ -7,15 +7,39 @@ import chalk from "chalk";
 import { checkShouldSignGnosisMessage, pressAnyButtonToContinue } from "../../../../commands/prompts";
 import { getLedgerSigner } from "../../ledgerTransport";
 import { TypedDataField } from "ethers";
-import { verifyTypedData } from "viem";
+import { createPublicClient, getContract, http, verifyTypedData } from "viem";
+import { ICachedArg, TStrategyOptions } from "../../../strategy";
+import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
+import { TDeploy } from "../../../../metadata/schema";
+import * as prompts from '../../../../commands/prompts';
+import { JsonRpcProvider } from "ethers";
+import * as AllChains from 'viem/chains';
+import { abi } from "../onchain/Safe";
  
 export class GnosisLedgerStrategy extends GnosisApiStrategy {
     id = "gnosis.api.ledger";
-    description = "[Not Private] Gnosis SAFE - signing w/ ledger using Gnosis API";
+    description = "Gnosis API - Ledger (Not For Private Hotfixes)";
+
+    public derivationPath: ICachedArg<string | boolean> 
+
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
+        super(deploy, transaction, options);
+        this.derivationPath= this.arg(async () => {
+            return await prompts.derivationPath();
+        })
+    }
     
     async getSignature(version: string, txn: SafeTransaction, safeAddress: `0x${string}`): Promise<`0x${string}`> {
         const provider = getDefaultProvider();
-        const signer = await getLedgerSigner(provider);
+
+        const derivationPath = await (async () => {
+            const dp = await this.derivationPath.get();
+            if (!dp) return undefined;
+            if (dp === true) throw new Error(`Invalid.`)
+            return dp;
+        })()
+
+        const signer = await getLedgerSigner(provider, derivationPath);
         const types = getEip712TxTypes(version);
 
         const typedDataArgs = {
@@ -76,13 +100,38 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
     async getSignerAddress(): Promise<`0x${string}`> {
         const prompt = ora(`Querying ledger for address...`);
         const spinner = prompt.start();
+        
+        const derivationPath = await (async () => {
+            const dp = await this.derivationPath.get();
+            if (!dp) return undefined;
+            if (dp === true) throw new Error(`Invalid.`)
+            return dp;
+        })()
 
         try {
             while (true) {
                 try {
-                    const provider = getDefaultProvider() // TODO(multinetwork)
-                    const signer = await getLedgerSigner(provider);
+                    const provider = new JsonRpcProvider(await this.rpcUrl.get());
+                    const signer = await getLedgerSigner(provider, derivationPath);
                     const res = await signer.getAddress() as `0x${string}`;
+
+                    // double check that this ledger is a signer for the multisig.
+                    if (this.forMultisig) {
+                        const client = createPublicClient({
+                            transport: http(await this.rpcUrl.get()),
+                            chain: Object.values(AllChains).find(chain => chain.id === this.deploy._.chainId),
+                        })
+                        const safe = getContract({
+                            client,
+                            abi,
+                            address: this.forMultisig
+                        })
+                        if (!await safe.read.isOwner([res])) {
+                            throw new Error(`This ledger path (${derivationPath}) produced address (${res}), which is not a signer on the multisig (${this.forMultisig})`);
+                        }
+                    }
+
+                    // TODO: likely want to check that `res` is a signer for the SAFE.
                     spinner.stopAndPersist({symbol: chalk.green('✔'), suffixText: res});
                     return res;
                 } catch (e) {

@@ -7,6 +7,7 @@ import { TForgeOutput } from "../../utils";
 
 export abstract class GnosisSigningStrategy extends Strategy {
     rpcUrl: ICachedArg<string>
+    forMultisig: `0x${string}` | undefined; // automatically set when we ascertain what this signing strategy is for...
 
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
         super(deploy, transaction, options);

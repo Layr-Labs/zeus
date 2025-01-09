@@ -31,5 +31,5 @@ export const fork = option({
     long: 'fork',
     short: 'f',
     description: 'one of: anvil',
-    type: string
+    type: optional(string)
 });

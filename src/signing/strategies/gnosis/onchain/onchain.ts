@@ -4,7 +4,7 @@ import { GnosisSigningStrategy } from "../gnosis";
 import { createPublicClient, createWalletClient, encodePacked, getContract, hexToBigInt, http, parseEther } from "viem";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { TDeploy } from "../../../../metadata/schema";
-import { privateKey } from "../../../../commands/prompts";
+import { privateKey, signerKey } from "../../../../commands/prompts";
 import { privateKeyToAccount } from "viem/accounts";
 import * as AllChains from "viem/chains";
 import { OperationType } from '@safe-global/types-kit';
@@ -12,13 +12,19 @@ import Safe from '@safe-global/protocol-kit'
 
 export class GnosisOnchainStrategy extends GnosisSigningStrategy {
     id = 'gnosis.onchain';
-    description = '[Testnet Only] SAFE Onchain Call via PrivateKey';
+    description = 'Onchain Safe.execTransaction() (for 1/N multisigs only)';
 
     privateKey: ICachedArg<`0x${string}`>
 
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
         super(deploy, transaction, options);
-        this.privateKey = this.arg(async () => await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE'))
+        this.privateKey = this.arg(async () => {
+            if (!this.forMultisig) {
+                return await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE')
+            } else {
+                return await signerKey(deploy._.chainId, await this.rpcUrl.get(), `Enter the private key of a signer for your SAFE(${this.forMultisig})`, this.forMultisig)
+            }
+        })
     } 
 
     // see: (https://github.com/safe-global/safe-smart-account/blob/main/contracts/Safe.sol#L313)
@@ -37,6 +43,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         if (!safeContext) {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
+        this.forMultisig = safeContext.addr;
 
         const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
         
@@ -66,7 +73,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
 
         const threshold = await protocolKitOwner1.getThreshold();
         if (threshold !== 1) {
-            console.warn(`Warning -- this strategy may not work with non 1/N multisigs.`);
+            console.warn(`Warning -- this strategy does not work with non 1/N multisigs.`);
         }
 
         const safe = getContract({abi, client: walletClient, address: safeContext.addr})
@@ -128,6 +135,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         if (!safeContext) {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
+        this.forMultisig = safeContext.addr;
 
         const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
 
@@ -257,8 +265,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             }
         }
     }
-
-
+    
     async cancel(_deploy: SavebleDocument<TDeploy>): Promise<void> {
         // TODO: We _could_ technically support queueing something onchain via approveHash
         // but for now it makes more sense to exclude this.
