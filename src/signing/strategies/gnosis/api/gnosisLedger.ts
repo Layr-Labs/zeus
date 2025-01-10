@@ -2,12 +2,9 @@ import { GnosisApiStrategy } from "./gnosisApi";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 import { getDefaultProvider } from 'ethers'
-import ora from "ora";
-import chalk from "chalk";
 import { checkShouldSignGnosisMessage, pressAnyButtonToContinue } from "../../../../commands/prompts";
 import { getLedgerSigner } from "../../ledgerTransport";
-import { TypedDataField } from "ethers";
-import { createPublicClient, getContract, http, verifyTypedData } from "viem";
+import { createPublicClient, getContract, http, verifyMessage } from "viem";
 import { ICachedArg, TStrategyOptions } from "../../../strategy";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { TDeploy } from "../../../../metadata/schema";
@@ -16,6 +13,7 @@ import { JsonRpcProvider } from "ethers";
 import * as AllChains from 'viem/chains';
 import { abi } from "../onchain/Safe";
 import { ethers } from 'ethers';
+import { calculateSafeTransactionHash } from "@safe-global/protocol-kit/dist/src/utils";
  
 export class GnosisLedgerStrategy extends GnosisApiStrategy {
     id = "gnosis.api.ledger";
@@ -42,7 +40,6 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
 
         const signer = await getLedgerSigner(provider, derivationPath);
         const types = getEip712TxTypes(version);
-
         const typedDataArgs = {
             types: {SafeTx: types.SafeTx},
             domain: {
@@ -60,6 +57,9 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
             }
         } as const;
 
+        const gnosisHash = calculateSafeTransactionHash(safeAddress, txn.data, version, BigInt(this.deploy._.chainId));
+        console.log(`Expected gnosis hash: ${gnosisHash}`);
+
         await checkShouldSignGnosisMessage(typedDataArgs);
 
         console.log(`Signing with ledger (please check your device for instructions)...`);
@@ -68,17 +68,15 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
             const addr = await signer.getAddress() as `0x${string}`;
             console.log(`The ledger reported this address: ${addr}`);
             
-            const signature = await signer.signTypedData(
-                typedDataArgs.domain,
-                {SafeTx: typedDataArgs.types.SafeTx},
-                typedDataArgs.message
+            const signature = await signer.signMessage(
+                gnosisHash
             ) as `0x${string}`
 
-            const fromAddr = ethers.verifyTypedData(typedDataArgs.domain, {SafeTx: typedDataArgs.types.SafeTx}, typedDataArgs.message, signature);
-            if (fromAddr !== addr) {
+            const valid = await verifyMessage({address: addr, message: gnosisHash, signature});
+            if (!valid) {
                 console.error(`Failed to verify signature. Nothing will be submitted. (signed from ${addr})`);
-                console.warn(`Typed data: `, typedDataArgs);
                 console.warn(`Signature: ${signature}`);
+                console.warn(`Gnosis Hash: ${gnosisHash}`);
                 console.warn(`From: ${addr}`);
                 throw new Error(`Invalid signature. Failed to verify typedData.`);
             } else {
