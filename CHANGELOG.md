@@ -8,6 +8,7 @@
       of the specified environment.
     - `multisig` steps now run `zeus test` automatically during deploys.
     - removed the behavior of automatically stopping after segments of the deploy.
+    - fixed an unnecessary prompt for the etherscan api key
       
 1.0.0:
     bugfixes:
