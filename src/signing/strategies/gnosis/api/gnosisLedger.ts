@@ -12,8 +12,8 @@ import * as prompts from '../../../../commands/prompts';
 import { JsonRpcProvider } from "ethers";
 import * as AllChains from 'viem/chains';
 import { abi } from "../onchain/Safe";
-import { ethers } from 'ethers';
-import { calculateSafeTransactionHash } from "@safe-global/protocol-kit/dist/src/utils";
+import { adjustVInSignature, calculateSafeTransactionHash } from "@safe-global/protocol-kit/dist/src/utils";
+import { SigningMethod } from "@safe-global/protocol-kit";
  
 export class GnosisLedgerStrategy extends GnosisApiStrategy {
     id = "gnosis.api.ledger";
@@ -68,20 +68,26 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
             const addr = await signer.getAddress() as `0x${string}`;
             console.log(`The ledger reported this address: ${addr}`);
             
-            const signature = await signer.signMessage(
+            const _signature = await signer.signMessage(
                 gnosisHash
             ) as `0x${string}`
 
-            const valid = await verifyMessage({address: addr, message: gnosisHash, signature});
+            const signature = (await adjustVInSignature(SigningMethod.ETH_SIGN, _signature, gnosisHash, addr)) as `0x${string}`;
+
+            const valid = await verifyMessage({address: addr, message: gnosisHash, signature: _signature});
             if (!valid) {
                 console.error(`Failed to verify signature. Nothing will be submitted. (signed from ${addr})`);
-                console.warn(`Signature: ${signature}`);
+                console.warn(`Signature: ${_signature}`);
+                console.log(`V-Adjusted signature: ${signature}`);
                 console.warn(`Gnosis Hash: ${gnosisHash}`);
                 console.warn(`From: ${addr}`);
                 throw new Error(`Invalid signature. Failed to verify typedData.`);
             } else {
-                console.log(`Successfully verified signature (from=${addr},signature=${signature})`);
+                console.log(`Successfully verified signature (from=${addr},signature=${_signature})`);
             }
+
+            console.log(`Original Signature: ${_signature}`);
+            console.log(`V-Adjusted signature: ${signature}`);
 
             return signature;
         } catch (e) {

@@ -50,14 +50,12 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             ],
         })
 
-        const prompt = ora(`Forming transaction...`);
-        const spinner = prompt.start();
+        console.log(`Forming transaction...`);
         const hash = await protocolKitOwner1.getTransactionHash(txn)
-        spinner.stop();
 
         return {
             output,
-            safeAddress: safeContext.addr,
+            safeAddress: getAddress(safeContext.addr),
             safeTxHash: hash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
             stateUpdates
@@ -101,11 +99,9 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             }]
         })
 
-        let prompt = ora(`Creating transaction...`);
-        let spinner = prompt.start();
+        console.log(`Creating transaction...`);
         const hash = await protocolKitOwner1.getTransactionHash(txn)
         const version = await protocolKitOwner1.getContractVersion();
-        spinner.stop();
         
         if (stateUpdates) {
             console.log(chalk.bold.underline(`Updated Environment: `));
@@ -114,25 +110,19 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
 
         const senderSignature = await this.getSignature(version, txn, safeContext.addr)
         
-        prompt = ora(`Sending transction to Gnosis SAFE UI... (safe=${ getAddress(safeContext.addr)})`);
-        spinner = prompt.start();
-        try {
-            await apiKit.proposeTransaction({
-                safeAddress: getAddress(safeContext.addr),
-                safeTransactionData: txn.data,
-                safeTxHash: hash,
-                senderAddress: getAddress(signer),
-                senderSignature,
-            })
-        } finally {
-            spinner.stop();
-        }
+        await apiKit.proposeTransaction({
+            safeAddress: getAddress(safeContext.addr),
+            safeTransactionData: txn.data,
+            safeTxHash: hash,
+            senderAddress: getAddress(signer),
+            senderSignature,
+        })
 
         return {
             output,
             safeAddress: safeContext.addr,
             safeTxHash: hash as `0x${string}`,
-            senderAddress: signer,
+            senderAddress: getAddress(signer),
             signature: senderSignature,
             stateUpdates
         }
