@@ -8,7 +8,7 @@ import { join } from "path";
 import ora from "ora";
 import { runTest } from "../../signing/strategies/test";
 import { canonicalPaths } from "../../metadata/paths";
-import { advance, cleanContractName, getChain, isTerminalPhase, sleepMs } from "../../commands/deploy/cmd/utils";
+import { advance, cleanContractName, getChain, sleepMs } from "../../commands/deploy/cmd/utils";
 import chalk from "chalk";
 import { wouldYouLikeToContinue } from "../../commands/prompts";
 import { getRepoRoot } from "../../commands/configs";
@@ -71,14 +71,14 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
                 console.log(chalk.bold.underline(`Forge output: `))
                 console.log(JSON.stringify(sigRequest.forge, null, 2));
                 console.log(JSON.stringify(sigRequest.output, null, 2));
-                console.log(chalk.bold.underline(`Deployed Contracts: `))
+                console.log(chalk.bold.underline(`Simulation Deployed Contracts: `))
                 if (sigRequest.deployedContracts && Object.keys(sigRequest.deployedContracts).length > 0) {
                     console.table(sigRequest.deployedContracts)
                 } else {
                     console.log(chalk.bold(`<none>`));
                 }
+                console.log(chalk.bold.underline(`Simulation Updated Environment: `));
                 if (sigRequest.stateUpdates && Object.keys(sigRequest.stateUpdates).length > 0) {
-                    console.log(chalk.bold.underline(`Updated Environment: `));
                     console.table(sigRequest.stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
                 } else {
                     console.log(chalk.bold(`<none>`))
@@ -259,14 +259,6 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
             await advance(deploy);
             await deploy.save();
             await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction confirmed`);
-
-            if (!options?.nonInteractive) {
-                if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
-                    console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
-                    console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
-                    throw new HaltDeployError(deploy, `Interactive deploy halted. This is not an error`, false);
-                }
-            }
             break;
         }
         default:
