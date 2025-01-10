@@ -61,11 +61,12 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
 
         await checkShouldSignGnosisMessage(typedDataArgs);
 
-        const prompt = ora(`Signing with ledger (please check your device for instructions)...`);
-        const spinner = prompt.start();
+        console.log(`Signing with ledger (please check your device for instructions)...`);
 
         try {
             const addr = await signer.getAddress() as `0x${string}`;
+            console.log(`The ledger reported this address: ${addr}`);
+            
             const signature = await signer.signTypedData(
                 typedDataArgs.domain,
                 {SafeTx: typedDataArgs.types.SafeTx} as unknown as Record<string, TypedDataField[]>, // lmao
@@ -79,14 +80,17 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
             })
 
             if (!verification) {
-                console.error(`Failed to verify signature. Nothing will be submitted.`);
-                throw new Error(`Invalid signature.`);
+                console.error(`Failed to verify signature. Nothing will be submitted. (signed from ${addr})`);
+                console.warn(`Typed data: `, typedDataArgs);
+                console.warn(`Signature: ${signature}`);
+                console.warn(`From: ${addr}`);
+                throw new Error(`Invalid signature. Failed to verify typedData.`);
+            } else {
+                console.log(`Successfully verified signature (from=${addr},signature=${signature})`);
             }
 
-            spinner.stopAndPersist({symbol: chalk.green('✔')});
             return signature;
         } catch (e) {
-            spinner.stopAndPersist({symbol: '❌'});
             if ((e as Error).message.includes(`0x6a80`)) {
                 console.error(`Zeus requires that you enable blind signing on your device.`);
                 console.error(`See: https://support.ledger.com/article/4405481324433-zd`);
@@ -113,6 +117,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
                     const provider = new JsonRpcProvider(await this.rpcUrl.get());
                     const signer = await getLedgerSigner(provider, derivationPath);
                     const res = await signer.getAddress() as `0x${string}`;
+                    console.log(`Detected ledger address(${derivationPath}): ${res}`);    
 
                     // double check that this ledger is a signer for the multisig.
                     if (this.forMultisig) {
