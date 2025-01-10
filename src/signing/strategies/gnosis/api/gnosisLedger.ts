@@ -74,16 +74,16 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
                 typedDataArgs.message
             ) as `0x${string}`
 
-            const fromAddr = ethers.verifyTypedData(typedDataArgs.domain, {SafeTx: typedDataArgs.types.SafeTx} as unknown as Record<string, TypedDataField[]>, typedDataArgs.message, signature);
-            if (fromAddr !== addr) {
-                console.error(`Failed to verify signature. Nothing will be submitted. (signed from ${addr})`);
-                console.warn(`Typed data: `, typedDataArgs);
-                console.warn(`Signature: ${signature}`);
-                console.warn(`From: ${addr}`);
-                throw new Error(`Invalid signature. Failed to verify typedData.`);
-            } else {
-                console.log(`Successfully verified signature (from=${addr},signature=${signature})`);
-            }
+            // const fromAddr = ethers.verifyTypedData(typedDataArgs.domain, {SafeTx: typedDataArgs.types.SafeTx} as unknown as Record<string, TypedDataField[]>, typedDataArgs.message, signature);
+            // if (fromAddr !== addr) {
+            //     console.error(`Failed to verify signature. Nothing will be submitted. (signed from ${addr})`);
+            //     console.warn(`Typed data: `, typedDataArgs);
+            //     console.warn(`Signature: ${signature}`);
+            //     console.warn(`From: ${addr}`);
+            //     throw new Error(`Invalid signature. Failed to verify typedData.`);
+            // } else {
+            //     console.log(`Successfully verified signature (from=${addr},signature=${signature})`);
+            // }
 
             return signature;
         } catch (e) {

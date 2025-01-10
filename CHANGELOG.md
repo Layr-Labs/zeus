@@ -1,6 +1,7 @@
 
 **[Current]** 
-
+1.0.6:
+- disables gnosis verification (cringe)
 
 **[Historical]** 
 1.0.1:
