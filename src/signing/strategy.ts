@@ -72,7 +72,7 @@ export interface TExecuteOptions {
     nonInteractive?: boolean,
     fork?: TForkType,
     etherscanApiKey?: string | boolean,
-    derivationPath?: string,
+    accountIndex?: number,
     anvil?: AnvilService,
     testClient?: TestClient,
     rpcUrl?: string,

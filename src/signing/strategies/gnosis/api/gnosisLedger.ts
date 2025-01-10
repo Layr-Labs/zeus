@@ -1,49 +1,40 @@
 import { GnosisApiStrategy } from "./gnosisApi";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
-import { getDefaultProvider } from 'ethers'
 import { checkShouldSignGnosisMessage, pressAnyButtonToContinue } from "../../../../commands/prompts";
-import { getLedgerSigner } from "../../ledgerTransport";
-import { createPublicClient, getContract, http, verifyMessage } from "viem";
+import { createPublicClient, getContract, http } from "viem";
 import { ICachedArg, TStrategyOptions } from "../../../strategy";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { TDeploy } from "../../../../metadata/schema";
 import * as prompts from '../../../../commands/prompts';
-import { JsonRpcProvider } from "ethers";
 import * as AllChains from 'viem/chains';
 import { abi } from "../onchain/Safe";
-import { adjustVInSignature, calculateSafeTransactionHash } from "@safe-global/protocol-kit/dist/src/utils";
-import { SigningMethod } from "@safe-global/protocol-kit";
+import { getLedgerAccount } from "../../ledgerTransport";
  
 export class GnosisLedgerStrategy extends GnosisApiStrategy {
     id = "gnosis.api.ledger";
     description = "Gnosis API - Ledger (Not For Private Hotfixes)";
 
-    public derivationPath: ICachedArg<string | boolean> 
+    public accountIndex: ICachedArg<number> 
 
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
         super(deploy, transaction, options);
-        this.derivationPath= this.arg(async () => {
-            return await prompts.derivationPath();
-        }, 'derivationPath')
+        this.accountIndex = this.arg(async () => {
+            return await prompts.accountIndex();
+        }, 'accountIndex')
     }
-    
+
     async getSignature(version: string, txn: SafeTransaction, safeAddress: `0x${string}`): Promise<`0x${string}`> {
-        const provider = getDefaultProvider();
+        const signer = await getLedgerAccount(await this.accountIndex.get());
+        if (!signer.signTypedData) {
+            throw new Error(`This ledger does not support signing typed data, and cannot be used with zeus.`);
+        }
 
-        const derivationPath = await (async () => {
-            const dp = await this.derivationPath.get();
-            if (!dp) return undefined;
-            if (dp === true) throw new Error(`Invalid.`)
-            return dp;
-        })()
-
-        const signer = await getLedgerSigner(provider, derivationPath);
         const types = getEip712TxTypes(version);
-        const typedDataArgs = {
-            types: {SafeTx: types.SafeTx},
+        const typedDataParameters = {
+            types: types as unknown as Record<string, unknown>,
             domain: {
-                verifyingContract: safeAddress,
+                verifyingContract: safeAddress as `0x${string}`,
                 chainId: this.deploy._.chainId,
             },
             primaryType: 'SafeTx',
@@ -53,43 +44,17 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
                 safeTxGas: txn.data.safeTxGas,
                 baseGas: txn.data.baseGas,
                 gasPrice: txn.data.gasPrice,
-                nonce: txn.data.nonce
+                nonce: txn.data.nonce,
+                refundReceiver: txn.data.refundReceiver,
             }
-        } as const;
+        };
 
-        const gnosisHash = calculateSafeTransactionHash(safeAddress, txn.data, version, BigInt(this.deploy._.chainId));
-        console.log(`Expected gnosis hash: ${gnosisHash}`);
-
-        await checkShouldSignGnosisMessage(typedDataArgs);
-
-        console.log(`Signing with ledger (please check your device for instructions)...`);
+        await checkShouldSignGnosisMessage(typedDataParameters);
 
         try {
-            const addr = await signer.getAddress() as `0x${string}`;
-            console.log(`The ledger reported this address: ${addr}`);
-            
-            const _signature = await signer.signMessage(
-                gnosisHash
-            ) as `0x${string}`
-
-            const signature = (await adjustVInSignature(SigningMethod.ETH_SIGN, _signature, gnosisHash, addr)) as `0x${string}`;
-
-            const valid = await verifyMessage({address: addr, message: gnosisHash, signature: _signature});
-            if (!valid) {
-                console.error(`Failed to verify signature. Nothing will be submitted. (signed from ${addr})`);
-                console.warn(`Signature: ${_signature}`);
-                console.log(`V-Adjusted signature: ${signature}`);
-                console.warn(`Gnosis Hash: ${gnosisHash}`);
-                console.warn(`From: ${addr}`);
-                throw new Error(`Invalid signature. Failed to verify typedData.`);
-            } else {
-                console.log(`Successfully verified signature (from=${addr},signature=${_signature})`);
-            }
-
-            console.log(`Original Signature: ${_signature}`);
-            console.log(`V-Adjusted signature: ${signature}`);
-
-            return signature;
+            console.log(`Signing with ledger address: ${signer.address}`)
+            console.log(`Signing with ledger (please check your device for instructions)...`);
+            return await signer.signTypedData(typedDataParameters);
         } catch (e) {
             if ((e as Error).message.includes(`0x6a80`)) {
                 console.error(`Zeus requires that you enable blind signing on your device.`);
@@ -103,21 +68,13 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
 
     async getSignerAddress(): Promise<`0x${string}`> {
         console.log(`Querying ledger for address...`);
-        
-        const derivationPath = await (async () => {
-            const dp = await this.derivationPath.get();
-            if (!dp) return undefined;
-            if (dp === true) throw new Error(`Invalid.`)
-            return dp;
-        })()
 
         try {
             while (true) {
                 try {
-                    const provider = new JsonRpcProvider(await this.rpcUrl.get());
-                    const signer = await getLedgerSigner(provider, derivationPath);
-                    const res = await signer.getAddress() as `0x${string}`;
-                    console.log(`Detected ledger address(${derivationPath}): ${res}`);    
+                    const accountIndex = await this.accountIndex.get();
+                    const signer = await getLedgerAccount(accountIndex);
+                    console.log(`Detected ledger address: ${signer.address}`);    
 
                     // double check that this ledger is a signer for the multisig.
                     if (this.forMultisig) {
@@ -130,12 +87,12 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
                             abi,
                             address: this.forMultisig
                         })
-                        if (!await safe.read.isOwner([res])) {
-                            throw new Error(`This ledger path (${derivationPath}) produced address (${res}), which is not a signer on the multisig (${this.forMultisig})`);
+                        if (!await safe.read.isOwner([signer.address])) {
+                            throw new Error(`This ledger path (accountIndex=${accountIndex}) produced address (${signer.address}), which is not a signer on the multisig (${this.forMultisig})`);
                         }
                     }
                     
-                    return res;
+                    return signer.address;
                 } catch (e) {
                     if ((e as Error).message.includes('Locked device')) {
                         console.error(`Error: Please unlock your ledger.`);

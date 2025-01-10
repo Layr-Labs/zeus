@@ -1,5 +1,8 @@
 
 **[Current]** 
+1.1.0:
+- Complete rewrite of the ledger integration, with an emphasis on viem+ledger.
+
 1.0.6:
 - disables gnosis verification (cringe)
 
