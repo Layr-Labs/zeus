@@ -26,6 +26,7 @@ export default {
     '!**/node_modules/**',
     '!**/vendor/**',
   ],
+  extensionsToTreatAsEsm: [".ts", ".tsx"],
   coverageReporters: ['html', 'lcov'],
   coverageThreshold: {
       "global": {

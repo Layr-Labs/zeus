@@ -2,6 +2,12 @@ import { jest } from '@jest/globals';
 import { MockStrategy } from './mockStrategy';
 import { TDeployPhase, TEnvironmentManifest } from '../../metadata/schema';
 import { SavebleDocument, Transaction } from '../../metadata/metadataStore';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+
+jest.unstable_mockModule('@celo/viem-account-ledger', () => ({
+    // replace ledger with a hardcoded account
+    ledgerToAccount: jest.fn().mockReturnValue(privateKeyToAccount(generatePrivateKey()))
+}))
 
 export function mockEnvManifest(): TEnvironmentManifest {
   return {
