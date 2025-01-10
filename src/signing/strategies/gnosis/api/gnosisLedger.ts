@@ -15,6 +15,7 @@ import * as prompts from '../../../../commands/prompts';
 import { JsonRpcProvider } from "ethers";
 import * as AllChains from 'viem/chains';
 import { abi } from "../onchain/Safe";
+import { ethers } from 'ethers';
  
 export class GnosisLedgerStrategy extends GnosisApiStrategy {
     id = "gnosis.api.ledger";
@@ -73,13 +74,8 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
                 typedDataArgs.message
             ) as `0x${string}`
 
-            const verification = await verifyTypedData({
-                ...typedDataArgs, 
-                address: addr, 
-                signature
-            })
-
-            if (!verification) {
+            const fromAddr = ethers.verifyTypedData(typedDataArgs.domain, {SafeTx: typedDataArgs.types.SafeTx} as unknown as Record<string, TypedDataField[]>, typedDataArgs.message, signature);
+            if (fromAddr !== addr) {
                 console.error(`Failed to verify signature. Nothing will be submitted. (signed from ${addr})`);
                 console.warn(`Typed data: `, typedDataArgs);
                 console.warn(`Signature: ${signature}`);
