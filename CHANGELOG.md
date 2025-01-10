@@ -6,6 +6,8 @@
 1.0.1:
     - `zeus test` now accepts an optional rpcUrl. Note that the RPC is checked to match the chainId
       of the specified environment.
+    - `multisig` steps now run `zeus test` automatically during deploys.
+    - removed the behavior of automatically stopping after segments of the deploy.
       
 1.0.0:
     bugfixes:
