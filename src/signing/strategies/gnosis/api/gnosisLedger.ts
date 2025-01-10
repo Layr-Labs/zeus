@@ -98,8 +98,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
     }
 
     async getSignerAddress(): Promise<`0x${string}`> {
-        const prompt = ora(`Querying ledger for address...`);
-        const spinner = prompt.start();
+        console.log(`Querying ledger for address...`);
         
         const derivationPath = await (async () => {
             const dp = await this.derivationPath.get();
@@ -131,11 +130,9 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
                         }
                     }
                     
-                    spinner.stopAndPersist({symbol: chalk.green('✔'), suffixText: res});
                     return res;
                 } catch (e) {
                     if ((e as Error).message.includes('Locked device')) {
-                        spinner.stopAndPersist({symbol: '❌'});
                         console.error(`Error: Please unlock your ledger.`);
                         await pressAnyButtonToContinue();
                         continue;
