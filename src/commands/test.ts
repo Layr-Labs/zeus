@@ -5,7 +5,7 @@ import { runTest } from '../signing/strategies/test';
 import * as allArgs from  './args';
 import chalk from 'chalk';
 
-const handler = async function(_user: TState, args: {scripts: string[], env: string | undefined, verbose: boolean}) {
+const handler = async function(_user: TState, args: {scripts: string[], rpcUrl: string | undefined, env: string | undefined, verbose: boolean}) {
     const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin();
     const runContext = (args.env) ? {env: args.env} : undefined;
@@ -16,7 +16,7 @@ const handler = async function(_user: TState, args: {scripts: string[], env: str
     await Promise.all(args.scripts.map(async (script) => {
         const start = Date.now()
         try {
-            const res = await runTest({upgradePath: script, txn, context: runContext, verbose: args.verbose, json: false, rawOutput: true});
+            const res = await runTest({upgradePath: script, rpcUrl: args.rpcUrl, txn, context: runContext, verbose: args.verbose, json: false, rawOutput: true});
             timeTakenMs[script] = Date.now() - start;
             if (res.code !== 0) {
                 console.error(`❌ [${script}] - test failed ${verboseHelp}`);
@@ -36,7 +36,8 @@ const handler = async function(_user: TState, args: {scripts: string[], env: str
     if (isSuccess) {
         console.log(`✅ ${args.scripts.length} test${args.scripts.length > 1 ? 's' : ''} succeeded ${verboseHelp}`)
     } else {
-        console.error(`❌ ${anyFailures.length} tests failed, ${Object.keys(result).length - anyFailures.length} succeeded. ${verboseHelp}`)
+        const plural = (count: number) => count > 1 ? `s` : `` 
+        console.error(`❌ ${anyFailures.length} test${plural(anyFailures.length)} failed, ${Object.keys(result).length - anyFailures.length} succeeded. ${verboseHelp}`)
     }
 
     Object.keys(result).sort().forEach(script => {
@@ -53,6 +54,7 @@ const cmd = command({
     args: {
         json,
         env: allArgs.env,
+        rpcUrl: allArgs.rpcUrl,
         verbose: allArgs.verbose,
         scripts: restPositionals({
             type: string,

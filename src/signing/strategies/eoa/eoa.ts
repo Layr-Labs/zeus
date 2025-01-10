@@ -42,10 +42,14 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
     }
 
     async redactInOutput(): Promise<string[]> {
-        const etherscan = await this.etherscanApiKey.get();
-        if (etherscan && typeof etherscan === 'string') {
-            return [etherscan];
-        }
+        try {
+            const etherscan = await this.etherscanApiKey.getImmediately();
+            if (etherscan && typeof etherscan === 'string') {
+                return [etherscan];
+            }
+        } catch {
+            return [];
+        };
 
         return [];
     }

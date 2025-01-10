@@ -10,14 +10,15 @@ import { SavebleDocument, Transaction } from "../../metadata/metadataStore";
 import { HaltDeployError, TGnosisRequest, TStrategyOptions } from "../../signing/strategy";
 import { GnosisSigningStrategy } from "../../signing/strategies/gnosis/gnosis";
 import { GnosisOnchainStrategy } from "../../signing/strategies/gnosis/onchain/onchain";
-import { MultisigMetadata, TDeploy, TDeployStateMutations, TMutation } from "../../metadata/schema";
+import { MultisigMetadata, TDeploy, TDeployStateMutations, TMutation, TTestOutput } from "../../metadata/schema";
 import { advance, advanceSegment, getChain, isTerminalPhase } from "../../commands/deploy/cmd/utils";
 import { injectableEnvForEnvironment } from "../../commands/run";
 import { canonicalPaths } from "../../metadata/paths";
 import { multisigBaseUrl, overrideTxServiceUrlForChainId } from "../../signing/strategies/gnosis/api/utils";
-import { rpcUrl } from "../../commands/prompts";
 import { PhaseTypeHandler } from "./base";
 import { promptForStrategy, promptForStrategyWithOptions } from "../../commands/deploy/cmd/utils-strategies";
+import { runTest } from "../../signing/strategies/test";
+import * as prompts from '../../commands/prompts';
 
 export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, metatxn: Transaction, options: TStrategyOptions | undefined): Promise<void> {
     let multisigStrategy: GnosisSigningStrategy | undefined = undefined;
@@ -26,11 +27,35 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
         multisigStrategy = new GnosisOnchainStrategy(deploy, metatxn, {defaultArgs: options, nonInteractive: true});
     }   
 
+    const rpcUrl = await (async () => {
+        if (options?.defaultArgs?.rpcUrl) {
+            return options?.defaultArgs?.rpcUrl;
+        }
+        return await prompts.rpcUrl(deploy._.chainId);
+    })();
+
     switch (deploy._.phase) {
         case "multisig_start": {         
-            // `gnosis.api` + `gnosis.onchain`.    
-            const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);   
+            const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);  
+            // `gnosis.api` + `gnosis.onchain`.     
             if (existsSync(script)) {
+                const prompt = ora(`Running 'zeus test'`);
+                const spinner = prompt.start();
+                try {
+                    const res = await runTest({upgradePath: script, rpcUrl, txn: metatxn, context: {env: deploy._.env, deploy: deploy._.name}, verbose: false, json: true})
+                    if (res.code !== 0) {
+                        throw new HaltDeployError(deploy, `One or more tests failed.`, false);
+                    }
+                    const testOutput = await metatxn.getJSONFile<TTestOutput>(canonicalPaths.testRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
+                    testOutput._ = res;
+                    await testOutput.save();
+                    spinner.stopAndPersist({prefixText: '✔'});
+                } catch (e) {
+                    spinner.stopAndPersist({prefixText: '❌'})
+                    console.error(e);
+                    throw e;
+                }
+                
                 multisigStrategy = multisigStrategy ?? (await promptForStrategy(deploy, metatxn) as GnosisSigningStrategy);
                 const sigRequest = await multisigStrategy.requestNew(script, deploy._) as TGnosisRequest;
                 deploy._.metadata[deploy._.segmentId] = {
@@ -157,7 +182,7 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
             }
 
             if (multisigTxn._.executionDate && multisigTxn._.transactionHash) {
-                const _rpcUrl = options?.defaultArgs?.rpcUrl ?? await rpcUrl(deploy._.chainId);
+                const _rpcUrl = options?.defaultArgs?.rpcUrl ?? await prompts.rpcUrl(deploy._.chainId);
                 const client = createPublicClient({
                     chain: getChain(deploy._.chainId), 
                     transport: http(_rpcUrl),

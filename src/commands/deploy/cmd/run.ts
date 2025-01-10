@@ -280,8 +280,8 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                 return;
             }
 
-            console.error(`The deploy halted. See log output for more information.`);
-            console.error(e);
+            console.warn(`The deploy halted. See log output for more information.`);
+            console.warn(e);
         } else {
             console.error(`An unknown error occurred while performing the deploy.`)
             console.error(`<see log output for more information on how to continue>`)
@@ -289,8 +289,6 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
             console.error(e);
         }
 
-        console.error();
-        console.error(`An error occurred while running.`)
         if (metatxn.hasChanges()) {
             console.warn(`\tYour copy had outstanding changes that weren't committed.`)
             console.warn(`Modified files: `)

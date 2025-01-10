@@ -8,9 +8,9 @@ import { join } from "path";
 import ora from "ora";
 import { runTest } from "../../signing/strategies/test";
 import { canonicalPaths } from "../../metadata/paths";
-import { advance, cleanContractName, getChain, isTerminalPhase, sleepMs } from "../../commands/deploy/cmd/utils";
+import { advance, cleanContractName, getChain, sleepMs } from "../../commands/deploy/cmd/utils";
 import chalk from "chalk";
-import { rpcUrl, wouldYouLikeToContinue } from "../../commands/prompts";
+import { wouldYouLikeToContinue } from "../../commands/prompts";
 import { getRepoRoot } from "../../commands/configs";
 import { computeFairHash } from "../../commands/deploy/utils";
 import { injectableEnvForEnvironment } from "../../commands/run";
@@ -18,6 +18,7 @@ import { createPublicClient, http, TransactionReceiptNotFoundError } from "viem"
 import { PhaseTypeHandler } from "./base";
 import * as strategies from "../../commands/deploy/cmd/utils-strategies";
 import { existsSync, readFileSync } from "fs";
+import * as prompts from '../../commands/prompts';
 
 export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn: Transaction, options: TStrategyOptions | undefined): Promise<void> {
     let eoaStrategy: EOABaseSigningStrategy | undefined = undefined;
@@ -25,6 +26,13 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
     if (options?.nonInteractive || options?.defaultArgs?.fork) {
         eoaStrategy = new EOASigningStrategy(deploy, metatxn, {defaultArgs: options, nonInteractive: true})
     }
+
+    const rpcUrl = await (async () => {
+        if (options?.defaultArgs?.rpcUrl) {
+            return options?.defaultArgs?.rpcUrl;
+        }
+        return await prompts.rpcUrl(deploy._.chainId);
+    })();
         
     switch (deploy._.phase) {
         // eoa states
@@ -40,7 +48,7 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
             const prompt = ora(`Running 'zeus test'`);
             const spinner = prompt.start();
             try {
-                const res = await runTest({upgradePath: script, txn: metatxn, context: {env: deploy._.env, deploy: deploy._.name}, verbose: false, json: true})
+                const res = await runTest({upgradePath: script, rpcUrl, txn: metatxn, context: {env: deploy._.env, deploy: deploy._.name}, verbose: false, json: true})
                 if (res.code !== 0) {
                     throw new HaltDeployError(deploy, `One or more tests failed.`, false);
                 }
@@ -56,21 +64,21 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
 
             if (!options?.defaultArgs?.nonInteractive && !options?.defaultArgs?.fork) {
                 console.log(`Zeus would like to simulate this EOA transaction before attempting it for real. Please choose the method you'll use to sign:`)
-                eoaStrategy = (await strategies.promptForStrategy(deploy, metatxn)) as unknown as EOABaseSigningStrategy;
+                eoaStrategy = (await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {...options, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}})) as unknown as EOABaseSigningStrategy;
                 const sigRequest = await eoaStrategy.prepare(script, deploy._) as TForgeRequest;
                 console.log(chalk.yellow(`Please reviewing the following: `))
                 console.log(chalk.yellow(`=====================================================================================`))
                 console.log(chalk.bold.underline(`Forge output: `))
                 console.log(JSON.stringify(sigRequest.forge, null, 2));
                 console.log(JSON.stringify(sigRequest.output, null, 2));
-                console.log(chalk.bold.underline(`Deployed Contracts: `))
+                console.log(chalk.bold.underline(`Simulation Deployed Contracts: `))
                 if (sigRequest.deployedContracts && Object.keys(sigRequest.deployedContracts).length > 0) {
                     console.table(sigRequest.deployedContracts)
                 } else {
                     console.log(chalk.bold(`<none>`));
                 }
+                console.log(chalk.bold.underline(`Simulation Updated Environment: `));
                 if (sigRequest.stateUpdates && Object.keys(sigRequest.stateUpdates).length > 0) {
-                    console.log(chalk.bold.underline(`Updated Environment: `));
                     console.table(sigRequest.stateUpdates.map(mut => {return {name: mut.name, value: mut.value}}));
                 } else {
                     console.log(chalk.bold(`<none>`))
@@ -91,7 +99,7 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
         case "eoa_start": {
             const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
             if (existsSync(script)) {
-                const strategy = eoaStrategy ?? await strategies.promptForStrategy(deploy, metatxn);
+                const strategy = eoaStrategy ?? await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {...options, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}});
                 const sigRequest = await strategy.requestNew(script, deploy._) as TForgeRequest;
                 if (sigRequest?.ready) {
                     deploy._.metadata[deploy._.segmentId] = {
@@ -189,7 +197,7 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
                 throw new HaltDeployError(deploy, 'foundry.deploy.json was corrupted.', false);
             }
 
-            const localRpcUrl = (eoaStrategy ? (await eoaStrategy.rpcUrl.get()) : await rpcUrl(deploy._.chainId));
+            const localRpcUrl = (eoaStrategy ? (await eoaStrategy.rpcUrl.get()) : await prompts.rpcUrl(deploy._.chainId));
             const client = createPublicClient({
                 chain: getChain(deploy._.chainId), 
                 transport: http(localRpcUrl),
@@ -251,14 +259,6 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
             await advance(deploy);
             await deploy.save();
             await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction confirmed`);
-
-            if (!options?.nonInteractive) {
-                if (deploy._.segments[deploy._.segmentId] && !isTerminalPhase(deploy._.phase)) {
-                    console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
-                    console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
-                    throw new HaltDeployError(deploy, `Interactive deploy halted. This is not an error`, false);
-                }
-            }
             break;
         }
         default:
