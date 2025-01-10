@@ -1,5 +1,12 @@
 
 **[Current]** 
+
+
+**[Historical]** 
+1.0.1:
+    - `zeus test` now accepts an optional rpcUrl. Note that the RPC is checked to match the chainId
+      of the specified environment.
+      
 1.0.0:
     bugfixes:
         - `zeus verify` no longer prompts for an etherscan api key.
@@ -13,8 +20,6 @@
         - Multisig steps will now check onchain that the provided address is a signer for the SAFE before proceeding. 
         - Multisig + EOA steps now support signing with a non-default derivation path.
 
-
-**[Historical]** 
 0.5.5:
 - Fixed the script phase.
 

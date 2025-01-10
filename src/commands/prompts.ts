@@ -168,7 +168,7 @@ export const signerKey = async (chainId: number, rpcUrl: string, overridePrompt:
     throw new Error(`Failed to provide a signer.`);
 }
 
-const getChainId = async (nodeUrl: string) => {
+export const getChainId = async (nodeUrl: string) => {
     try {
         const response = await fetch(nodeUrl, {
             method: 'POST',

@@ -6,6 +6,7 @@ import * as allChains from 'viem/chains';
 import { canonicalPaths } from "../../metadata/paths";
 import { TEnvironmentManifest } from "../../metadata/schema";
 import { Chain } from 'viem';
+import { getChainId } from "../../commands/prompts";
 
 interface TRunContextWithEnv {
     env: string // in the context of an env.
@@ -17,7 +18,7 @@ type TRunContextWithDeploy = TRunContextWithEnv & {
 
 type TRunContext = undefined | TRunContextWithDeploy | TRunContextWithEnv;
 
-export const runTest = async (args: {upgradePath: string, txn: Transaction, context: TRunContext, verbose: boolean, json: boolean, rawOutput?: boolean}) => {
+export const runTest = async (args: {upgradePath: string, rpcUrl?: string | undefined, txn: Transaction, context: TRunContext, verbose: boolean, json: boolean, rawOutput?: boolean}) => {
     const deployContext = (args.context as TRunContextWithDeploy | undefined);
     const _env: Record<string, string> = deployContext?.env ? (await injectableEnvForEnvironment(args.txn, deployContext.env)) : {};
     const env = {
@@ -25,11 +26,20 @@ export const runTest = async (args: {upgradePath: string, txn: Transaction, cont
         ZEUS_TEST: 'true'
     };
 
+    if (args.rpcUrl && deployContext?.env) {
+        // check that the rpc url 
+        const envObj = await args.txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(deployContext.env));
+        const chainId = await getChainId(args.rpcUrl);
+        if (chainId !== envObj._.chainId) {
+            throw new Error(`The provided RPC did not correspond to ChainID ${chainId}`);
+        }
+    }
+
     const additionalArgs = [];
     if (deployContext?.env) {
         const envObj = await args.txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(deployContext.env));
         const chain = Object.values((allChains as unknown as Chain<undefined>[])).find(chain => chain.id === envObj._.chainId)
-        const rpcUrl = chain?.rpcUrls ? Object.values(chain.rpcUrls)[0].http[0] : undefined;
+        const rpcUrl = args.rpcUrl ?? (chain?.rpcUrls ? Object.values(chain.rpcUrls)[0].http[0] : undefined);
         if (rpcUrl) {
             additionalArgs.push(...['--rpc-url', rpcUrl])
         }
