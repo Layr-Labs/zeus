@@ -143,7 +143,6 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
                 }
             }
         } catch (e) {
-            spinner.stopAndPersist({symbol: '❌'});
             throw new Error(`An error occurred while accessing the Ledger`, {cause: e});
         }
     }
