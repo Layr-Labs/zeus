@@ -44,7 +44,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
         const types = getEip712TxTypes(version);
 
         const typedDataArgs = {
-            types: types as unknown as Record<string, unknown>,
+            types: {SafeTx: types.SafeTx},
             domain: {
                 verifyingContract: safeAddress,
                 chainId: this.deploy._.chainId,
@@ -58,7 +58,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
                 gasPrice: txn.data.gasPrice,
                 nonce: txn.data.nonce
             }
-        };
+        } as const;
 
         await checkShouldSignGnosisMessage(typedDataArgs);
 
@@ -70,20 +70,20 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
             
             const signature = await signer.signTypedData(
                 typedDataArgs.domain,
-                {SafeTx: typedDataArgs.types.SafeTx} as unknown as Record<string, TypedDataField[]>, // lmao
+                {SafeTx: typedDataArgs.types.SafeTx},
                 typedDataArgs.message
             ) as `0x${string}`
 
-            // const fromAddr = ethers.verifyTypedData(typedDataArgs.domain, {SafeTx: typedDataArgs.types.SafeTx} as unknown as Record<string, TypedDataField[]>, typedDataArgs.message, signature);
-            // if (fromAddr !== addr) {
-            //     console.error(`Failed to verify signature. Nothing will be submitted. (signed from ${addr})`);
-            //     console.warn(`Typed data: `, typedDataArgs);
-            //     console.warn(`Signature: ${signature}`);
-            //     console.warn(`From: ${addr}`);
-            //     throw new Error(`Invalid signature. Failed to verify typedData.`);
-            // } else {
-            //     console.log(`Successfully verified signature (from=${addr},signature=${signature})`);
-            // }
+            const fromAddr = ethers.verifyTypedData(typedDataArgs.domain, {SafeTx: typedDataArgs.types.SafeTx}, typedDataArgs.message, signature);
+            if (fromAddr !== addr) {
+                console.error(`Failed to verify signature. Nothing will be submitted. (signed from ${addr})`);
+                console.warn(`Typed data: `, typedDataArgs);
+                console.warn(`Signature: ${signature}`);
+                console.warn(`From: ${addr}`);
+                throw new Error(`Invalid signature. Failed to verify typedData.`);
+            } else {
+                console.log(`Successfully verified signature (from=${addr},signature=${signature})`);
+            }
 
             return signature;
         } catch (e) {

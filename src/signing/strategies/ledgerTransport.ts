@@ -12,7 +12,8 @@ export const getLedgerSigner = async (provider: Provider, derivationPath: string
     }
     
     const transport = await TransportNodeHid.create(60_000);
-    const signer = new LedgerSigner(transport, provider, derivationPath);
-    state[cacheKey] = signer;
-    return signer;
+    state[cacheKey] = new LedgerSigner(transport, provider, derivationPath);;
+    return state[cacheKey];
 }
+
+
