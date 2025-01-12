@@ -4,7 +4,7 @@ import { ICachedArg, TStrategyOptions } from "../../strategy";
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { TDeploy } from "../../../metadata/schema";
 import * as prompts from '../../../commands/prompts';
-import { DEFAULT_DERIVATION_PATH } from "@celo/viem-account-ledger";
+import { DEFAULT_BASE_DERIVATION_PATH } from "../ledgerTransport";
 
 export class LedgerSigningStrategy extends EOABaseSigningStrategy {
     id = "ledger";
@@ -27,8 +27,12 @@ export class LedgerSigningStrategy extends EOABaseSigningStrategy {
 
     async subclassForgeArgs(): Promise<string[]> {
         const derivationPathArgs = await (async () => {
-            const accountIndex = await this.accountIndex.getImmediately();
-            return [`--mnemonic-derivation-paths`, `${DEFAULT_DERIVATION_PATH}/${accountIndex}`]
+            try {
+                const accountIndex = await this.accountIndex.getImmediately();
+                return [`--mnemonic-derivation-paths`, `${DEFAULT_BASE_DERIVATION_PATH}/${accountIndex}`]
+            } catch {
+                return [];
+            }
         })()
         return ["--ledger", ...derivationPathArgs];
     }

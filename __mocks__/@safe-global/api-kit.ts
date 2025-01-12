@@ -1,7 +1,5 @@
-import { ledgerToAccount } from '@celo/viem-account-ledger';
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { jest } from '@jest/globals';
 import { SafeMultisigTransactionResponse, SafeMultisigConfirmationResponse } from '@safe-global/types-kit';
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 type TGetTransaction = import('@safe-global/api-kit').default['getTransaction']
 

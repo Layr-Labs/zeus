@@ -15,7 +15,7 @@ import semver from 'semver';
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { chainIdName } from "../../prompts";
 import { AnvilOptions, AnvilService } from '@foundry-rs/hardhat-anvil/dist/src/anvil-service';
-import { mnemonicToAccount } from 'viem/accounts'
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
 import { TenderlyVirtualTestnetClient } from "./utils-tenderly";
 import { TDeploy, TEnvironmentManifest, TUpgrade } from "../../../metadata/schema";
 import { acquireDeployLock, releaseDeployLock } from "./utils-locks";
@@ -55,7 +55,7 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
     if (!isValidFork(args.fork)) {
         throw new Error(`Invalid value for 'fork' - expected one of (tenderly, anvil)`);
     }
-    
+
     const user: TLoggedInState = _user;
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {

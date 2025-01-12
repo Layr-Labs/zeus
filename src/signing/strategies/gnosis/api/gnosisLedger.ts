@@ -2,7 +2,7 @@ import { GnosisApiStrategy } from "./gnosisApi";
 import { SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 import { checkShouldSignGnosisMessage, pressAnyButtonToContinue } from "../../../../commands/prompts";
-import { createPublicClient, getContract, http } from "viem";
+import { createPublicClient, getContract, hashTypedData, http } from "viem";
 import { ICachedArg, TStrategyOptions } from "../../../strategy";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { TDeploy } from "../../../../metadata/schema";
@@ -51,10 +51,19 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
 
         await checkShouldSignGnosisMessage(typedDataParameters);
 
+        if (!signer.signMessage) {
+            throw new Error(`This ledger doesn't support signing somehow.`);
+        }
+
+        const preImage = hashTypedData(typedDataParameters);
+        console.log(`Signing from: ${signer.address}`);
+        console.log(`Typed data hash to sign: ${preImage}`);
+
         try {
-            console.log(`Signing with ledger address: ${signer.address}`)
-            console.log(`Signing with ledger (please check your device for instructions)...`);
-            return await signer.signTypedData(typedDataParameters);
+            console.log(`Signing with ledger(${signer.address}) (please check your device for instructions)...`);
+            const signature = await signer.signTypedData(typedDataParameters);
+            console.log(`Signature: ${signature}`);
+            return signature;
         } catch (e) {
             if ((e as Error).message.includes(`0x6a80`)) {
                 console.error(`Zeus requires that you enable blind signing on your device.`);
@@ -67,7 +76,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
     }
 
     async getSignerAddress(): Promise<`0x${string}`> {
-        console.log(`Querying ledger for address...`);
+        console.log(`Querying ledger for address (check device for instructions)...`);
 
         try {
             while (true) {

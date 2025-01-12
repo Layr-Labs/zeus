@@ -1,7 +1,7 @@
 
 **[Current]** 
 1.1.0:
-- Complete rewrite of the ledger integration, with an emphasis on viem+ledger.
+- Complete rewrite of the ledger integration, with an emphasis on viem+ledger. Multisig ledger phases now work properly.
 
 1.0.6:
 - disables gnosis verification (cringe)

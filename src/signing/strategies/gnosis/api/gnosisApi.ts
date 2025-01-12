@@ -108,6 +108,8 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         }
 
         const senderSignature = await this.getSignature(version, txn, safeContext.addr)
+
+        console.log(`Signature requested: ${senderSignature}`);
         
         await apiKit.proposeTransaction({
             safeAddress: getAddress(safeContext.addr),

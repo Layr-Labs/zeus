@@ -134,6 +134,7 @@ export const accountIndex = async () => {
     const val = await envVarOrPrompt({
         title: `Enter the derivation path suffix (e.g m/44'/60'/0'/0/[0]) - (default: 0)`,
         directEntryInputType: 'text',
+        reuseKey: `derivationPathSuffix`,
         isValid: (val: string) => {
             try {
                 parseInt(val);
@@ -214,7 +215,7 @@ export const rpcUrl = async (forChainId: number) => {
     while (true) {
         const result = await envVarOrPrompt({
             title: `Enter an RPC url (or $ENV_VAR) for ${chainIdName(forChainId)}`,
-            reuseKey: `node-${forChainId}`,
+            reuseKey: `node-url`,
             isValid: (text) => {
                 try {
                     let url: string = text;
