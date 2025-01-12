@@ -1,19 +1,17 @@
-import { LedgerSigner } from "@ethers-ext/signer-ledger";
-import TransportNodeHid from "@ledgerhq/hw-transport-node-hid";
-import { Provider } from "ethers";
+import {ledgerToAccount, BASE_DERIVATION_PATH} from './ledger/account'
+import { Account } from "viem";
 
-const state: Record<string, LedgerSigner> = {}
+export const DEFAULT_BASE_DERIVATION_PATH = `m/44'/60'/0'/0`
 
-export const getLedgerSigner = async (provider: Provider, derivationPath: string | undefined) => {
-    const cacheKey = derivationPath === undefined ? 'default' : derivationPath;
+const ledgerAccounts: Record<number, Account> = {};
 
-    if (state[cacheKey]) {
-        return state[cacheKey];
+export const getLedgerAccount = async (accountIndex = 0) => {
+    if (ledgerAccounts[accountIndex] === undefined) {
+        ledgerAccounts[accountIndex] = await ledgerToAccount({
+            derivationPath: `${BASE_DERIVATION_PATH}/${accountIndex}`
+        })
     }
-    
-    const transport = await TransportNodeHid.create(60_000);
-    state[cacheKey] = new LedgerSigner(transport, provider, derivationPath);;
-    return state[cacheKey];
-}
 
+    return ledgerAccounts[accountIndex];
+}
 

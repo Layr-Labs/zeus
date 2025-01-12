@@ -1,4 +1,4 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { jest } from '@jest/globals';
 import { SafeMultisigTransactionResponse, SafeMultisigConfirmationResponse } from '@safe-global/types-kit';
 
 type TGetTransaction = import('@safe-global/api-kit').default['getTransaction']
@@ -13,7 +13,7 @@ const mockConfirmation: () => SafeMultisigConfirmationResponse = () => {
         transactionHash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
         confirmationType: "StaticConfirmation",
         signature: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-        signatureType: "StaticSignatureType",
+        signatureType: "ETH_SIGN",
     };
 }
 

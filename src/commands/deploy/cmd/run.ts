@@ -55,7 +55,7 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
     if (!isValidFork(args.fork)) {
         throw new Error(`Invalid value for 'fork' - expected one of (tenderly, anvil)`);
     }
-    
+
     const user: TLoggedInState = _user;
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {

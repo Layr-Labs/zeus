@@ -6,7 +6,6 @@ import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/
 import { overrideTxServiceUrlForChainId } from "./utils";
 import { TSignatureRequest } from "../../../strategy";
 import { OperationType } from '@safe-global/types-kit';
-import ora from "ora";
 import chalk from "chalk";
 import { getAddress, hexToNumber } from "viem";
 import { SafeTransaction } from '@safe-global/types-kit';
@@ -109,6 +108,8 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         }
 
         const senderSignature = await this.getSignature(version, txn, safeContext.addr)
+
+        console.log(`Signature requested: ${senderSignature}`);
         
         await apiKit.proposeTransaction({
             safeAddress: getAddress(safeContext.addr),

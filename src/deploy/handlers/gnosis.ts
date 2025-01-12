@@ -46,6 +46,7 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                     if (res.code !== 0) {
                         throw new HaltDeployError(deploy, `One or more tests failed.`, false);
                     }
+                    
                     const testOutput = await metatxn.getJSONFile<TTestOutput>(canonicalPaths.testRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
                     testOutput._ = res;
                     await testOutput.save();

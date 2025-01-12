@@ -1,5 +1,5 @@
 import { select } from './utils';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 import { search, input, password as inquirerPassword } from '@inquirer/prompts';
 import chalk from 'chalk';
 import * as AllChains from "viem/chains";
@@ -125,24 +125,27 @@ export const privateKey: (chainId: number, overridePrompt?: string) => Promise<`
     return res as `0x${string}`;
 }
 
-export const derivationPath = async () => {
-    const cont = await wouldYouLikeToContinue("Would you like to use a custom derivation path? (NOTE: the default 'm/44'/60'/0'/0/0' will be used otherwise)");
+export const accountIndex = async () => {
+    const cont = await wouldYouLikeToContinue("Would you like to use a custom bip39 account index? (NOTE: the default 'm/44'/60'/0'/0/[0]s' will be used otherwise)");
     if (!cont) {
-        return false;
+        return 0;
     }
 
-    return envVarOrPrompt({
-        title: `Enter the derivation path (e.g m/44'/60'/0'/0/0)`,
+    const val = await envVarOrPrompt({
+        title: `Enter the derivation path suffix (e.g m/44'/60'/0'/0/[0]) - (default: 0)`,
         directEntryInputType: 'text',
-        isValid: (path: string) => {
+        reuseKey: `derivationPathSuffix`,
+        isValid: (val: string) => {
             try {
-                mnemonicToAccount('bean spread behind outdoor cotton discover leaf dance captain once intact learn success height cool', {path: path as `m/44'/60'/${string}`})
+                parseInt(val);
                 return true;
             } catch {
                 return false;
             }
         }
     })
+
+    return parseInt(val);
 }
 
 export const signerKey = async (chainId: number, rpcUrl: string, overridePrompt: string | undefined, safeAddress: `0x${string}`) => {
@@ -212,7 +215,7 @@ export const rpcUrl = async (forChainId: number) => {
     while (true) {
         const result = await envVarOrPrompt({
             title: `Enter an RPC url (or $ENV_VAR) for ${chainIdName(forChainId)}`,
-            reuseKey: `node-${forChainId}`,
+            reuseKey: `node-url`,
             isValid: (text) => {
                 try {
                     let url: string = text;
