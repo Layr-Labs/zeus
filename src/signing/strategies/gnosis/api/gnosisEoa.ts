@@ -6,7 +6,6 @@ import { checkShouldSignGnosisMessage, privateKey, signerKey } from "../../../..
 import { ICachedArg, TStrategyOptions } from "../../../strategy";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { TDeploy } from "../../../../metadata/schema";
-import { hashTypedData } from "viem";
 
 export class GnosisEOAApiStrategy extends GnosisApiStrategy {
     id = "gnosis.api.eoa";

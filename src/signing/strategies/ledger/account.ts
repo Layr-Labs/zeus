@@ -43,7 +43,9 @@ export const ledgerToAccount = async ({
     
         async signTransaction(transaction) {
             const hash = serializeTransaction(transaction)
-            let { r, s, v: _v } = await ledger.signTransaction(dp, trimLeading0x(hash), null)
+            const signedTxn = await ledger.signTransaction(dp, trimLeading0x(hash), null);
+            let { v: _v } = signedTxn;
+            const { r, s } = signedTxn;
             if (typeof _v === 'string' && (_v === '' || _v === '0x')) {
                 _v = '0x0'
             }

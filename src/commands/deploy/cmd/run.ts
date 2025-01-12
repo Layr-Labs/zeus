@@ -15,7 +15,7 @@ import semver from 'semver';
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { chainIdName } from "../../prompts";
 import { AnvilOptions, AnvilService } from '@foundry-rs/hardhat-anvil/dist/src/anvil-service';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
+import { mnemonicToAccount } from 'viem/accounts'
 import { TenderlyVirtualTestnetClient } from "./utils-tenderly";
 import { TDeploy, TEnvironmentManifest, TUpgrade } from "../../../metadata/schema";
 import { acquireDeployLock, releaseDeployLock } from "./utils-locks";
