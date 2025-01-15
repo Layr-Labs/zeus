@@ -1,5 +1,8 @@
 
 **[Current]** 
+1.1.1:
+- Minor patches to the zeus state machine to make errors more legible.
+
 1.1.0:
 - Complete rewrite of the ledger integration, with an emphasis on viem+ledger. Multisig ledger phases now work properly.
 
