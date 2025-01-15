@@ -120,6 +120,18 @@ class CachedArg<T> implements ICachedArg<T> {
     }
 }
 
+export class PauseDeployError extends Error {
+    readonly phase: string;
+    readonly segmentId: number;
+    readonly deploy: string;
+
+    constructor(deploy: SavebleDocument<TDeploy>, reason: string) {
+        super(`The deploy stopped: ${reason}`);
+        this.phase = deploy._.phase;
+        this.deploy = deploy._.name;
+        this.segmentId = deploy._.segmentId;
+    }
+}
 
 export class HaltDeployError extends Error {
     readonly phase: string;
