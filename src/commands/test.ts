@@ -44,7 +44,9 @@ const handler = async function(_user: TState, args: {scripts: string[], rpcUrl: 
         console.log(`\t${result[script] === true ? chalk.green('✔️') : chalk.red('✖️')}  ${script}      [${timeTakenMs[script]}ms]`);
     })
     
-    process.exit(anyFailures.length);
+    if (anyFailures.length > 0) {
+        throw new Error(`${anyFailures.length} test(s) failed.`);
+    }
 };
 
 const cmd = command({

@@ -141,7 +141,7 @@ export async function loggedIn(): Promise<void> {
     const state = await load();
     if (!isLoggedIn(state)) {
         console.error(chalk.red('this action requires authentication. please login via `zeus login`'));
-        process.exit(1);
+        throw new Error(`Please login.`);
     }
 }
 
@@ -149,6 +149,6 @@ export async function inRepo(): Promise<void> {
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error('This command should be run from within a repository containing a `.zeus` file.');
-        process.exit(1);
+        throw new Error(`Please run from repo.`);
     }
 }

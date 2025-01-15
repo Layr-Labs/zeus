@@ -46,7 +46,7 @@ const handler = async function(_user: TState) {
 
     if (repoConfig !== undefined) {
         console.error(`This repo already has a zeus config ("${await configs.zeus.path()}"). Please modify '.zeus' directly.`);
-        process.exit(1);
+        return;
     }
 
     const zeusHost = await getZeusMetadataRepo(user.github);

@@ -140,7 +140,7 @@ export class GithubJsonDocument<T extends string | object> implements SavebleDoc
         const sha = updatedResponse.data.content?.sha;
         if (!sha) {
             console.error("error: sha response empty")
-            process.exit(1);
+            throw new Error(`invalid github response.`);
         }
     }
 }   
