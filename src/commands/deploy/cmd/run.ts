@@ -275,7 +275,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
         } 
     } catch (e) {
         if (e instanceof PauseDeployError) {
-            chalk.gray(`The deploy exited without error: ${e.message}`);
+            chalk.gray(`The deploy stopped: ${e.message}`);
             return;
         }
         if (e instanceof HaltDeployError) {
