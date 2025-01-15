@@ -3,7 +3,7 @@ import { advance, updateLatestDeploy } from "../../commands/deploy/cmd/utils";
 import { SavebleDocument, Transaction } from "../../metadata/metadataStore";
 import { canonicalPaths } from "../../metadata/paths";
 import { TDeploy, TDeployedContractsManifest, TDeployStateMutations, TEnvironmentManifest, TUpgrade } from "../../metadata/schema";
-import { HaltDeployError, TStrategyOptions } from "../../signing/strategy";
+import { HaltDeployError, PauseDeployError, TStrategyOptions } from "../../signing/strategy";
 import { PhaseTypeHandler } from "./base";
 
 export async function executeSystemPhase(deploy: SavebleDocument<TDeploy>, metatxn: Transaction, _options: TStrategyOptions): Promise<void> {
@@ -91,14 +91,14 @@ export async function executeSystemPhase(deploy: SavebleDocument<TDeploy>, metat
             deploy.save();
             await metatxn.commit(`Deploy ${deploy._.name} completed!`);
             await waitIfAnvil();
-            throw new HaltDeployError(deploy, 'Deploy completed', true /* complete */);
+            throw new PauseDeployError(deploy, 'Deploy completed');
         }
         case "failed": {
             console.error(`The deploy failed. ❌`);
             await updateLatestDeploy(metatxn, deploy._.env, undefined, true);
             await metatxn.commit(`Deploy ${deploy._.name} failed.`);
             await waitIfAnvil();
-            throw new HaltDeployError(deploy, 'Deploy failed', true /* complete */);
+            throw new PauseDeployError(deploy, 'Deploy failed');
         }
         case "cancelled":
             console.log(`Deploy was cancelled. ❌`);
@@ -106,7 +106,7 @@ export async function executeSystemPhase(deploy: SavebleDocument<TDeploy>, metat
             await deploy.save();
             await metatxn.commit(`Deploy ${deploy._.name} cancelled.`);
             await waitIfAnvil();
-            throw new HaltDeployError(deploy, 'Deploy cancelled.', true /* complete */);
+            throw new PauseDeployError(deploy, 'Deploy cancelled.');
     }
 }
 

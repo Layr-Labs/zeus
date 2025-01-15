@@ -94,7 +94,7 @@ describe('system steps', () => {
       mockFiles[canonicalPaths.deployParameters('', deploy._.env)] = deployParameters;
 
       const txn = mockStatefulTransaction(mockFiles);
-      await expect(executeSystemPhase(deploy, txn, {})).rejects.toThrowError(`The deploy halted: Deploy completed`);
+      await expect(executeSystemPhase(deploy, txn, {})).rejects.toThrowError(`The deploy stopped: Deploy completed`);
 
       await expectNoOngoingDeploy(txn);
       const updatedEnvManifest = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(deploy._.env));
@@ -151,7 +151,7 @@ describe('system steps', () => {
       mockFiles[canonicalPaths.deployParameters('', deploy._.env)] = deployParameters;
 
       const txn = mockStatefulTransaction(mockFiles);
-      await expect(executeSystemPhase(deploy, txn, {})).rejects.toThrowError(`The deploy halted: Deploy completed`);
+      await expect(executeSystemPhase(deploy, txn, {})).rejects.toThrowError(`The deploy stopped: Deploy completed`);
 
       await expectNoOngoingDeploy(txn);
       const updatedEnvManifest = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(deploy._.env));
@@ -173,7 +173,7 @@ describe('system steps', () => {
       deploy._.phase = 'failed'
     })
     it("should fail the deploy", async () => {
-      await expect(executeSystemPhase(deploy, metatxn, {})).rejects.toThrowError(`The deploy halted: Deploy failed`)
+      await expect(executeSystemPhase(deploy, metatxn, {})).rejects.toThrowError(`The deploy stopped: Deploy failed`)
       await expectNoOngoingDeploy(metatxn);
     })
   })
@@ -183,7 +183,7 @@ describe('system steps', () => {
       deploy._.phase = 'cancelled'
     })
     it("should cancel the deploy", async () => {
-      await expect(executeSystemPhase(deploy, metatxn, {})).rejects.toThrowError(`The deploy halted: Deploy cancelled.`)
+      await expect(executeSystemPhase(deploy, metatxn, {})).rejects.toThrowError(`The deploy stopped: Deploy cancelled.`)
       await expectNoOngoingDeploy(metatxn);
     })
   })

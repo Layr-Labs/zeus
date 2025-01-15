@@ -7,7 +7,7 @@ import { createPublicClient, http } from "viem";
 const {default: SafeApiKit} = await import(`@safe-global/api-kit`)
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
 import { SavebleDocument, Transaction } from "../../metadata/metadataStore";
-import { HaltDeployError, TGnosisRequest, TStrategyOptions } from "../../signing/strategy";
+import { HaltDeployError, PauseDeployError, TGnosisRequest, TStrategyOptions } from "../../signing/strategy";
 import { GnosisSigningStrategy } from "../../signing/strategies/gnosis/gnosis";
 import { GnosisOnchainStrategy } from "../../signing/strategies/gnosis/onchain/onchain";
 import { MultisigMetadata, TDeploy, TDeployStateMutations, TMutation, TTestOutput } from "../../metadata/schema";
@@ -135,7 +135,7 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                 console.error(`\tShare the following URI: ${multisigBaseUrl(deploy._.chainId)}/transactions/queue?safe=${multisigDeploy._.safeAddress}`)
                 console.error(`Run the following to continue: `);
                 console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
-                throw new HaltDeployError(deploy, `Waiting on multisig signers.`);
+                throw new PauseDeployError(deploy, `Waiting on multisig signers.`);
             }
             break;
         }
@@ -204,7 +204,7 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                             console.log(chalk.bold(`To continue running this upgrade, re-run with --resume. Deploy will resume from phase: ${deploy._.segments[deploy._.segmentId].filename}`))
                             console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
                             await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction success`);
-                            throw new HaltDeployError(deploy, `Waiting to begin next phase.`)
+                            throw new PauseDeployError(deploy, `Waiting to begin next phase.`)
                         }
                         break;
                     } else {
@@ -227,7 +227,9 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                     console.error(e);
                     throw new HaltDeployError(deploy, `Transaction (${multisigTxn._.transactionHash}) might have not landed in a block yet.`)
                 }
-            }   
+            } else {
+                throw new PauseDeployError(deploy, `Transaction is waiting for execution.`);
+            }  
             break;
         }
         default:

@@ -5,7 +5,7 @@ import { configs, getRepoRoot } from '../../configs';
 import { getActiveDeploy, phaseType, formatNow, blankDeploy } from "./utils";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
-import { HaltDeployError, TExecuteOptions } from "../../../signing/strategy";
+import { HaltDeployError, PauseDeployError, TExecuteOptions } from "../../../signing/strategy";
 import chalk from "chalk";
 import { canonicalPaths } from "../../../metadata/paths";
 import { createTestClient, http, TestClient, toHex } from "viem";
@@ -274,6 +274,10 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
             }
         } 
     } catch (e) {
+        if (e instanceof PauseDeployError) {
+            chalk.gray(`The deploy exited without error: ${e.message}`);
+            return;
+        }
         if (e instanceof HaltDeployError) {
             if (e.complete) {
                 chalk.gray(`The deploy completed: ${e.message}`);
