@@ -1,5 +1,8 @@
 
 **[Current]** 
+1.1.2:
+- Bump to support custom derivation paths.
+
 1.1.1:
 - Minor patches to the zeus state machine to make errors more legible.
 

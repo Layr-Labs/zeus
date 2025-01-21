@@ -1,5 +1,5 @@
 import { select } from './utils';
-import { privateKeyToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { search, input, password as inquirerPassword } from '@inquirer/prompts';
 import chalk from 'chalk';
 import * as AllChains from "viem/chains";
@@ -125,8 +125,32 @@ export const privateKey: (chainId: number, overridePrompt?: string) => Promise<`
     return res as `0x${string}`;
 }
 
-export const accountIndex = async () => {
-    const cont = await wouldYouLikeToContinue("Would you like to use a custom bip39 account index? (NOTE: the default 'm/44'/60'/0'/0/[0]s' will be used otherwise)");
+export const bip32Path = async () => {
+    const cont = await wouldYouLikeToContinue("Would you like to use a custom bip-32 derivation path? (NOTE: the default 'm/44'/60'/0'/0/0' will be used otherwise)");
+    if (!cont) {
+        return `m/44'/60'/0'/0/0`
+    }
+
+    const val = await envVarOrPrompt({
+        title: `Enter the derivation path (default m/44'/60'/0'/0/0)`,
+        directEntryInputType: 'text',
+        reuseKey: `derivationPathSuffix`,
+        isValid: (val: string) => {
+            try {
+                const account = mnemonicToAccount('legal winner thank year wave sausage worth useful legal winner thank yellow') 
+                account.getHdKey().derive(val);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+    })
+
+    return val;
+}
+
+export const addressIndex = async () => {
+    const cont = await wouldYouLikeToContinue("Would you like to use a custom bip39 address index? (NOTE: the default 'm/44'/60'/0'/0/[0]s' will be used otherwise)");
     if (!cont) {
         return 0;
     }

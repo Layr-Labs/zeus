@@ -1,17 +1,17 @@
-import {ledgerToAccount, BASE_DERIVATION_PATH} from './ledger/account'
+import {ledgerToAccount} from './ledger/account'
 import { Account } from "viem";
 
 export const DEFAULT_BASE_DERIVATION_PATH = `m/44'/60'/0'/0`
 
-const ledgerAccounts: Record<number, Account> = {};
+const ledgerAccounts: Record<string, Account> = {};
 
-export const getLedgerAccount = async (accountIndex = 0) => {
-    if (ledgerAccounts[accountIndex] === undefined) {
-        ledgerAccounts[accountIndex] = await ledgerToAccount({
-            derivationPath: `${BASE_DERIVATION_PATH}/${accountIndex}`
+export const getLedgerAccount = async (derivationPath = DEFAULT_BASE_DERIVATION_PATH) => {
+    if (ledgerAccounts[derivationPath] === undefined) {
+        ledgerAccounts[derivationPath] = await ledgerToAccount({
+            derivationPath: derivationPath.slice(2) as `44'/60'/0'/0${string}`
         })
     }
 
-    return ledgerAccounts[accountIndex];
+    return ledgerAccounts[derivationPath];
 }
 

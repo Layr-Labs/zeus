@@ -15,17 +15,17 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
     id = "gnosis.api.ledger";
     description = "Gnosis API - Ledger (Not For Private Hotfixes)";
 
-    public accountIndex: ICachedArg<number> 
+    public bip32Path: ICachedArg<string> 
 
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
         super(deploy, transaction, options);
-        this.accountIndex = this.arg(async () => {
-            return await prompts.accountIndex();
-        }, 'accountIndex')
+        this.bip32Path = this.arg(async () => {
+            return await prompts.bip32Path();
+        }, 'bip32path')
     }
 
     async getSignature(version: string, txn: SafeTransaction, safeAddress: `0x${string}`): Promise<`0x${string}`> {
-        const signer = await getLedgerAccount(await this.accountIndex.get());
+        const signer = await getLedgerAccount(await this.bip32Path.get());
         if (!signer.signTypedData) {
             throw new Error(`This ledger does not support signing typed data, and cannot be used with zeus.`);
         }
@@ -81,7 +81,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
         try {
             while (true) {
                 try {
-                    const accountIndex = await this.accountIndex.get();
+                    const accountIndex = await this.bip32Path.get();
                     const signer = await getLedgerAccount(accountIndex);
                     console.log(`Detected ledger address: ${signer.address}`);    
 
