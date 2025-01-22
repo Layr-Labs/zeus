@@ -18,7 +18,7 @@ export interface TState {
 
 export interface TInRepoState extends TState {
     metadataStore: MetadataStore
-    loggedOutMetadataStore: MetadataStore | undefined;
+    loggedOutMetadataStore: MetadataStore 
 };
 
 export interface TLoggedInState extends TState {

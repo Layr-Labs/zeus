@@ -158,7 +158,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             }
 
             // spoof some additional eth
-            await testClient.setBalance({address: safeContext.addr, value: parseEther('10000')})
+            await testClient.setBalance(safeContext.addr, parseEther('10000'))
 
             // execute immediately
             console.info(`Using sendUnsignedTransaction to simulate multisig call...`);
@@ -170,7 +170,6 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             })
 
             const rpcUrl = await this.rpcUrl.get();
-
             const publicClient = createPublicClient({chain, transport: http(rpcUrl)});
             const lastBlock = await publicClient.getBlock();
 
@@ -178,10 +177,9 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             const nextTimestamp = lastBlock.timestamp + (60n * 60n * 24n * 30n);
             console.info(`Current time: ${new Date(Number(lastBlock.timestamp * 1000n))}`)
             console.info(`Warping forward to: ${new Date(Number(nextTimestamp * 1000n))}`);
-            await testClient.setNextBlockTimestamp({
-                timestamp: lastBlock.timestamp + (60n * 60n * 24n * 30n) /* warp forward 30 days after all txns */
-            })
-            await testClient.mine({blocks: 1000});
+            await testClient.fastForward(
+                lastBlock.timestamp + (60n * 60n * 24n * 30n) /* warp forward 30 days after all txns */
+            )
 
             return {
                 output,

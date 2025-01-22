@@ -1,5 +1,11 @@
 
 **[Current]** 
+1.2.0:
+- Supports `zeus deploy run [--fork anvil | tenderly]`.
+    - See full documentation at `zeus deploy run --help`
+    - Allows applying a single upgrade w/o human interaction onto an anvil or tenderly testnet for debugging purposes.
+
+**[Historical]** 
 1.1.2:
 - Bump to support custom derivation paths.
 
@@ -12,7 +18,6 @@
 1.0.6:
 - disables gnosis verification (cringe)
 
-**[Historical]** 
 1.0.1:
     - `zeus test` now accepts an optional rpcUrl. Note that the RPC is checked to match the chainId
       of the specified environment.

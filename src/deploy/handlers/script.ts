@@ -26,6 +26,14 @@ export async function executeScriptPhase(deploy: SavebleDocument<TDeploy>, metat
         throw new HaltDeployError(deploy, `Script ${script} does not exist.`);
     }
 
+    if (_options.defaultArgs.fork !== undefined) {
+        console.warn(`warn: in --fork mode, script phases are skipped.`)
+        advance(deploy);
+        await deploy.save()
+        await metatxn.commit(`[skip] --fork skipped script phase.`);
+        return;
+    }
+
     console.log(`Running ${script}...`);
     const env = await injectableEnvForEnvironment(metatxn, deploy._.env, deploy._.name);
 

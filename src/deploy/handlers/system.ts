@@ -6,11 +6,20 @@ import { TDeploy, TDeployedContractsManifest, TDeployStateMutations, TEnvironmen
 import { HaltDeployError, PauseDeployError, TStrategyOptions } from "../../signing/strategy";
 import { PhaseTypeHandler } from "./base";
 
+const sleep = async (timeoutMs: number) => {
+    return new Promise((resolve) => {
+        setTimeout(resolve, timeoutMs);
+    });
+}
+
 export async function executeSystemPhase(deploy: SavebleDocument<TDeploy>, metatxn: Transaction, _options: TStrategyOptions): Promise<void> {
     const waitIfAnvil = async () => {
         if (_options.defaultArgs?.anvil !== undefined) {
             console.log(`This deploy created a local anvil instance. Waiting for CTRL-C to close.`);
-            await _options.defaultArgs.anvil.waitUntilClosed();
+            chalk.bold(`   http://127.0.0.1:8546/\n`)
+            while(true) {
+                await sleep(3000);
+            }
         }
     }
     switch (deploy._.phase) {
@@ -54,12 +63,16 @@ export async function executeSystemPhase(deploy: SavebleDocument<TDeploy>, metat
                 const deployedStatic = Object.fromEntries(deployedContracts._.contracts.filter(t => t.singleton).map(t => [t.contract, t]));
                 const deployedInstances = deployedContracts._.contracts.filter(t => !t.singleton);
 
-                const updatedStatics = 
-                    Object.fromEntries(
-                        Object.keys(deployedStatic)
+                const updatedStatics = Object.keys(deployedStatic)
                             .filter(contract => deployedStatic[contract].address !== envManifest._.contracts.static[contract]?.address)
-                            .map(contract => [['name', contract], ['oldAddress', envManifest._.contracts.static[contract]?.address ?? '<none>'], ['newAddress', deployedStatic[contract].address]])
-                    );
+                            .map(contract => {
+                                return { 
+                                    name: contract,
+                                    prev: envManifest._.contracts.static[contract]?.address ?? '<none>',
+                                    new: deployedStatic[contract].address
+                                }
+                            });
+                    
                 if (updatedStatics) {
                     console.log(chalk.bold.underline(`Updated static contracts:`))
                     console.log()

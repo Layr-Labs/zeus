@@ -1,22 +1,23 @@
 import { command } from "cmd-ts";
 import * as allArgs from '../../args';
-import { TState, requires, loggedIn, isLoggedIn, TLoggedInState, inRepo } from "../../inject";
+import { TState, requires, isLoggedIn, inRepo, TInRepoState, isInRepo } from "../../inject";
 import { configs, getRepoRoot } from '../../configs';
 import { getActiveDeploy, phaseType, formatNow, blankDeploy } from "./utils";
 import { join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
-import { HaltDeployError, PauseDeployError, TExecuteOptions } from "../../../signing/strategy";
+import { HaltDeployError, PauseDeployError, TStrategyOptions } from "../../../signing/strategy";
 import chalk from "chalk";
 import { canonicalPaths } from "../../../metadata/paths";
-import { createTestClient, http, TestClient, toHex } from "viem";
+import { createTestClient, http, parseEther, toHex } from "viem";
 import * as AllChains from "viem/chains";
 import * as allChains from 'viem/chains';
 import semver from 'semver';
 import { SavebleDocument, Transaction } from "../../../metadata/metadataStore";
 import { chainIdName } from "../../prompts";
 import { AnvilOptions, AnvilService } from '@foundry-rs/hardhat-anvil/dist/src/anvil-service';
-import { mnemonicToAccount } from 'viem/accounts'
-import { TenderlyVirtualTestnetClient } from "./utils-tenderly";
+import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
+import { TenderlyVirtualTestnetClient, VirtualTestNetResponse } from "./utils-tenderly";
+import { AnvilTestClient, TenderlyTestClient, TestClient } from "./utils-testnets";
 import { TDeploy, TEnvironmentManifest, TUpgrade } from "../../../metadata/schema";
 import { acquireDeployLock, releaseDeployLock } from "./utils-locks";
 import { executeSystemPhase } from "../../../deploy/handlers/system";
@@ -36,7 +37,7 @@ const DEFAULT_ANVIL_URI = `http://127.0.0.1:8546/`;
 
 const isValidFork = (fork: string | undefined) => {
     // TODO(tenderly) - support tenderly.
-    return [undefined, `anvil`].includes(fork);
+    return [undefined, `anvil`, `tenderly`].includes(fork);
 } 
 
 
@@ -48,15 +49,17 @@ const throwIfUnset = (envVar: string | undefined, msg: string) => {
 }
 
 export async function handler(_user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string | undefined, nonInteractive: boolean | undefined, fork: string | undefined}) {
-    if (!isLoggedIn(_user)) {
-        return;
-    }
-
     if (!isValidFork(args.fork)) {
         throw new Error(`Invalid value for 'fork' - expected one of (tenderly, anvil)`);
     }
 
-    const user: TLoggedInState = _user;
+    if (!args.fork && !isLoggedIn(_user)) {
+        throw new Error(`To deploy to an environment, you must run from within the contracts repo while logged in.`);
+    } else if (!isInRepo(_user)) {
+        throw new Error(`Must be run from within the contracts repo.`);
+    }
+    const user = _user;
+
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
         console.error("This repo is not setup. Try `zeus init` first.");
@@ -64,6 +67,8 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
     }
 
     let anvil: AnvilService | undefined;
+    let tenderly: TenderlyVirtualTestnetClient | undefined;
+    let tenderlyTestnet: VirtualTestNetResponse | undefined;
     let overrideEoaPk: `0x${string}` | undefined;
     let overrideRpcUrl: string | undefined;
     let testClient: TestClient | undefined;
@@ -79,33 +84,52 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
             
     switch (args.fork) {
         case `tenderly`: {
-            const tenderly = new TenderlyVirtualTestnetClient(
+            tenderly = new TenderlyVirtualTestnetClient(
                 throwIfUnset(process.env.TENDERLY_API_KEY, "Expected TENDERLY_API_KEY to be set."),
                 throwIfUnset(process.env.TENDERLY_ACCOUNT_SLUG, "Expected TENDERLY_ACCOUNT_SLUG to be set."),
                 throwIfUnset(process.env.TENDERLY_PROJECT_SLUG, "Expected TENDERLY_PROJECT_SLUG to be set."),
             );
 
-            // TODO(tenderly): continue from here
-            const _vnetId = await tenderly.createVirtualNetwork({
-                slug: `z-${args.env}-${formatNow()}`,
-                display_name: `zeus testnet`,
-                description: `CLI-created zeus testnet`,
+            const vnetSlug = `z-${args.env}-${args.upgrade}-${formatNow()}`
+            tenderlyTestnet = await tenderly.createVirtualNetwork({
+                slug: vnetSlug,
+                display_name: `${args.env} - ${args.upgrade}`,
+                description: `automatically deployed via Zeus`,
                 fork_config: {
-                    network_id: envManifest._.chainId.toString(),
+                    network_id: Number(envManifest._.chainId),
                 },
                 virtual_network_config: {
                     chain_config: {
-                        chain_id: envManifest._.chainId
+                        chain_id: Number(envManifest._.chainId)
                     },
                     sync_state_config: {
                         enabled: false
                     },
                     explorer_page_config: {
                         enabled: false
-                    }
+                    },
                 }
             })
+            const tenderlyRpcUrl = tenderlyTestnet.rpcs ? tenderlyTestnet.rpcs[0].url : undefined;
+            if (!tenderlyRpcUrl) {
+                throw new Error(`Failed to load tenderly RPC URL.`);
+            }
 
+            console.log(chalk.green(`+ created tenderly devnet: https://dashboard.tenderly.co/${process.env.TENDERLY_ACCOUNT_SLUG}/${process.env.TENDERLY_PROJECT_SLUG}/testnet/${tenderlyTestnet.id}\n`));
+
+            testClient = new TenderlyTestClient(tenderlyRpcUrl);
+
+            const specialAccountPk = generatePrivateKey();
+            const specialAccountAddress = privateKeyToAccount(specialAccountPk).address;
+
+            overrideRpcUrl = tenderlyRpcUrl;
+            overrideEoaPk = specialAccountPk;
+
+            // fund the special account.
+            console.log(chalk.gray(`+ using deployer address ${specialAccountAddress}`));
+
+            await testClient.setBalance(specialAccountAddress, parseEther('420'));
+            
             break;
         }
         case `anvil`: {
@@ -123,10 +147,11 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
                 }
             };
             anvil = await AnvilService.create(opts, false);
-            testClient = createTestClient({
+            const viemClient = createTestClient({
                 mode: 'anvil',
                 transport: http(DEFAULT_ANVIL_URI)
             });
+            testClient = new AnvilTestClient(viemClient);
             const pkRaw = mnemonicToAccount(ANVIL_MNENOMIC, {accountIndex: 0}).getHdKey().privateKey;
             if (!pkRaw) {
                 throw new Error(`Invalid private key for anvil test account.`);
@@ -151,12 +176,16 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
 
             console.log(`[${chainIdName(deploy._.chainId)}] Resuming existing deploy... (began at ${deploy._.startTime})`);
             return await executeOrContinueDeployWithLock(deploy._.name, deploy._.env, user, {
-                rpcUrl: overrideRpcUrl, 
-                nonInteractive: !!args.nonInteractive,
-                fork: args.fork,
-                anvil,
-                testClient,
-                overrideEoaPk,
+                defaultArgs: {
+                    rpcUrl: overrideRpcUrl, 
+                    nonInteractive: !!args.nonInteractive,
+                    fork: args.fork,
+                    anvil,
+                    testClient,
+                    overrideEoaPk,
+                    etherscanApiKey: !args.fork,
+                },
+                nonInteractive: !!args.fork
             });
         } else if (args.resume) {
             console.error(`Nothing to resume.`);
@@ -196,12 +225,16 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
         console.log(chalk.green(`+ started deploy (${envManifest?._.deployedVersion ?? '0.0.0'}) => (${upgradeManifest._.to}) (requires: ${upgradeManifest._.from})`));
         await metaTxn.commit(`started deploy: ${deployJson._.env}/${deployJson._.name}`);
         await executeOrContinueDeployWithLock(deployJson._.name, deployJson._.env, user, {
-            rpcUrl: overrideRpcUrl ?? args.rpcUrl, 
-            nonInteractive: !!args.nonInteractive,
-            fork: args.fork,
-            anvil,
-            testClient,
-            overrideEoaPk,
+            defaultArgs: {
+                rpcUrl: overrideRpcUrl ?? args.rpcUrl, 
+                nonInteractive: !!args.nonInteractive,
+                fork: args.fork,
+                anvil,
+                testClient,
+                overrideEoaPk,
+                etherscanApiKey: !args.fork,
+            },
+            nonInteractive: !!args.fork
         });
     } finally {
         // shut down anvil after running
@@ -210,12 +243,15 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
     }
 }
 
-const executeOrContinueDeployWithLock = async (name: string, env: string, user: TLoggedInState, options: TExecuteOptions) => {
-    const shouldUseLock = !options.fork;
-    if (options.fork) {
+const executeOrContinueDeployWithLock = async (name: string, env: string, user: TInRepoState, options: TStrategyOptions) => {
+    const shouldUseLock = !options.defaultArgs.fork;
+    if (options.defaultArgs.fork) {
         // explicitly choose the logged out metadata store, to avoid writing anything.
+        chalk.bold(`Deploying to fork: ${options.defaultArgs.fork}`);
         user.metadataStore = user.loggedOutMetadataStore;
         options.nonInteractive = true;
+        options.defaultArgs.nonInteractive = true;
+        options.defaultArgs.etherscanApiKey = false;
     }
 
     const txn = await user.metadataStore.begin();
@@ -249,7 +285,7 @@ const executeOrContinueDeployWithLock = async (name: string, env: string, user: 
     }
 }
 
-const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: TState, metatxn: Transaction, options: TExecuteOptions) => {
+const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: TState, metatxn: Transaction, options: TStrategyOptions) => {
     try {
         while (true) {
             console.log(chalk.green(`[${deploy._.segments[deploy._.segmentId]?.filename ?? '<none>'}] ${deploy._.phase}`))
@@ -266,7 +302,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                 case 'eoa': {
                     await executeEOAPhase(deploy, metatxn, options)
                     break;
-                }
+                } 
                 case 'script': {
                     await executeScriptPhase(deploy, metatxn, options);
                     break;
@@ -317,5 +353,5 @@ export default command({
         nonInteractive: allArgs.nonInteractive,
         fork: allArgs.fork
     },
-    handler: requires(handler, loggedIn, inRepo),
+    handler: requires(handler, inRepo),
 })

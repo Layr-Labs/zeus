@@ -24,13 +24,15 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
     let eoaStrategy: EOABaseSigningStrategy | undefined = undefined;
 
     if (options?.nonInteractive || options?.defaultArgs?.fork) {
-        eoaStrategy = new EOASigningStrategy(deploy, metatxn, {defaultArgs: options, nonInteractive: true})
+        eoaStrategy = new EOASigningStrategy(deploy, metatxn, options);
     }
 
     const rpcUrl = await (async () => {
         if (options?.defaultArgs?.rpcUrl) {
             return options?.defaultArgs?.rpcUrl;
         }
+        console.log(`Prompting for rpc URL`);
+        console.log(options);
         return await prompts.rpcUrl(deploy._.chainId);
     })();
         
@@ -64,7 +66,7 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
 
             if (!options?.defaultArgs?.nonInteractive && !options?.defaultArgs?.fork) {
                 console.log(`Zeus would like to simulate this EOA transaction before attempting it for real. Please choose the method you'll use to sign:`)
-                eoaStrategy = (await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {...options, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}})) as unknown as EOABaseSigningStrategy;
+                eoaStrategy = (await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {nonInteractive: !!options?.nonInteractive, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}})) as unknown as EOABaseSigningStrategy;
                 const sigRequest = await eoaStrategy.prepare(script, deploy._) as TForgeRequest;
                 console.log(chalk.yellow(`Please reviewing the following: `))
                 console.log(chalk.yellow(`=====================================================================================`))
@@ -99,7 +101,7 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
         case "eoa_start": {
             const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
             if (existsSync(script)) {
-                const strategy = eoaStrategy ?? await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {...options, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}});
+                const strategy = eoaStrategy ?? await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {...options, nonInteractive: !!options?.nonInteractive, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}});
                 const sigRequest = await strategy.requestNew(script, deploy._) as TForgeRequest;
                 if (sigRequest?.ready) {
                     deploy._.metadata[deploy._.segmentId] = {

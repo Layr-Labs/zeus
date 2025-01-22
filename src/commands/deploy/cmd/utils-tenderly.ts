@@ -4,36 +4,39 @@
 
 import fetch, { Response, RequestInit } from 'node-fetch';
 
-interface ForkConfig {
-  network_id: string;
+export interface ForkConfig {
+  network_id: number;
   block_number?: string;
 }
 
-interface ChainConfig {
+export interface ChainConfig {
   chain_id: number;
 }
 
-interface SyncStateConfig {
+export interface SyncStateConfig {
   enabled?: boolean;
 }
 
-interface ExplorerPageConfig {
+export interface ExplorerPageConfig {
   enabled?: boolean;
   verification_visibility?: 'abi' | 'src' | 'bytecode';
 }
 
-interface VirtualNetworkConfig {
+export interface VirtualNetworkConfig {
   chain_config: ChainConfig;
   sync_state_config?: SyncStateConfig;
   explorer_page_config?: ExplorerPageConfig;
+  accounts?: {
+    address: `0x${string}`
+  }[]
 }
 
-interface RpcEndpoint {
+export interface RpcEndpoint {
   url: string;
   name: string;
 }
 
-interface VirtualTestNetResponse {
+export interface VirtualTestNetResponse {
   id: string;
   slug: string;
   display_name: string;
@@ -45,12 +48,12 @@ interface VirtualTestNetResponse {
   rpcs?: RpcEndpoint[];
 }
 
-interface CreateVirtualNetworkRequest {
+export interface CreateVirtualNetworkRequest {
   slug: string;
   display_name?: string;
   description?: string;
   fork_config: {
-    network_id: string;
+    network_id: number;
     block_number?: string;
   };
   virtual_network_config: {
@@ -67,14 +70,14 @@ interface CreateVirtualNetworkRequest {
   };
 }
 
-interface StateOverride {
+export interface StateOverride {
   nonce?: number;
   code?: string;
   balance?: string;
   storage?: Record<string, string>;
 }
 
-interface TransactionResponse {
+export interface TransactionResponse {
   id: string;
   vnet_id: string;
   origin: string;
@@ -107,7 +110,7 @@ interface TransactionResponse {
   function_name?: string;
 }
 
-interface ListTransactionsParams {
+export interface ListTransactionsParams {
   category?: 'write' | 'read' | 'compute';
   kind?: 'blockchain' | 'simulation' | 'cheatcode' | 'cheatcode_faucet';
   status?: 'success' | 'failed' | 'pending';
@@ -115,12 +118,12 @@ interface ListTransactionsParams {
   perPage?: number;
 }
 
-interface BlockOverrides {
+export interface BlockOverrides {
   number?: string;
   timestamp?: string;
 }
 
-interface CallArgs {
+export interface CallArgs {
   from: string;
   to?: string;
   gas?: string;
@@ -129,20 +132,20 @@ interface CallArgs {
   data?: string;
 }
 
-interface SendTransactionRequest {
+export interface SendTransactionRequest {
   callArgs: CallArgs;
   blockOverrides?: BlockOverrides;
   stateOverrides?: Record<string, StateOverride>;
 }
 
-interface SimulateTransactionRequest {
+export interface SimulateTransactionRequest {
   callArgs: CallArgs;
   blockNumber?: string;
   blockOverrides?: BlockOverrides;
   stateOverrides?: Record<string, StateOverride>;
 }
 
-interface SimulationLog {
+export interface SimulationLog {
   anonymous?: boolean;
   inputs?: { name: string; type: string; value: string }[];
   name?: string;
@@ -153,7 +156,7 @@ interface SimulationLog {
   };
 }
 
-interface SimulationTrace {
+export interface SimulationTrace {
   decodedInput?: { name: string; type: string; value: string }[];
   decodedOutput?: { name: string; type: string; value: string|boolean }[];
   from?: string;
@@ -169,7 +172,7 @@ interface SimulationTrace {
   value?: string;
 }
 
-interface SimulationResponse {
+export interface SimulationResponse {
   blockNumber: string;
   cumulativeGasUsed: string;
   gasUsed: string;
@@ -178,6 +181,7 @@ interface SimulationResponse {
   status: boolean;
   trace: SimulationTrace[];
 }
+
 
 export class TenderlyVirtualTestnetClient {
   private accessKey: string;
@@ -211,9 +215,10 @@ export class TenderlyVirtualTestnetClient {
       ...options.headers,
       'X-Access-Key': this.accessKey,
       'Content-Type': 'application/json',
+      'Accept': 'application/json'
     };
-
-    const response: Response = await fetch(url, { ...options, headers });
+    const parameters = { ...options, headers };
+    const response: Response = await fetch(url, parameters);
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Request failed with status ${response.status}: ${errorText}`);

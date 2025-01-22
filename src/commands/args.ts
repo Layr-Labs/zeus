@@ -26,10 +26,30 @@ export const nonInteractive = flag({
     short: 'n',
 });
 
+const FORK_DESCRIPTION = `one of: 'anvil', 'tenderly'
+    If --fork is specified, the upgrade will be applied against a forked copy of the environment in which the deploy was to be run.
+    
+    Applies all upgrades onto the forked testnet.
+            - Any EOA steps are executed using a random address, that is pre-funded with 420 ETH via cheatcodes.
+            - Any multisig steps are executed using a "sendUnsignedTransaction" cheatcode, directly from the Multisig's perspective.
+            - Any script phases are skipped.
+
+    '--fork anvil': spins up a local anvil node and applies the upgrade.
+        (1) Starts up a local anvil node
+        (2) Applies all upgrades onto the anvil node
+            - Any EOA steps are executed using a random address, that is pre-funded with 420 ETH via anvil cheatcodes.
+            - Any multisig steps are executed using a "sendUnsignedTransaction" anvil cheatcode, directly from the Multisig's perspective.
+
+    '--fork tenderly': spins up a tenderly testnet and applies the upgrade.
+        requires the following env vars:
+            TENDERLY_API_KEY - an API key, valid for the given account/project.
+            TENDERLY_ACCOUNT_SLUG - the account name.
+            TENDERLY_PROJECT_SLUG - the project name, in which to create the virtual testnet.
+`;  
 
 export const fork = option({
     long: 'fork',
     short: 'f',
-    description: 'one of: anvil',
+    description: FORK_DESCRIPTION,
     type: optional(string)
 });
