@@ -31,8 +31,6 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
         if (options?.defaultArgs?.rpcUrl) {
             return options?.defaultArgs?.rpcUrl;
         }
-        console.log(`Prompting for rpc URL`);
-        console.log(options);
         return await prompts.rpcUrl(deploy._.chainId);
     })();
         
