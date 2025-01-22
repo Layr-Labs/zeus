@@ -24,8 +24,8 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
     let multisigStrategy: GnosisSigningStrategy | undefined = undefined;
 
     if (options?.nonInteractive || options?.defaultArgs?.fork) {
-        multisigStrategy = new GnosisOnchainStrategy(deploy, metatxn, {defaultArgs: options, nonInteractive: true});
-    }   
+        multisigStrategy = new GnosisOnchainStrategy(deploy, metatxn, options);
+    }
 
     const rpcUrl = await (async () => {
         if (options?.defaultArgs?.rpcUrl) {
@@ -252,7 +252,7 @@ const handler: PhaseTypeHandler = {
                 console.error(`Your deploy queued a multisig transaction () which must be cancelled.`)
                 console.error(`Gnosis cancellation involves submitting an empty txn with an identical nonce, to overwrite the txn onchain.`)
 
-                const strategy = await promptForStrategyWithOptions(deploy, metatxn, `How would you like to submit this transaction?`, {defaultArgs: {etherscanApiKey: false}})
+                const strategy = await promptForStrategyWithOptions(deploy, metatxn, `How would you like to submit this transaction?`, {nonInteractive: false, defaultArgs: {etherscanApiKey: false}})
                 await strategy.cancel(deploy);
                 break;
             }

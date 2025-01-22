@@ -83,11 +83,11 @@ async function handler(_user: TState, args: {env: string}) {
 
         const strategy = await (async () => {
             const all = await import('../../../signing/strategies/strategies');
-            const strategy = all.all.find(s => new s(deploy, metatxn, {}).id === strategyId);
+            const strategy = all.all.find(s => new s(deploy, metatxn, {nonInteractive: false, defaultArgs: {}}).id === strategyId);
             if (!strategy) {
                 throw new Error(`Unknown strategy`);
             }
-            return new strategy(deploy, metatxn, {defaultArgs: {rpcUrl: customRpcUrl, etherscanApiKey: false}});
+            return new strategy(deploy, metatxn, {nonInteractive: false, defaultArgs: {rpcUrl: customRpcUrl, etherscanApiKey: false}});
         })();
 
         const eoaPhases = deploy._.segments.filter(segment => segment.id <= deploy._.segmentId)

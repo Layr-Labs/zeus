@@ -6,7 +6,7 @@ import ora from 'ora';
 import { TDeploy, TDeployedContractSparse } from '../metadata/schema';
 import { injectableEnvForEnvironment } from '../commands/run';
 import { AnvilService } from '@foundry-rs/hardhat-anvil/dist/src/anvil-service';
-import { TestClient } from 'viem';
+import { TestClient } from '../commands/deploy/cmd/utils-testnets';
 
 tmp.setGracefulCleanup();
 
@@ -149,8 +149,8 @@ export class HaltDeployError extends Error {
 }
 
 export interface TStrategyOptions { 
-    defaultArgs?: TExecuteOptions,
-    nonInteractive?: boolean,
+    defaultArgs: TExecuteOptions,
+    nonInteractive: boolean,
 };
 
 export abstract class Strategy {
