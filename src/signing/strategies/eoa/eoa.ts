@@ -22,7 +22,6 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
             return await prompts.rpcUrl(this.deploy._.chainId);
         }, 'rpcUrl')
         this.etherscanApiKey = this.arg(async () => {
-            console.log(options);
             if (options?.defaultArgs.fork) {
                 return false;
             }

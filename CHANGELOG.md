@@ -1,5 +1,9 @@
 
 **[Current]** 
+
+1.2.1:
+- Minor bugfixes / improvements.
+
 1.2.0:
 - Supports `zeus deploy run [--fork anvil | tenderly]`.
     - See full documentation at `zeus deploy run --help`

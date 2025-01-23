@@ -48,6 +48,12 @@ const throwIfUnset = (envVar: string | undefined, msg: string) => {
     return envVar;
 }
 
+const cleanUpgrade = (slug: string) => {
+    return slug
+            .replaceAll(`.`, ``)
+            .replaceAll(`-`, ``)
+}
+
 export async function handler(_user: TState, args: {env: string, resume: boolean, rpcUrl: string | undefined, json: boolean, upgrade: string | undefined, nonInteractive: boolean | undefined, fork: string | undefined}) {
     if (!isValidFork(args.fork)) {
         throw new Error(`Invalid value for 'fork' - expected one of (tenderly, anvil)`);
@@ -90,9 +96,9 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
                 throwIfUnset(process.env.TENDERLY_PROJECT_SLUG, "Expected TENDERLY_PROJECT_SLUG to be set."),
             );
 
-            const vnetSlug = `z-${args.env}-${args.upgrade}-${formatNow()}`
+            const vnetSlug = `${args.env}-${args.upgrade}-${formatNow()}`
             tenderlyTestnet = await tenderly.createVirtualNetwork({
-                slug: vnetSlug,
+                slug: cleanUpgrade(vnetSlug),
                 display_name: `${args.env} - ${args.upgrade}`,
                 description: `automatically deployed via Zeus`,
                 fork_config: {
