@@ -84,29 +84,6 @@ describe('GithubTransaction', () => {
         await expect(githubTransaction.commit('No changes')).resolves.toBeUndefined();
     });
 
-    it('should fetch file contents and decode base64 data', async () => {
-        const mockBase64Content = Buffer.from('test content').toString('base64');
-
-        // @ts-expect-error incomplete type.
-        mockOctokitInstance.rest.repos.getContent.mockResolvedValue({ data: { content: mockBase64Content } });
-
-        const result = await githubTransaction.getFile('path/to/file');
-
-        expect(result._).toBe('test content');
-        expect(mockOctokitInstance.rest.repos.getContent).toHaveBeenCalledWith(
-            expect.objectContaining({ path: 'path/to/file' })
-        );
-    });
-
-    it('should return an empty string when file is not found', async () => {
-        mockOctokitInstance.rest.repos.getContent.mockRejectedValue(new Error('Not Found'));
-        jest.spyOn(console, 'error').mockImplementationOnce(() => {
-            //
-        });
-        const result = await githubTransaction.getFile('nonexistent/path');
-        expect(result._).toBe("");
-    });
-
     it('should throw an error for non-directory paths when fetching directories', async () => {
         // @ts-expect-error incomplete type mocked
         mockOctokitInstance.rest.repos.getContent.mockResolvedValue({ data: { type: 'file' } });

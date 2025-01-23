@@ -81,12 +81,6 @@ export function mockTransaction(files?: Record<string, unknown>): Transaction {
         save: jest.fn()
       } as unknown as SavebleDocument<T>;
     }),
-    getFile: jest.fn<Transaction['getFile']>().mockImplementation(async <T>(_path: string) => {
-      return {
-        _: JSON.stringify((files ? files[_path] : {}) ?? {}),
-        save: jest.fn()
-      }  as unknown as SavebleDocument<T>;
-    }),
     getDirectory: jest.fn<Transaction['getDirectory']>().mockImplementation(async (_path: string) => {
       return Object.keys(files ?? []).map(filePath => ({type: 'file', name: filePath}))
     }),
@@ -110,17 +104,6 @@ export function mockStatefulTransaction(files?: Record<string, unknown>): Transa
         _: (files ? files[_path] : {}) ?? {},
         save: jest.fn()
       } as unknown as SavebleDocument<T>;
-      cachedFiles[_path] = f;
-      return f;
-    }),
-    getFile: jest.fn<Transaction['getFile']>().mockImplementation(async <T>(_path: string) => {
-      if (cachedFiles[_path] !== undefined) {
-        return cachedFiles[_path] as unknown as SavebleDocument<T>;
-      }
-      const f = {
-        _: JSON.stringify((files ? files[_path] : {}) ?? {}),
-        save: jest.fn()
-      }  as unknown as SavebleDocument<T>;
       cachedFiles[_path] = f;
       return f;
     }),

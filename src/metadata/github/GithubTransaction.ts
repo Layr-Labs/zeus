@@ -90,24 +90,6 @@ export class GithubTransaction implements Transaction {
         this.baseCommitHash = newCommitData.sha;
     }
 
-    async getFile(path: string): Promise<SavebleDocument<string>> {
-        const existingFile = this._files.find(f => f.path === path);
-        if (existingFile) {
-            // NOTE: trying to take out a lease on a doc that isn't the same type will mess stuff up.
-            return existingFile as unknown as SavebleDocument<string>;
-        }
-
-        const contents = await this.getFileContents(path);
-        const file = new GithubJsonDocument(contents ?? '', path, true, {
-            owner: this.owner,
-            repo: this.repo,
-            octokit: this.octokit,
-            branch: this.branch
-        }, {verbose: this._verbose});
-        this._files.push(file);
-        return file;
-    } 
-
     async getFileContents(path: string): Promise<string | undefined> {
         const existingFile = this._files.find(f => f.path === path);
         if (existingFile) {
