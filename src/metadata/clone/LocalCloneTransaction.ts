@@ -34,27 +34,6 @@ export class LocalCloneTransaction implements Transaction {
         }
     }
 
-    async getFile(filePath: string): Promise<SavebleDocument<string>> {
-        const existingFile = this._files.find(f => f.path === filePath);
-        if (existingFile) {
-            // NOTE: trying to take out a lease on a doc that isn't the same type will mess stuff up.
-            return existingFile as unknown as SavebleDocument<string>;
-        }
-
-        const fullPath = path.join(this.basePath, filePath);
-        const data = await (async () => {
-            try {
-                return await fs.readFile(fullPath, 'utf8');
-            } catch {
-                return ''
-            }
-        })();
-        
-        const f = new LocalSavebleDocument<string>(this.basePath, filePath, data, data, true, {verbose: this.verbose});
-        this._files.push(f);
-        return f;
-    }
-
     async getJSONFile<T extends object>(filePath: string): Promise<SavebleDocument<T>> {
         const existingFile = this._files.find(f => f.path === filePath);
         if (existingFile) {
