@@ -1,6 +1,6 @@
 # Zeus
 
-Zeus helps manage complex deploy processes for onchain software.
+Zeus manages complex deploy processes for onchain software.
 
 ## Should I use Zeus?
 
@@ -12,14 +12,13 @@ You may find Zeus useful if:
 
 
 ## Key Features
-Zeus integrates with `forge`, and extends its capabilities.
-
-Zeus supports;
+Zeus integrates with `forge`, and adds:
 - Expressing your transactions, meant for a multisig, as a forge script. 
 - Managing the lifecycle of your deploys across multiple environments. (`zeus deploy status`)
 - Tracking deployed contracts across multiple environments. (`zeus which MyContract`)
 - Testing your upgrade scripts (`zeus test`)
 - Running binaries which require contract addresses (without hardcoding addresses) (`zeus run`)
+- Generating a paper trail of all deploys, logs, and artifacts generated.
 
 # Setting up Zeus in your project
 
@@ -34,7 +33,7 @@ Zeus supports;
 4. `zeus init` -- when prompted for your metadata repo, provide the repo from step 0.
 5. `zeus env new` -- create your first environment to deploy your contracts into.
 
-# Using Zeus
+# Getting Started
 
 Check out our examples here: [zeus-examples](https://google.com/TODO).
 
@@ -110,6 +109,48 @@ EOA transactions are not cancellable if they have been executed.
 
 - Zeus upgrades will apply any changes to the environment (contracts or parameters) ONLY if the entire deploy is successful (i.e all steps up to and including the final step of the upgrade succeed)
     - In the case of a failure, cancellation, or other abort, the environment in zeus will not reflect any updated parameters.
+
+# Writing an Upgrade
+
+1. `forge install Layr-Labs/zeus-templates`
+2. Create a new upgrade, under your upgrades directory (see `.zeus` in your repo for the directory name).
+3. Your upgrade should contain; (See Examples for more information)
+    - An upgrade manifest ([example](https://github.com/Layr-Labs/eigenlayer-contracts/blob/375a451862f6c56f717370b4f00a99e3508a054f/script/releases/v0.5.2-rewardsv2/upgrade.json)).
+        - This is a JSON file following this specification:
+```json
+            {
+                "name": "my-upgrade-name", // the name of this upgrade
+                "from": ">=0.0.0 <=0.5.1", // must be a valid semver version constraint
+                "to": "0.5.2", // the version you are upgrading to
+                "phases": [ // each phase corresponds to a script you intend to run
+                    {
+                        "type": "eoa", // subclasses "EOADeployer" in the contract.
+                        "filename": "1-eoa.s.sol" // the name of the contract.
+                    },
+                    {
+                        "type": "multisig", // subclasses "MultisigBuilder" in the contract.
+                        "filename": "2-multisig.s.sol"
+                    },
+                    {
+                        "type": "multisig",
+                        "filename": "3-multisig.s.sol" // etc.
+                    }
+                ]
+            }
+```
+
+    - One or more upgrade scripts. (phases)
+
+
+## Other examples
+
+- [Eigenlayer Slashing Upgrade](https://github.com/Layr-Labs/eigenlayer-contracts/tree/dev/script/releases/v1.0.0-slashing)
+
+- [Deploying a contract with an EOA](https://github.com/Layr-Labs/eigenlayer-contracts/blob/375a451862f6c56f717370b4f00a99e3508a054f/script/releases/v0.5.1-rewardsv2/1-eoa.s.sol#L20)
+    - In this example, we specify that any EOA can be used to run the following transaction, by extending from `EOADeployer`.
+
+- [Expressing a multisig transaction](https://github.com/Layr-Labs/eigenlayer-contracts/blob/375a451862f6c56f717370b4f00a99e3508a054f/script/releases/v0.5.2-rewardsv2/2-multisig.s.sol#L57)
+    - In this example, we use a special multisig to queue a protocol upgrade using our OpenZeppelin Timelock controller.
 
  # Contributing 
 
