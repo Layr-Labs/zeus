@@ -114,9 +114,9 @@ EOA transactions are not cancellable if they have been executed.
 
 1. `forge install Layr-Labs/zeus-templates`
 2. Create a new upgrade, under your upgrades directory (see `.zeus` in your repo for the directory name).
-3. Your upgrade should contain; (See Examples for more information)
+3. Your upgrade is a directory that should contain:
+    - One or more upgrade scripts.
     - An upgrade manifest ([example](https://github.com/Layr-Labs/eigenlayer-contracts/blob/375a451862f6c56f717370b4f00a99e3508a054f/script/releases/v0.5.2-rewardsv2/upgrade.json)).
-        - This is a JSON file following this specification:
 ```json
             {
                 "name": "my-upgrade-name", // the name of this upgrade
@@ -139,7 +139,17 @@ EOA transactions are not cancellable if they have been executed.
             }
 ```
 
-    - One or more upgrade scripts. (phases)
+4. Once you've written your upgrade, confirm that any tests you've added in the file pass. Any `test*` prefixed functions are run [example](http://github.com/Layr-Labs/eigenlayer-contracts/blob/375a451862f6c56f717370b4f00a99e3508a054f/script/releases/v0.5.2-rewardsv2/2-multisig.s.sol#L71).
+
+> `zeus test --env MyFirstEnv ./path/to/my/script.s.sol`
+
+5. Now, register your upgrade with zeus. Zeus keeps a record of the commit that your upgrade belongs to, so that all parties execute on the same commit. You can move this later by re-running the command. 
+
+From your project's root directory:
+> `zeus upgrade register`.
+
+6. If your environment is ready to run this upgrade, you should be able to see it now!
+> `zeus upgrade list --env MyFirstEnv`
 
 
 ## Other examples
@@ -154,11 +164,11 @@ EOA transactions are not cancellable if they have been executed.
 
  # Contributing 
 
- See CONTRIBUTING.md.
+ See [CONTRIBUTING.md](https://github.com/Layr-Labs/zeus/blob/master/CONTRIBUTING.md).
 
 # License
 
-See LICENSE.
+See [LICENSE](https://github.com/Layr-Labs/zeus/blob/master/LICENSE).
 
 
 
