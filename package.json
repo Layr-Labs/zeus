@@ -22,7 +22,8 @@
   },
   "files": [
     "dist/bundle.cjs",
-    "package.json"
+    "package.json",
+    "LICENSE"
   ],
   "author": "",
   "license": "ISC",
