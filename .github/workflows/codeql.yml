@@ -1,0 +1,39 @@
+name: "codeql-scanning"
+
+on:
+  push:
+    branches:
+      - master
+      - 'release/*'
+  pull_request:
+    branches:
+      - master
+      - 'release/*'
+  schedule:
+    - cron: '0 9 * * *'
+
+jobs:
+  CodeQL-Build:
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2
+      with:
+        submodules: recursive
+
+    - name: Initialize CodeQL
+        id: initialize
+        uses: github/codeql-action/init@1a7989f3955e0c69f0e0ccc14aee54a387a0fd31
+        with:
+          languages: typescript, javascript
+          source-root: src
+        
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
