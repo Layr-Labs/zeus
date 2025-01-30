@@ -15,11 +15,11 @@ You may find Zeus useful if:
 Zeus integrates with `forge`, and extends its capabilities.
 
 Zeus supports;
-    - Expressing your transactions, meant for a multisig, as a forge script. 
-    - Managing the lifecycle of your deploys across multiple environments. (`zeus deploy status`)
-    - Tracking deployed contracts across multiple environments. (`zeus which MyContract`)
-    - Testing your upgrade scripts (`zeus test`)
-    - Running binaries which require contract addresses (without hardcoding addresses) (`zeus run`)
+- Expressing your transactions, meant for a multisig, as a forge script. 
+- Managing the lifecycle of your deploys across multiple environments. (`zeus deploy status`)
+- Tracking deployed contracts across multiple environments. (`zeus which MyContract`)
+- Testing your upgrade scripts (`zeus test`)
+- Running binaries which require contract addresses (without hardcoding addresses) (`zeus run`)
 
 # Setting up Zeus in your project
 
@@ -36,7 +36,7 @@ Zeus supports;
 
 # Using Zeus
 
-Check out our examples here: [zeus-examples](TODO:).
+Check out our examples here: [zeus-examples](https://google.com/TODO).
 
 Here are some common things to do with Zeus:
 
@@ -82,15 +82,22 @@ by using `zeus test`.
 
 To verify that the contracts this deploy claims to have produced match what is available in the repository.
 
-- HOW: Zeus uses an algorithm that compares your local bytecode, with immutableReferences zero'd out, against bytecode that is available onchain (with the same bytecode segments zero'd out).
-- NOTE: Make sure you double check your foundry version (forge --version) before doing this. Differences in forge versions have been known to affect hash calculations.
-- NOTE: If you are logged in and have write access to the ZEUS_HOST, you will automatically post a small commit indicating that you verified those contracts locally.
+- Zeus uses an algorithm that compares your local bytecode, with immutableReferences zero'd out, against bytecode that is available onchain (with the same bytecode segments zero'd out).
+
+[!TIP]
+Make sure you double check your foundry version (forge --version) before doing this. Differences in forge versions have been known to affect hash calculations.
+
+[!NOTE] 
+If you are logged in and have write access to the ZEUS_HOST, you will automatically post a small commit indicating that you verified those contracts locally.
 
 ### Cancelling a deploy
 
 - You may be able to cancel a deploy, depending on what state it is in. 
 
     `zeus deploy cancel --env <env>`
+
+For multisig transactions, Zeus will attempt to propose an alternate null transaction to overwrite the nonce onchain.
+EOA transactions are generally not cancellable if they have been executed.
 
 # Zeus Concepts
 
