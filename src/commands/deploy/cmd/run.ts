@@ -36,7 +36,6 @@ const DEFAULT_ANVIL_PORT = 8546;
 const DEFAULT_ANVIL_URI = `http://127.0.0.1:8546/`;
 
 const isValidFork = (fork: string | undefined) => {
-    // TODO(tenderly) - support tenderly.
     return [undefined, `anvil`, `tenderly`].includes(fork);
 } 
 
