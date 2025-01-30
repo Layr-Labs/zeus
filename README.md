@@ -84,11 +84,11 @@ To verify that the contracts this deploy claims to have produced match what is a
 
 - Zeus uses an algorithm that compares your local bytecode, with immutableReferences zero'd out, against bytecode that is available onchain (with the same bytecode segments zero'd out).
 
-[!TIP]
-Make sure you double check your foundry version (forge --version) before doing this. Differences in forge versions have been known to affect hash calculations.
+> [!TIP]
+> Make sure you double check your foundry version (forge --version) before doing this. Differences in forge versions have been known to affect hash calculations.
 
-[!NOTE] 
-If you are logged in and have write access to the ZEUS_HOST, you will automatically post a small commit indicating that you verified those contracts locally.
+> [!NOTE] 
+> If you are logged in and have write access to the ZEUS_HOST, you will automatically post a small commit indicating that you verified those contracts locally.
 
 ### Cancelling a deploy
 
@@ -97,7 +97,7 @@ If you are logged in and have write access to the ZEUS_HOST, you will automatica
     `zeus deploy cancel --env <env>`
 
 For multisig transactions, Zeus will attempt to propose an alternate null transaction to overwrite the nonce onchain.
-EOA transactions are generally not cancellable if they have been executed.
+EOA transactions are not cancellable if they have been executed.
 
 # Zeus Concepts
 
