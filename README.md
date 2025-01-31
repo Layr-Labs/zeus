@@ -1,6 +1,7 @@
 # Zeus
 
-![Unit Tests](https://github.com/Layr-Labs/zeus/actions/workflows/ci-pipeline.yml/badge.svg)
+![unit tests](https://github.com/Layr-Labs/zeus/actions/workflows/ci-pipeline.yml/badge.svg)
+[![npm version](https://badge.fury.io/js/@layr-labs%2Fzeus.svg)](https://badge.fury.io/js/@layr-labs%2Fzeus)
 
 Zeus manages complex deploy processes for onchain software.
 
