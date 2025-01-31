@@ -16,11 +16,7 @@ jobs:
         with:
           node-version: 23
           registry-url: "https://registry.npmjs.org/"
-<<<<<<< HEAD
       
-=======
-          
->>>>>>> d125be4 (fix)
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libudev-dev
 
