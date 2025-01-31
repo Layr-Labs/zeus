@@ -1,5 +1,7 @@
 # Zeus
 
+![Unit Tests](https://github.com/Layr-Labs/zeus/actions/workflows/ci-pipeline.yml/badge.svg)
+
 Zeus manages complex deploy processes for onchain software.
 
 ## Should I use Zeus?
