@@ -25,8 +25,8 @@
     "package.json",
     "LICENSE"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "Eigen Labs, Inc.",
+  "license": "BSL",
   "dependencies": {
     "@ethers-ext/signer-ledger": "^6.0.0-beta.1",
     "@foundry-rs/hardhat-anvil": "^0.1.7",
