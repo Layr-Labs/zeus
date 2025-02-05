@@ -23,11 +23,13 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
         }, 'rpcUrl')
         this.etherscanApiKey = this.arg(async () => {
             if (options?.defaultArgs.fork) {
+                console.log(`ignoring etherscanApiKey - won't prompt again (fork).`)
                 return false;
             }
 
             const res = await prompts.etherscanApiKey();
             if (!res) {
+                console.log(`ignoring etherscanApiKey - won't prompt again (user-declined).`)
                 return false;
             }
             return res;

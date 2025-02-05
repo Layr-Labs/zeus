@@ -4,7 +4,30 @@ import { Strategy, TForgeRequest, TStrategyOptions } from "../../signing/strateg
 import { jest } from '@jest/globals';
 import { TForgeOutput, TForgeRun } from "../../signing/utils";
 
-const forgeSampleRun: TForgeRun = {
+export const mockForgeScriptOutput = {
+    stateUpdates: [],
+    contractDeploys: [],
+    output: {
+        timestamp: 0,
+        chain: 0, 
+        success: true,
+        returns: {
+            '0': {
+                value: ''
+            }
+        },
+        transactions: [],
+        logs: [],
+        raw_logs: [],
+        traces: [],
+        gas_used: 0,
+        labeled_addresses: {},
+        returned: null,
+        address: null
+    }
+}
+
+export const forgeSampleRun: TForgeRun = {
     timestamp: 0,
     chain: 1,
     transactions: [{
@@ -23,7 +46,7 @@ const forgeSampleRun: TForgeRun = {
     address: '0x123'
 };
 
-const mockForgeOutput: TForgeRequest = {
+export const mockForgeOutput: TForgeRequest = {
     output: forgeSampleRun,
     stateUpdates: [], 
     forge: {
@@ -36,7 +59,7 @@ const mockForgeOutput: TForgeRequest = {
     ready: true
 };
 
-export abstract class MockStrategy extends Strategy {
+export class MockStrategy extends Strategy {
     id = "ledger";
     description = "mock";
 
