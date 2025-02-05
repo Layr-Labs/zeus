@@ -21,11 +21,13 @@ import { existsSync, readFileSync } from "fs";
 import * as prompts from '../../commands/prompts';
 
 export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn: Transaction, options: TStrategyOptions | undefined): Promise<void> {
-    let eoaStrategy: EOABaseSigningStrategy | undefined = undefined;
+    let fallbackEoaStrategy: EOABaseSigningStrategy | undefined = undefined;
 
     if (options?.nonInteractive || options?.defaultArgs?.fork) {
-        eoaStrategy = new EOASigningStrategy(deploy, metatxn, options);
+        fallbackEoaStrategy = new EOASigningStrategy(deploy, metatxn, options);
     }
+
+    let eoaStrategy: EOABaseSigningStrategy | undefined = undefined;
 
     const rpcUrl = await (async () => {
         if (options?.defaultArgs?.rpcUrl) {
@@ -64,8 +66,8 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
 
             if (!options?.defaultArgs?.nonInteractive && !options?.defaultArgs?.fork) {
                 console.log(`Zeus would like to simulate this EOA transaction before attempting it for real. Please choose the method you'll use to sign:`)
-                eoaStrategy = (await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {nonInteractive: !!options?.nonInteractive, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}})) as unknown as EOABaseSigningStrategy;
-                const sigRequest = await eoaStrategy.prepare(script, deploy._) as TForgeRequest;
+                const strategy = (await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {nonInteractive: !!options?.nonInteractive, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}})) as unknown as EOABaseSigningStrategy;
+                const sigRequest = await strategy.prepare(script, deploy._) as TForgeRequest;
                 console.log(chalk.yellow(`Please reviewing the following: `))
                 console.log(chalk.yellow(`=====================================================================================`))
                 console.log(chalk.bold.underline(`Forge output: `))
@@ -99,8 +101,8 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
         case "eoa_start": {
             const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
             if (existsSync(script)) {
-                const strategy = eoaStrategy ?? await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {...options, nonInteractive: !!options?.nonInteractive, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}});
-                const sigRequest = await strategy.requestNew(script, deploy._) as TForgeRequest;
+                eoaStrategy = fallbackEoaStrategy ?? await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {...options, nonInteractive: !!options?.nonInteractive, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}}) as EOABaseSigningStrategy;
+                const sigRequest = await eoaStrategy.requestNew(script, deploy._) as TForgeRequest;
                 if (sigRequest?.ready) {
                     deploy._.metadata[deploy._.segmentId] = {
                         type: "eoa",
@@ -189,6 +191,8 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
             break;
         }
         case "eoa_wait_confirm": {
+            eoaStrategy = eoaStrategy ?? fallbackEoaStrategy ?? await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {...options, nonInteractive: !!options?.nonInteractive, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}}) as EOABaseSigningStrategy;
+                
             const foundryDeploy = await metatxn.getJSONFile<TFoundryDeploy>(
                 canonicalPaths.foundryDeploy({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})    
             );

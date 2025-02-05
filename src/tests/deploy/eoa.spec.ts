@@ -3,12 +3,16 @@ import { SavebleDocument, Transaction } from '../../metadata/metadataStore';
 import { TStrategyOptions } from '../../signing/strategy';
 import { TDeploy } from '../../metadata/schema';
 import type { PublicClient, TransactionReceipt } from 'viem';
-import {mockDeployDocument, mockTransaction} from './mock';
+import {mockDeployDocument, mockTransaction, mockNextSelectedStrategy} from './mock';
+import { mockForgeScriptOutput, MockStrategy } from './mockStrategy';
 
 const {runTest} = await import('../../signing/strategies/test');
 const prompts = await import('../../commands/prompts')
 const {executeEOAPhase} = await import('../../deploy/handlers/eoa');
 const { createPublicClient, TransactionReceiptNotFoundError } = await import('viem');
+const EOASigningStrategyMod = await import('../../signing/strategies/eoa/privateKey');
+
+import type EOASigningStrategy  from '../../signing/strategies/eoa/privateKey'
 
 describe('executeEOAPhase', () => {
   let deploy: SavebleDocument<TDeploy>;
@@ -57,14 +61,14 @@ describe('executeEOAPhase', () => {
 
     it('should run tests and advance if all goes well (non-interactive = false)', async () => {
       (runTest as jest.Mock<typeof runTest>).mockResolvedValue({ forge: undefined, code: 0, stdout: '', stderr: '' }); // test pass
-      // We'll let wouldYouLikeToContinue = true (since it's mocked by default)
-
-      // mock strategy out.
+      
       const txn = mockTransaction({
         "environment/testEnv/manifest.json": {id: "testEnv"}
       });
-      (prompts.pickStrategy as jest.Mock<typeof prompts.pickStrategy>).mockResolvedValue('ledger');
+      const mockStrategy = new MockStrategy(deploy, txn, options);
+      mockNextSelectedStrategy(mockStrategy);
       (prompts.wouldYouLikeToContinue as jest.Mock<typeof prompts.wouldYouLikeToContinue>).mockResolvedValue(true);
+
       await executeEOAPhase(deploy, txn, options);
 
       // It should have invoked runTest
@@ -81,13 +85,14 @@ describe('executeEOAPhase', () => {
     });
 
     it('should throw an error if tests fail', async () => {
-      (runTest as jest.Mock<typeof runTest>).mockResolvedValue({ code: 1, stdout: '', stderr: '', forge: undefined }); // test fail
+      (runTest as jest.Mock<typeof runTest>).mockResolvedValue({ code: 1, stdout: '', stderr: '', forge: undefined }); // test failure
       
-      await expect(executeEOAPhase(deploy, metatxn, options)).rejects.toThrowError('One or more tests failed.');
+      await expect(executeEOAPhase(deploy, metatxn, options)).rejects.toThrowError(`The deploy halted: One or more tests failed.`);
       
       // Should have tried to run tests
       expect(runTest).toHaveBeenCalled();
-      // The function should throw before saving or committing
+
+      // Doesn't save
       expect(deploy.save).not.toHaveBeenCalled();
       expect(metatxn.commit).not.toHaveBeenCalled();
     });
@@ -108,6 +113,41 @@ describe('executeEOAPhase', () => {
       expect(deploy.save).not.toHaveBeenCalled();
       expect(metatxn.commit).not.toHaveBeenCalled();
     });
+
+    it('should complete successfully', async () => {
+      const metatxn = mockTransaction({
+        "environment/testEnv/manifest.json": {id: "testEnv"}
+      });
+
+      (runTest as jest.Mock<typeof runTest>).mockResolvedValue({ code: 0, stdout: '', stderr: '', forge: undefined }); // test success
+      (prompts.etherscanApiKey as jest.Mock<typeof prompts.etherscanApiKey>).mockResolvedValue('123');
+      const options = {
+        nonInteractive: false,
+        defaultArgs: {rpcUrl: 'https://google.com', overrideEoaPk: `0x04ba7e1737815037a348ec201b6433868f8c297d007b5ca605387fbb21f80516`}
+      } as const;
+
+      const deploy = mockDeployDocument('eoa_start', '1-eoa.s.sol') as SavebleDocument<TDeploy>;
+      const strat = new EOASigningStrategyMod.default(deploy, metatxn, options);
+
+      jest.spyOn(strat, 'runForgeScript');
+      (strat.runForgeScript as jest.Mock<typeof strat['runForgeScript']>).mockImplementation(async function (this: EOASigningStrategy) {
+        await this.forgeArgs(); // mock runForgeScript as accessing the args.
+        // TODO: this mocking could mock something within runForgeScript instead to be more accurate.
+        return mockForgeScriptOutput;
+      });
+
+      mockNextSelectedStrategy(strat);
+      
+      await expect(executeEOAPhase(deploy, metatxn, options)).resolves.toBeUndefined()
+
+      expect(deploy.save).toHaveBeenCalled();
+      expect(metatxn.commit).toHaveBeenCalled();
+
+      // should prompt for etherscan api key.
+      expect(strat.runForgeScript).toHaveBeenCalled();
+      expect(prompts.etherscanApiKey).toHaveBeenCalled();
+    });
+  })
 
   describe('phase: "eoa_wait_confirm"', () => {
     beforeEach(() => {
@@ -189,5 +229,4 @@ describe('executeEOAPhase', () => {
       );
     });
   });
-  })
 });

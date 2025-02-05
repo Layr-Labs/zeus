@@ -3,6 +3,8 @@ import { MockStrategy } from './mockStrategy';
 import { TDeployPhase, TEnvironmentManifest } from '../../metadata/schema';
 import { SavebleDocument, Transaction } from '../../metadata/metadataStore';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import { promptForStrategyWithOptions } from '../../commands/deploy/cmd/utils-strategies';
+import type { Strategy } from '../../signing/strategy';
 
 jest.unstable_mockModule('../../signing/strategies/ledger/account', () => ({
     // replace ledger with a hardcoded account
@@ -10,6 +12,19 @@ jest.unstable_mockModule('../../signing/strategies/ledger/account', () => ({
     DEFAULT_BASE_DERIVATION_PATH: ``,
     BASE_DERIVATION_PATH: ``
 }))
+
+
+jest.unstable_mockModule(`../../commands/deploy/cmd/utils-strategies`, () => ({
+  promptForStrategy: jest.fn<typeof import("../../commands/deploy/cmd/utils-strategies").promptForStrategy>(),
+  promptForStrategyWithOptions: jest.fn<typeof import("../../commands/deploy/cmd/utils-strategies").promptForStrategyWithOptions>()
+}))
+
+const utilsStrategies = await import(`../../commands/deploy/cmd/utils-strategies`);
+
+export function mockNextSelectedStrategy(strategy: Strategy) {
+  (utilsStrategies.promptForStrategy as jest.Mock<typeof import("../../commands/deploy/cmd/utils-strategies").promptForStrategy>).mockResolvedValueOnce(strategy);
+  (utilsStrategies.promptForStrategyWithOptions as jest.Mock<typeof import("../../commands/deploy/cmd/utils-strategies").promptForStrategyWithOptions>).mockResolvedValueOnce(strategy);
+}
 
 export function mockEnvManifest(): TEnvironmentManifest {
   return {

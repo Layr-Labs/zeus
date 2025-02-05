@@ -188,7 +188,7 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
                     anvil,
                     testClient,
                     overrideEoaPk,
-                    etherscanApiKey: !args.fork,
+                    etherscanApiKey: args.fork ? false : undefined,
                 },
                 nonInteractive: !!args.fork
             });
@@ -237,7 +237,7 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
                 anvil,
                 testClient,
                 overrideEoaPk,
-                etherscanApiKey: !args.fork,
+                etherscanApiKey: args.fork ? false : undefined,
             },
             nonInteractive: !!args.fork
         });
