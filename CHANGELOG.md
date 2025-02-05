@@ -1,5 +1,7 @@
 
 **[Current]** 
+1.2.2:
+- A bug which resulted in etherscanApiKey not being prompted.
 
 1.2.1:
 - Minor bugfixes / improvements.
