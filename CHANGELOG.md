@@ -1,5 +1,8 @@
 
 **[Current]** 
+1.2.3:
+- Zeus automatically displays messages indicating the user should upgrade now.
+
 1.2.2:
 - A bug which resulted in etherscanApiKey not being prompted.
 

@@ -13,8 +13,21 @@ import testCmd from './commands/test';
 import initCmd from './commands/init';
 import which from './commands/which';
 import {zeus as zeusInfo} from './metadata/meta';
+import pkgInfo from '../package.json';
+import { execSync } from 'child_process';
+import { compare } from 'compare-versions';
 
 const main = async () => {
+    const latestRemoteVersion = execSync(`npm view ${pkgInfo.name} version`).toString().trim();
+    const currentVersion = pkgInfo.version;
+
+    if (compare(latestRemoteVersion, currentVersion, '>')) {
+        console.log(chalk.yellow(`==================================================`))
+        console.log(chalk.yellow(`A new version (${latestRemoteVersion}) is available!\n`))
+        console.log(chalk.bold.yellow(`\tnpm install -g @layr-labs/zeus`))
+        console.log(chalk.yellow(`==================================================`))
+    }
+
     const state = await load()
     const isLoggedIn = await state.metadataStore?.isLoggedIn() ?? false;
     const hasZeusHost = !!state?.zeusHostOwner;

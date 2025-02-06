@@ -1,6 +1,6 @@
 {
   "name": "@layr-labs/zeus",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "web3 deployer / metadata manager",
   "main": "src/index.ts",
   "scripts": {
@@ -46,6 +46,7 @@
     "cli-spinners": "^3.2.0",
     "clipboardy": "^4.0.0",
     "cmd-ts": "^0.13.0",
+    "compare-versions": "^6.1.1",
     "express": "^4.21.0",
     "glob": "^11.0.0",
     "loading-spinner": "^1.2.1",
