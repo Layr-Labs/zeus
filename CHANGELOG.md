@@ -1,5 +1,8 @@
 
 **[Current]** 
+1.2.4:
+- Adds `ZEUS_DEPLOY_FROM_VERSION` and `ZEUS_DEPLOY_TO_VERSION`, automatically injected to scripts and all tasks run via `zeus run`.
+
 1.2.3:
 - Zeus automatically displays messages indicating the user should upgrade now.
 
