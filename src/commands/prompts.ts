@@ -223,23 +223,16 @@ export const getChainId = async (nodeUrl: string) => {
 }
 
 export const chainIdName = (chainId: number) => {
-    switch (chainId) {
-        case 1:
-            return 'Mainnet'
-        case 17000:
-            return 'Holesky'
-        case 11155111:
-            return 'Sepolia';
-        default:
-            return `chains/${chainId}`;
-    }
+    const chain = Object.values((AllChains as unknown as AllChains.Chain<undefined>[])).find(chain => chain.id === chainId)
+    return chain?.name ?? `chains/${chainId}`;
 };
 
 export const rpcUrl = async (forChainId: number) => {
+    let attempt = 0;
     while (true) {
         const result = await envVarOrPrompt({
             title: `Enter an RPC url (or $ENV_VAR) for ${chainIdName(forChainId)}`,
-            reuseKey: `node-url`,
+            reuseKey: attempt === 0 ? `node-url` : undefined,
             isValid: (text) => {
                 try {
                     let url: string = text;
@@ -256,12 +249,14 @@ export const rpcUrl = async (forChainId: number) => {
             directEntryInputType: 'text',
             envVarSearchMessage: 'Enter a node url'
         })
+        attempt++;
         
         const chainId = await getChainId(result);
         if (chainId !== forChainId) {
-            console.error(`This node is for an incorrect network (expected chainId=${chainIdName(forChainId)}, got ${chainIdName(chainId)})`);
+            console.error(chalk.red(`This node is for an incorrect network (expected chainId=${chainIdName(forChainId)}, got ${chainIdName(chainId)})\n\n`));
             continue;
         }
+        
         return result;
     }
 } 

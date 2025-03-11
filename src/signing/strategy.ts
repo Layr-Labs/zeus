@@ -49,10 +49,11 @@ export interface TForgeRequest extends HasStateUpdates {
 }
 
 export interface TGnosisRequest extends HasStateUpdates {
+    empty: boolean, // true if there are no transactions to submit.
     safeAddress: `0x${string}`,
-    safeTxHash: `0x${string}`,
-    senderAddress: `0x${string}`,
-    signature?: `0x${string}`
+    safeTxHash: `0x${string}` | undefined,
+    senderAddress: `0x${string}` | undefined,
+    signature?: `0x${string}` | undefined
     immediateExecution?: {
         transaction: `0x${string}` | undefined,
         success: boolean,
@@ -206,6 +207,7 @@ export abstract class Strategy {
 
         const prompt = ora(`Running: ${chalk.italic(`forge ${redact(args.join(' '), ...await this.redactInOutput())}`)}`);
         const spinner = prompt.start();
+        
         
         // when we run scripts, we inject;
         //  1- the latest available environment, and

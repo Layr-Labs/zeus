@@ -110,12 +110,15 @@ describe('executeMultisigPhase', () => {
       mockSafeInfo({required: 1, present: 1})
     });
 
-    describe("should fail if", () => {
+    describe("should auto-forward if", () => {
       it("data is corrupted", async () => {
         metatxn = mockTransaction({}); // no file
-        await expect(executeMultisigPhase(deploy, metatxn, undefined)).rejects.toThrowError(`Zeus script outputted no multisig transactions`);
+        await expect(executeMultisigPhase(deploy, metatxn, undefined)).resolves.toBeUndefined();
+        expect(deploy._.phase).toEqual('complete');
       })
+    })
 
+    describe("should fail if", () => {
       it("transaction receipt indicates failure", async () => {
         const files: Record<string, unknown> = {};
         files[canonicalPaths.multisigTransaction({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})] = {
@@ -180,17 +183,32 @@ describe('executeMultisigPhase', () => {
     });
 
     it("should advance if transaction is already executed", async () => {
+      const files: Record<string, unknown> = {};
+        files[canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})] = {
+          safeTxHash: `0xsafehash`,
+        };
+      const metatxn = mockTransaction(files); // no file
       mockSafeInfo({required: 1, present : 1}, {isExecuted: true, isSuccessful: true});
       await expect(executeMultisigPhase(deploy, metatxn, undefined)).resolves.toBeUndefined();
       expect(deploy._.phase).toEqual(`multisig_wait_confirm`)
     })
 
     it("should halt if transaction executed unsuccessfully", async () => {
+      const files: Record<string, unknown> = {};
+        files[canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})] = {
+          safeTxHash: `0xsafehash`,
+        };
+      const metatxn = mockTransaction(files); // no file
       mockSafeInfo({required: 1, present : 1}, {isExecuted: true, isSuccessful: false});
       await expect(executeMultisigPhase(deploy, metatxn, undefined)).rejects.toThrowError('The deploy halted: Multisig transaction failed.');
     })
 
     it("should halt if transaction was not executed yet", async () => {
+      const files: Record<string, unknown> = {};
+        files[canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})] = {
+          safeTxHash: `0xsafehash`,
+        };
+      const metatxn = mockTransaction(files); // no file
       mockSafeInfo({required: 1, present : 1}, {isExecuted: false, isSuccessful: undefined});
       await expect(executeMultisigPhase(deploy, metatxn, undefined)).rejects.toThrowError('The deploy halted: Waiting on multisig transaction execution.');
     })

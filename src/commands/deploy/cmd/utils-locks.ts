@@ -29,7 +29,7 @@ export const releaseDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<v
 const SECONDS = 1000;
 const MINUTES = 60 * SECONDS;
 
-export const acquireDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<boolean> = async (deploy, txn) => {
+export const acquireDeployLock: (deploy: TDeploy, txn: Transaction, message?: string) => Promise<boolean> = async (deploy, txn, message = '') => {
     const prompt = ora(`Acquiring deploy lock...'`);
     const spinner = prompt.start();
     try {
@@ -37,7 +37,7 @@ export const acquireDeployLock: (deploy: TDeploy, txn: Transaction) => Promise<b
         const currentEmail = currentUser();
 
         const acquireLock = async () => {
-            deployLock._.description = `Deploy ${deploy.name} - ${deploy.segmentId}/${deploy.phase}`;
+            deployLock._.description = `Deploy ${deploy.name} - ${deploy.segmentId}/${deploy.phase}${message !== '' ? `(${message})` : ``}`;
             deployLock._.holder = currentEmail;
             deployLock._.untilTimestampMs = Date.now() + (5 * MINUTES);
             await deployLock.save();

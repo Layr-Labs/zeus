@@ -80,7 +80,10 @@ export const cleanContractName = (contractName: string) => {
         return contractName.substring(0, contractName.length - `_Impl`.length);
     } else if (contractName.endsWith('_Proxy')) {
         return contractName.substring(0, contractName.length - `_Proxy`.length);
+    } else if (contractName.endsWith('_Beacon')) {
+        return contractName.substring(0, contractName.length - `_Beacon`.length);
     }
+
     return contractName;
 }
 export const currentUser = () => execSync('git config --global user.email').toString('utf-8').trim();
