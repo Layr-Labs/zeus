@@ -1,8 +1,19 @@
 
 **[Current]** 
 1.3.0:
+**Bugs**
 - Fixes a bug where deploying Beacon contracts did not work.
 - Fixed a bug where providing an incorrect RPC node lead to an inf loop
+- Changes the calculation logic of multisig transactions to be more accurate.
+- Fixed an issue where `zeus deploy verify` did not respect the deploy lock, leading to clobbers.
+
+**Changes**
+- Removed `--slow` from forge invocations, as zeus already awaits individual transactions.
+
+**Features**
+- Allows multisig steps to not return a transaction without breaking the deploy.
+- Support non-standard ChainIDs
+
 
 1.2.3:
 - Zeus automatically displays messages indicating the user should upgrade now.

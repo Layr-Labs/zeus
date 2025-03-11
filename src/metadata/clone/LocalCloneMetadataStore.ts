@@ -39,10 +39,6 @@ export class LocalCloneMetadataStore implements MetadataStore {
             throw new Error('Local repository not initialized. Call initialize() first.');
         }
 
-        if (options?.verbose) {
-            console.log(`Starting transaction in: ${this.localPath}`);
-        }
-
         return new LocalCloneTransaction(this.localPath, !!options?.verbose);
     }
 }
