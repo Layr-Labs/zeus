@@ -58,7 +58,7 @@ export interface EOAMetadata {
 
 export interface MultisigMetadata {
     type: "multisig",
-    signer: `0x${string}`, // the signatory to the multisig transaction.
+    signer?: `0x${string}`, // the signatory to the multisig transaction.
     signerType: string, // gnosis.api
     gnosisTransactionHash: `0x${string}`, // for later referencing the transaction.
     gnosisCalldata?: `0x${string}`, // for later executing the transaction

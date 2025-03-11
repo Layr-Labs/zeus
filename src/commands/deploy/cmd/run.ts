@@ -175,7 +175,7 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
         if (deploy) {
             if (args.upgrade || !args.resume) {
                 console.error(`Existing deploy in progress. Please rerun with --resume (and not --upgrade, as the current upgrade is ${deploy._.upgrade}).`)
-                console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`)
+                console.error(chalk.bold(`\n\t\tzeus deploy run --resume --env ${deploy._.env}`))
                 return;
             }
 

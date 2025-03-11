@@ -1,7 +1,7 @@
 import {abi} from './Safe';
 import { ICachedArg, TSignatureRequest, TStrategyOptions } from "../../../strategy";
 import { GnosisSigningStrategy } from "../gnosis";
-import { createPublicClient, createWalletClient, encodePacked, getContract, hexToBigInt, http, parseEther } from "viem";
+import { createPublicClient, createWalletClient, encodePacked, getAddress, getContract, hexToBigInt, hexToNumber, http, parseEther } from "viem";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { TDeploy } from "../../../../metadata/schema";
 import { privateKey, signerKey } from "../../../../commands/prompts";
@@ -45,19 +45,10 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         }
         this.forMultisig = safeContext.addr;
 
-        const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
-        
-        const safeTxn = multisigExecuteRequests[0];
-        const {to, value, data} = safeTxn;
-
-        console.log(`Multisig transaction to execute: `)
-        console.table(safeTxn);
-
         const chain = Object.values(AllChains).find(value => value.id === this.deploy._.chainId);
         if (!chain) {
             throw new Error(`Unsupported chain ${this.deploy._.chainId}`);
         }
-
         const walletClient = createWalletClient({
             account: privateKeyToAccount(await this.privateKey.get()),
             transport: http(await this.rpcUrl.get()),
@@ -65,6 +56,22 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         })
 
         const signer = walletClient.account.address;
+
+        const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
+        if (multisigExecuteRequests.length === 0) {
+            console.warn(`This step returned no transactions. If this isn't intentional, consider cancelling your deploy.`);
+            return {
+                empty: true,
+                safeAddress: getAddress(safeContext.addr),
+                safeTxHash: undefined,
+                senderAddress: signer as `0x${string}`,
+                stateUpdates
+            }
+        }
+
+        console.log(`(${multisigExecuteRequests.length}) Multisig transactions produced by script: `)
+        console.table(JSON.stringify(multisigExecuteRequests, null, 2));
+
         const protocolKitOwner1 = await Safe.init({
             provider: await this.rpcUrl.get(),
             signer,
@@ -78,15 +85,15 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
 
         const safe = getContract({abi, client: walletClient, address: safeContext.addr})
         const txn = await protocolKitOwner1.createTransaction({
-            transactions: [
-                {
-                    to: to,
+            transactions: multisigExecuteRequests.map(({to, value, data}) => 
+                ({
+                    to: getAddress(to),
                     data,
-                    value,
+                    value: hexToNumber(value as `0x${string}`).toString(),
                     operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
-                }
-            ],
-        });
+                })
+            ),
+        })
 
         const signatures = this.approvalSignature(signer);
         const nonce = await safe.read.nonce();
@@ -116,6 +123,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         ], {});
        
         return {
+            empty: false,
             output,
             safeAddress: safeContext.addr,
             safeTxHash: txHash as `0x${string}`,
@@ -137,18 +145,58 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         }
         this.forMultisig = safeContext.addr;
 
-        const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
-
-        const safeTxn = multisigExecuteRequests[0];
-        const {to, value, data} = safeTxn;
-
-        console.log(`Multisig transaction to execute: `)
-        console.table(safeTxn);
-
         const chain = Object.values(AllChains).find(value => value.id === this.deploy._.chainId);
         if (!chain) {
             throw new Error(`Unsupported chain ${this.deploy._.chainId}`);
         }
+        const walletClient = createWalletClient({
+            account: privateKeyToAccount(await this.privateKey.get()),
+            transport: http(await this.rpcUrl.get()),
+            chain
+        })
+
+        const signer = walletClient.account.address;
+
+        const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
+        if (multisigExecuteRequests.length === 0) {
+            console.warn(`This step returned no transactions. If this isn't intentional, consider cancelling your deploy.`);
+            return {
+                empty: true,
+                safeAddress: getAddress(safeContext.addr),
+                safeTxHash: undefined,
+                senderAddress: signer as `0x${string}`,
+                stateUpdates
+            }
+        }
+
+        console.log(`(${multisigExecuteRequests.length}) Multisig transaction(s) to execute: `)
+        console.log(JSON.stringify(multisigExecuteRequests, null, 2));
+
+        const protocolKitOwner1 = await Safe.init({
+            provider: await this.rpcUrl.get(),
+            signer,
+            safeAddress: safeContext.addr
+        });
+
+        const threshold = await protocolKitOwner1.getThreshold();
+        if (threshold !== 1) {
+            console.warn(`Warning -- this strategy may not work with non 1/N multisigs.`);
+        }
+
+        const safe = getContract({abi, client: walletClient, address: safeContext.addr})
+        const txn = await protocolKitOwner1.createTransaction({
+            transactions: multisigExecuteRequests.map(({to, value, data}) => 
+                ({
+                    to: getAddress(to),
+                    data,
+                    value: hexToNumber(value as `0x${string}`).toString(),
+                    operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
+                })
+            ),
+        });
+
+        console.log(`Transaction: `);
+        console.log(JSON.stringify(txn, null, 2));
 
         if (this.options?.defaultArgs?.fork) {
             // this is going to be immediate.
@@ -164,9 +212,9 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             console.info(`Using sendUnsignedTransaction to simulate multisig call...`);
             const tx = await testClient.sendUnsignedTransaction({
                 from: safeContext.addr,
-                to: to as `0x${string}`,
-                value: hexToBigInt(value as `0x${string}`),
-                data: data as `0x${string}`
+                to: txn.data.to as `0x${string}`,
+                value: hexToBigInt(txn.data.value as `0x${string}`),
+                data: txn.data.data as `0x${string}`
             })
 
             const rpcUrl = await this.rpcUrl.get();
@@ -182,6 +230,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             )
 
             return {
+                empty: false,
                 output,
                 safeAddress: safeContext.addr,
                 safeTxHash: tx as `0x${string}`,
@@ -194,35 +243,6 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             }
         }
 
-        const walletClient = createWalletClient({
-            account: privateKeyToAccount(await this.privateKey.get()),
-            transport: http(await this.rpcUrl.get()),
-            chain
-        })
-
-        const signer = walletClient.account.address;
-        const protocolKitOwner1 = await Safe.init({
-            provider: await this.rpcUrl.get(),
-            signer,
-            safeAddress: safeContext.addr
-        });
-
-        const threshold = await protocolKitOwner1.getThreshold();
-        if (threshold !== 1) {
-            console.warn(`Warning -- this strategy may not work with non 1/N multisigs.`);
-        }
-
-        const safe = getContract({abi, client: walletClient, address: safeContext.addr})
-        const txn = await protocolKitOwner1.createTransaction({
-            transactions: [
-                {
-                    to: to,
-                    data,
-                    value,
-                    operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
-                }
-            ],
-        });
 
         const signatures = this.approvalSignature(signer);
         const nonce = await safe.read.nonce();
@@ -252,6 +272,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         ], {});
        
         return {
+            empty: false,
             output,
             safeAddress: safeContext.addr,
             safeTxHash: txHash as `0x${string}`,

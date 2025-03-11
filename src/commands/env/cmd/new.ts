@@ -20,14 +20,26 @@ async function handler(_user: TState): Promise<void> {
         }
     });
 
-    const chainId = await select({
+    const _chainId = await select({
         prompt: "Chain?",
         choices: [
             {name: 'Sepolia', value: 0xaa36a7, description: "ETH Sepolia Testnet"},
             {name: 'Holesky', value: 0x4268, description: "ETH Holesky Testnet"},
             {name: 'Mainnet', value: 0x1,  description: "ETH Mainnet"},
+            {name: 'Custom', value: 0x0,  description: "Custom Chain"},
         ]
     });
+    const chainId = _chainId !== 0 ? _chainId : parseInt(await question({
+        text: "Chain ID?",
+        isValid: (text: string) => {
+            try {
+                parseInt(text);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+    }))
 
     // Step 2: Create a new folder in the default branch
     const envManifestContent: TEnvironmentManifest = {

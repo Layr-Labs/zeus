@@ -59,20 +59,34 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                 
                 multisigStrategy = multisigStrategy ?? (await promptForStrategy(deploy, metatxn) as GnosisSigningStrategy);
                 const sigRequest = await multisigStrategy.requestNew(script, deploy._) as TGnosisRequest;
-                deploy._.metadata[deploy._.segmentId] = {
-                    type: "multisig",
-                    signer: sigRequest.senderAddress,
-                    signerType: multisigStrategy.id,
-                    gnosisTransactionHash: sigRequest.safeTxHash as `0x${string}`,
-                    gnosisCalldata: undefined, // ommitting this so that a third party can't execute immediately.
-                    multisig: sigRequest.safeAddress,
-                    confirmed: false,
-                    cancellationTransactionHash: undefined
-                };
-
-                if (sigRequest.immediateExecution && !sigRequest.immediateExecution.success) {
-                    console.error(`This strategy attempted to immediately execute your request. It was unsuccessful. (${sigRequest.immediateExecution.transaction})`);
-                    throw new HaltDeployError(deploy, `the onchain execution failed: ${JSON.stringify(sigRequest.immediateExecution, null, 2)}`)
+                if (sigRequest.empty) {
+                    deploy._.metadata[deploy._.segmentId] = {
+                        type: "multisig",
+                        signer: sigRequest.senderAddress,
+                        signerType: multisigStrategy.id,
+                        gnosisTransactionHash: sigRequest.safeTxHash as `0x${string}`,
+                        gnosisCalldata: undefined, // ommitting this so that a third party can't execute immediately.
+                        multisig: sigRequest.safeAddress,
+                        confirmed: true,
+                        cancellationTransactionHash: undefined
+                    }
+                    console.log(chalk.bold.underline(`This script did not output a transaction. Will be skipped.`));
+                } else {
+                    deploy._.metadata[deploy._.segmentId] = {
+                        type: "multisig",
+                        signer: sigRequest.senderAddress,
+                        signerType: multisigStrategy.id,
+                        gnosisTransactionHash: sigRequest.safeTxHash as `0x${string}`,
+                        gnosisCalldata: undefined, // ommitting this so that a third party can't execute immediately.
+                        multisig: sigRequest.safeAddress,
+                        confirmed: false,
+                        cancellationTransactionHash: undefined
+                    };
+    
+                    if (sigRequest.immediateExecution && !sigRequest.immediateExecution.success) {
+                        console.error(`This strategy attempted to immediately execute your request. It was unsuccessful. (${sigRequest.immediateExecution.transaction})`);
+                        throw new HaltDeployError(deploy, `the onchain execution failed: ${JSON.stringify(sigRequest.immediateExecution, null, 2)}`)
+                    }
                 }
 
                 if (sigRequest.stateUpdates && Object.keys(sigRequest.stateUpdates).length > 0) {
@@ -100,13 +114,20 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                 multisigRun._ = sigRequest;
                 await multisigRun.save();
 
-                if (sigRequest.immediateExecution && sigRequest.immediateExecution.transaction) {
+                if (sigRequest.empty) {
+                    console.log(`No transaction, skipping forward.`);
+                    await advance(deploy);
+                    await deploy.save();
+                    await metatxn.commit(`[deploy ${deploy._.name}] multisig step did not output a transaction`);
+
+                } else if (sigRequest.immediateExecution && sigRequest.immediateExecution.transaction) {
                     (deploy._.metadata[deploy._.segmentId] as MultisigMetadata).confirmed = true;
                     (deploy._.metadata[deploy._.segmentId] as MultisigMetadata).immediateExecutionHash = sigRequest.immediateExecution.transaction;
                     console.log(`Transaction recorded: ${sigRequest.immediateExecution.transaction}`)
                     await advanceSegment(deploy);
                     await deploy.save();
                     await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction completed instantly`);
+                   
                 } else {
                     await advance(deploy);
                     await deploy.save();
@@ -122,11 +143,20 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
             const multisigDeploy = await metatxn.getJSONFile<TGnosisRequest>(
                 canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})
             )
+            const safeTxHash = multisigDeploy._.safeTxHash;
+            if (!safeTxHash) {
+                console.log(`No multisig tx hash found, skipping forward.`)
+                await advanceSegment(deploy);
+                await deploy.save();
+                await metatxn.commit(`[deploy ${deploy._.name}] multisig step did not output a transaction`);
+                return;
+            }
+
             const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId)})
-            const multisigTxn = await safeApi.getTransaction(multisigDeploy._.safeTxHash);
+            const multisigTxn = await safeApi.getTransaction(safeTxHash);
 
             if (multisigTxn.confirmations?.length === multisigTxn.confirmationsRequired) {
-                console.log(chalk.green(`SafeTxn(${multisigDeploy._.safeTxHash}): ${multisigTxn.confirmations?.length}/${multisigTxn.confirmationsRequired} confirmations received!`))
+                console.log(chalk.green(`SafeTxn(${safeTxHash}): ${multisigTxn.confirmations?.length}/${multisigTxn.confirmationsRequired} confirmations received!`))
                 await advance(deploy);
                 await deploy.save();
                 await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction signers found`);
@@ -144,28 +174,36 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
             const multisigDeploy = await metatxn.getJSONFile<TGnosisRequest>(
                 canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})
             )
+            const safeTxHash = multisigDeploy._.safeTxHash;
+            if (!safeTxHash) {
+                console.log(`No multisig tx hash found, skipping forward.`)
+                await advanceSegment(deploy);
+                await deploy.save();
+                await metatxn.commit(`[deploy ${deploy._.name}] multisig step did not output a transaction`);
+                return;
+            }
             const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId)})
-            const multisigTxn = await safeApi.getTransaction(multisigDeploy._.safeTxHash);
+            const multisigTxn = await safeApi.getTransaction(safeTxHash);
 
             const multisigTxnPersist = await metatxn.getJSONFile(canonicalPaths.multisigTransaction({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
             multisigTxnPersist._ = multisigTxn;
             await multisigTxnPersist.save();
             
             if (!multisigTxn.isExecuted) {
-                console.log(chalk.cyan(`SafeTxn(${multisigDeploy._.safeTxHash}): still waiting for execution.`))
+                console.log(chalk.cyan(`SafeTxn(${safeTxHash}): still waiting for execution.`))
                 console.error(`\tShare the following URI: ${multisigBaseUrl(deploy._.chainId)}/transactions/queue?safe=${multisigDeploy._.safeAddress}`)
                 console.error(`Resume deploy with: `)
                 console.error(`\t\tzeus deploy run --resume --env ${deploy._.env}`);
                 await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction awaiting execution`);
                 throw new HaltDeployError(deploy, `Waiting on multisig transaction execution.`);
             } else if (!multisigTxn.isSuccessful) {
-                console.log(chalk.red(`SafeTxn(${multisigDeploy._.safeTxHash}): failed onchain. Failing deploy.`))
+                console.log(chalk.red(`SafeTxn(${safeTxHash}): failed onchain. Failing deploy.`))
                 deploy._.phase = 'failed';
                 await deploy.save();
                 await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction failed`);
                 throw new HaltDeployError(deploy, `Multisig transaction failed.`);
             } else {
-                console.log(chalk.green(`SafeTxn(${multisigDeploy._.safeTxHash}): executed (${multisigTxn.transactionHash})`))
+                console.log(chalk.green(`SafeTxn(${safeTxHash}): executed (${multisigTxn.transactionHash})`))
                 await advance(deploy);
                 await deploy.save();
                 await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction executed`);
@@ -178,8 +216,11 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
             )
 
             if (!multisigTxn || !multisigTxn._ || !multisigTxn._.transactionHash) {
-                console.error(`Deploy missing multisig transaction data.`);
-                throw new HaltDeployError(deploy, `Zeus script outputted no multisig transactions.`);
+                console.log(`No multisig tx hash found, skipping forward.`)
+                await advanceSegment(deploy);
+                await deploy.save();
+                await metatxn.commit(`[deploy ${deploy._.name}] multisig step did not output a transaction`);
+                return;
             }
 
             if (multisigTxn._.executionDate && multisigTxn._.transactionHash) {

@@ -23,15 +23,23 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         }
         this.forMultisig = safeContext.addr;
 
-        const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
-
-        const safeTxn = multisigExecuteRequests[0];
-        const {to, value, data} = safeTxn;
-
-        console.log(`Multisig transaction to execute: `)
-        console.table(safeTxn);
-
         const signer = getAddress(await this.getSignerAddress());
+
+        const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
+        if (multisigExecuteRequests.length === 0) {
+            console.warn(`This step returned no transactions. If this isn't intentional, consider cancelling your deploy.`);
+            return {
+                empty: true,
+                safeAddress: getAddress(safeContext.addr),
+                safeTxHash: undefined,
+                senderAddress: signer as `0x${string}`,
+                stateUpdates
+            }
+        }
+
+        console.log(`Multisig transactions to execute: `)
+        console.table(JSON.stringify(multisigExecuteRequests, null, 2));
+
         const protocolKitOwner1 = await Safe.init({
             provider: await this.rpcUrl.get(),
             signer,
@@ -39,20 +47,21 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         });
         
         const txn = await protocolKitOwner1.createTransaction({
-            transactions: [
-                {
+            transactions: multisigExecuteRequests.map(({to, value, data}) => 
+                ({
                     to: getAddress(to),
                     data,
                     value: hexToNumber(value as `0x${string}`).toString(),
                     operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
-                }
-            ],
+                })
+            ),
         })
 
         console.log(`Forming transaction...`);
         const hash = await protocolKitOwner1.getTransactionHash(txn)
 
         return {
+            empty: false,
             output,
             safeAddress: getAddress(safeContext.addr),
             safeTxHash: hash as `0x${string}`,
@@ -67,22 +76,29 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
         this.forMultisig = safeContext.addr;
+        const signer = getAddress(await this.getSignerAddress());
 
         const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
         multisigExecuteRequests.forEach(req => console.log(JSON.stringify(req, null, 2)));
-
-        const safeTxn = multisigExecuteRequests[0];
-        const {to, value, data} = safeTxn;
+        if (multisigExecuteRequests.length === 0) {
+            console.warn(`This step returned no transactions. If this isn't intentional, consider cancelling your deploy.`);
+            return {
+                empty: true,
+                safeAddress: getAddress(safeContext.addr),
+                safeTxHash: undefined,
+                senderAddress: signer as `0x${string}`,
+                stateUpdates
+            }
+        }
 
         console.log(`Multisig transaction to execute: `)
-        console.table(safeTxn);
+        console.table(JSON.stringify(multisigExecuteRequests, null, 2));
         
         const apiKit = new SafeApiKit({
             chainId: BigInt(this.deploy._.chainId),
             txServiceUrl: overrideTxServiceUrlForChainId(this.deploy._.chainId),
         })
 
-        const signer = getAddress(await this.getSignerAddress());
         const protocolKitOwner1 = await Safe.init({
             provider: await this.rpcUrl.get(),
             signer,
@@ -90,12 +106,14 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         });
 
         const txn = await protocolKitOwner1.createTransaction({
-            transactions: [{
-                to: getAddress(to),
-                data: data,
-                value: hexToNumber(value as `0x${string}`).toString(),
-                operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
-            }]
+            transactions: multisigExecuteRequests.map(({to, value, data}) => 
+                ({
+                    to: getAddress(to),
+                    data,
+                    value: hexToNumber(value as `0x${string}`).toString(),
+                    operation: safeContext.callType === 0 ? OperationType.Call : OperationType.DelegateCall
+                })
+            ),
         })
 
         console.log(`Creating transaction...`);
@@ -120,6 +138,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         })
 
         return {
+            empty: false,
             output,
             safeAddress: safeContext.addr,
             safeTxHash: hash as `0x${string}`,

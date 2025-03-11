@@ -18,6 +18,7 @@ import { getTrace } from "../../../signing/utils";
 import chalk from "chalk";
 import { readFileSync } from "fs";
 import { getRepoRoot } from "../../configs";
+import { acquireDeployLock, releaseDeployLock } from "./utils-locks";
 
 const currentUser = () => execSync('git config --global user.email').toString('utf-8').trim();
 
@@ -34,7 +35,9 @@ const cleanContractName = (contract: string) => {
         return contract.substring(0, contract.length - `_Impl`.length);
     } else if (contract.endsWith('_Proxy')) {
         return contract.substring(0, contract.length - `_Proxy`.length);
-    } 
+    } else if (contract.endsWith('_Beacon')) {
+        return contract.substring(0, contract.length - `_Beacon`.length);
+    }
     return contract;
 }
 
@@ -44,6 +47,8 @@ const shortenHex = (str: string) => {
 
 async function handler(_user: TState, args: {env: string}) {
     try {
+        let willSaveVerification = false;
+
         const user = assertInRepo(_user);
         const metatxn = await user.metadataStore.begin();
         const envs = await loadExistingEnvs(metatxn);
@@ -56,6 +61,13 @@ async function handler(_user: TState, args: {env: string}) {
         if (!deploy) {
             console.error(`No active deploy to verify.`);
             return;
+        }
+        try {
+            if (await acquireDeployLock(deploy._, metatxn,'verifying deploy')) {
+                willSaveVerification = true;
+            }
+        } catch {
+            //
         }
 
         const customRpcUrl = await rpcUrl(deploy._.chainId);
@@ -245,8 +257,15 @@ async function handler(_user: TState, args: {env: string}) {
             }
 
             try {
-                await deployedContracts.save();
-                await metatxn.commit(`[${args.env}] verify deploy ${deploy._.name} - ${isFailure ? 'failure' : 'success'}`)
+                if (willSaveVerification) {
+                    await deployedContracts.save();
+                    await metatxn.commit(`[${args.env}] verify deploy ${deploy._.name} - ${isFailure ? 'failure' : 'success'}`)
+                    try {
+                        await releaseDeployLock(deploy._, metatxn);
+                    } catch {
+                        //
+                    }
+                }
             } catch (e) {
                 console.warn(`Failed to record verification. You may not have write access.`);
                 console.error(e)

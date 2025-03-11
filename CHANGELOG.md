@@ -1,5 +1,9 @@
 
 **[Current]** 
+1.3.0:
+- Fixes a bug where deploying Beacon contracts did not work.
+- Fixed a bug where providing an incorrect RPC node lead to an inf loop
+
 1.2.3:
 - Zeus automatically displays messages indicating the user should upgrade now.
 
