@@ -4,7 +4,7 @@ import { assertInRepo, inRepo, requires, TState } from './inject';
 import { loadExistingEnvs } from './env/cmd/list';
 import { execSync } from 'child_process';
 import { canonicalPaths } from '../metadata/paths';
-import { TDeploy, TDeployedContract, TDeployedContractsManifest, TDeployManifest, TDeployStateMutations, TEnvironmentManifest, TUpgrade } from '../metadata/schema';
+import { TDeploy, TDeployedContract, TDeployedContractsManifest, TDeployStateMutations, TEnvironmentManifest, TUpgrade } from '../metadata/schema';
 import { TDeployedInstance } from '../metadata/schema';
 import * as allArgs from './args';
 import { Transaction } from '../metadata/metadataStore';
