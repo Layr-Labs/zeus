@@ -1,5 +1,8 @@
 
 **[Current]** 
+1.3.1:
+- Adds `ZEUS_DEPLOY_FROM_VERSION` and `ZEUS_DEPLOY_TO_VERSION`, automatically injected to scripts, upgrades, and all tasks run via `zeus run`.
+
 1.3.0:
 **Bugs**
 - Fixes a bug where deploying Beacon contracts did not work.
