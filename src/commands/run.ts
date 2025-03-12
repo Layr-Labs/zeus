@@ -4,7 +4,7 @@ import { assertInRepo, inRepo, requires, TState } from './inject';
 import { loadExistingEnvs } from './env/cmd/list';
 import { execSync } from 'child_process';
 import { canonicalPaths } from '../metadata/paths';
-import { TDeployedContract, TDeployedContractsManifest, TDeployStateMutations, TEnvironmentManifest } from '../metadata/schema';
+import { TDeploy, TDeployedContract, TDeployedContractsManifest, TDeployManifest, TDeployStateMutations, TEnvironmentManifest, TUpgrade } from '../metadata/schema';
 import { TDeployedInstance } from '../metadata/schema';
 import * as allArgs from './args';
 import { Transaction } from '../metadata/metadataStore';
@@ -52,6 +52,10 @@ export interface TBaseZeusEnv {
     ZEUS_ENV_COMMIT: string,
     ZEUS_ENV_VERSION: string
     ZEUS_VERSION: string
+
+    // information from the zeus upgrade object (from => to)
+    ZEUS_DEPLOY_FROM_VERSION: string,
+    ZEUS_DEPLOY_TO_VERSION: string,
 }
 
 // if `withDeploy` is specified, we also inject instances/statics updated as part of the deploy.
@@ -60,7 +64,10 @@ export const injectableEnvForEnvironment: (txn: Transaction, env: string, withDe
     if (!envManifest._.id) {
         throw new Error(`No such environment: ${env}`);
     }
-    
+
+    const deployInfo = withDeploy ? (await txn.getJSONFile<TDeploy>(canonicalPaths.deployStatus({env, name: withDeploy})))._ : undefined;
+    const upgradeInfo = (withDeploy && deployInfo) ? (await txn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(deployInfo.upgrade))) : undefined;
+
     const deployManifest: TDeployedContractsManifest = withDeploy ? (await txn.getJSONFile<TDeployedContractsManifest>(canonicalPaths.deployDeployedContracts({env, name: withDeploy})))._ : {contracts: []};
     const deployParameters = await txn.getJSONFile<Record<string, string>>(canonicalPaths.deployParameters(
         '',
@@ -96,6 +103,10 @@ export const injectableEnvForEnvironment: (txn: Transaction, env: string, withDe
         ZEUS_ENV_COMMIT: envManifest._.latestDeployedCommit,
         ZEUS_TEST: 'false', /* test environments should override this */
         ZEUS_ENV_VERSION: envManifest._.deployedVersion,
+
+        ZEUS_DEPLOY_FROM_VERSION: upgradeInfo?._.from ?? ``,
+        ZEUS_DEPLOY_TO_VERSION: upgradeInfo?._.to ?? ``,
+
         ZEUS_VERSION: zeusInfo.Version,
         ...(deployParametersToEnvironmentVariables({
             ...(deployParameters._ ?? {}),
