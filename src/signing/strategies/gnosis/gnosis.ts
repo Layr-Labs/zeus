@@ -31,8 +31,6 @@ export abstract class GnosisSigningStrategy extends Strategy {
             throw new Error(`Failed to read deployed script address.`);
         }
 
-        console.log(`\nFiltering for transactions originating from Multisig(${_multisig})\n\n`);
-
         return output.traces.filter(trace => {
             return trace[0] === "Execution"
         }).map(

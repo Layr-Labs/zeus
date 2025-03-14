@@ -9,7 +9,7 @@ import { pickStrategy, rpcUrl } from "../../prompts";
 import { getActiveDeploy } from "./utils";
 import * as AllChains from "viem/chains";
 import { canonicalPaths } from "../../../metadata/paths";
-import { TForgeRequest } from "../../../signing/strategy";
+import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
 import { ForgeSolidityMetadata, TDeployedContractsManifest } from "../../../metadata/schema";
 import { createPublicClient, hexToBytes, http, toHex } from "viem";
 import { join } from "path";
@@ -254,6 +254,7 @@ async function handler(_user: TState, args: {env: string}) {
                 console.log(chalk.green('OK'));
             } else {
                 console.log(chalk.red(`FAILURE`));
+                throw new Error(`Deployed contracts did not match local copy.`)
             }
 
             try {
@@ -271,6 +272,44 @@ async function handler(_user: TState, args: {env: string}) {
                 console.error(e)
             }
         }
+
+        if (deploy._.segments[deploy._.segmentId].type === 'multisig') {
+            // allow verifying the multisig txn hash.
+            console.log(chalk.bold(`This deploy has a multisig step ongoing. You can check that the provided gnosisTransactionHash matches what was submitted`))
+
+            const strategyId = await pickStrategy([
+                {id: 'gnosis.api.eoa', description: 'Gnosis / Private Key'},
+                {id: 'gnosis.api.ledger', description: 'Gnosis / Ledger'},
+                {id: 'cancel', description: 'Cancel'}
+            ], "How would you like to supply the signer used for simulation?");
+
+            if (strategyId !== 'cancel') {
+                const strategy = await (async () => {
+                    const all = await import('../../../signing/strategies/strategies');
+                    const strategy = all.all.find(s => new s(deploy, metatxn, {nonInteractive: false, defaultArgs: {}}).id === strategyId);
+                    if (!strategy) {
+                        throw new Error(`Unknown strategy`);
+                    }
+                    return new strategy(deploy, metatxn, {nonInteractive: false, defaultArgs: {rpcUrl: customRpcUrl, etherscanApiKey: false}});
+                })();
+                const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
+                const request = await strategy.prepare(script, deploy._);
+                const gnosisTxnHash = (request as TGnosisRequest).safeTxHash;
+
+                const multisigRun = await metatxn.getJSONFile<TGnosisRequest>(canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
+                const proposedTxHash = multisigRun._.safeTxHash;
+                
+                if (proposedTxHash === gnosisTxnHash) {
+                    console.log(`${chalk.green('✔')} ${script} (${gnosisTxnHash})`);
+                } else {
+                    console.error(`${chalk.red('x')} ${script} (local=${gnosisTxnHash},reported=${proposedTxHash})`);
+                    throw new Error(`Multisig transaction did not match (local=${gnosisTxnHash},reported=${proposedTxHash})`);
+                }
+            } else {
+                console.log(chalk.italic(`skipping gnosis verification`))
+            }
+        }
+
     } catch (e) {
         console.error(`Failed to verify contracts.`);
         console.error(e);
