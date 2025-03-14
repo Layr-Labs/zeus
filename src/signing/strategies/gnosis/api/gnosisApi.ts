@@ -37,7 +37,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             }
         }
 
-        console.log(`Multisig transactions to execute: `)
+        console.log(chalk.italic(`Upgrade script produced the following transactions: `))
         console.table(JSON.stringify(multisigExecuteRequests, null, 2));
 
         const protocolKitOwner1 = await Safe.init({
@@ -57,7 +57,6 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             ),
         })
 
-        console.log(`Forming transaction...`);
         const hash = await protocolKitOwner1.getTransactionHash(txn)
 
         return {

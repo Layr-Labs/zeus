@@ -1,5 +1,8 @@
 
 **[Current]** 
+1.3.2:
+- `zeus deploy verify` now allows checking the correctness of the most recent submitted gnosis transaction.
+
 1.3.1:
 - Adds `ZEUS_DEPLOY_FROM_VERSION` and `ZEUS_DEPLOY_TO_VERSION`, automatically injected to scripts, upgrades, and all tasks run via `zeus run`.
 
