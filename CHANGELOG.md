@@ -1,5 +1,8 @@
 
 **[Current]** 
+1.3.3:
+- `zeus deploy verify` no longer submits a check to the repo upon completion. Will re-add in a future patch.
+
 1.3.2:
 - `zeus deploy verify` now allows checking the correctness of the most recent submitted gnosis transaction.
 
