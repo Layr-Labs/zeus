@@ -1,5 +1,6 @@
 import { flag, option, string, optional, positional } from "cmd-ts";
 
+export const pending = flag({ long: 'pending', short: 'p', description: "If there is a pending deploy, incorporate unfinalized contracts as part of the zeus state. (normally, contract addresses are not finalized until a deploy completes)."});
 export const env = option({ type: string, long: 'env', short: 'e', description: "An environment, one returned from `zeus env list`" })
 export const versionOptional = option({ type: string, long: 'version', description: "The version to specify."});
 

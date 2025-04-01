@@ -1,5 +1,9 @@
 
 **[Current]** 
+1.3.3:
+- `zeus test`, `zeus run`, and `zeus env show` now support `--pending`
+    - exposes the latest (uncommitted) contract addresses as part of an ongoing deploy.
+
 1.3.2:
 - `zeus deploy verify` now allows checking the correctness of the most recent submitted gnosis transaction.
 
@@ -19,7 +23,6 @@
 **Features**
 - Allows multisig steps to not return a transaction without breaking the deploy.
 - Support non-standard ChainIDs
-
 
 1.2.3:
 - Zeus automatically displays messages indicating the user should upgrade now.
