@@ -18,9 +18,9 @@ type TRunContextWithDeploy = TRunContextWithEnv & {
 
 type TRunContext = undefined | TRunContextWithDeploy | TRunContextWithEnv;
 
-export const runTest = async (args: {upgradePath: string, rpcUrl?: string | undefined, txn: Transaction, context: TRunContext, verbose: boolean, json: boolean, rawOutput?: boolean}) => {
+export const runTest = async (args: {upgradePath: string, withDeploy?: string | undefined, rpcUrl?: string | undefined, txn: Transaction, context: TRunContext, verbose: boolean, json: boolean, rawOutput?: boolean}) => {
     const deployContext = (args.context as TRunContextWithDeploy | undefined);
-    const _env: Record<string, string> = deployContext?.env ? (await injectableEnvForEnvironment(args.txn, deployContext.env)) : {};
+    const _env: Record<string, string> = deployContext?.env ? (await injectableEnvForEnvironment(args.txn, deployContext.env, args.withDeploy)) : {};
     const env = {
         ..._env,
         ZEUS_TEST: 'true'

@@ -9,6 +9,7 @@ import { TDeployedInstance } from '../metadata/schema';
 import * as allArgs from './args';
 import { Transaction } from '../metadata/metadataStore';
 import { zeus as zeusInfo } from '../metadata/meta';
+import { getActiveDeploy } from './deploy/cmd/utils';
 
 const normalize = (str: string) => {
     return str.replace(/[^a-zA-Z0-9]/g, '_');
@@ -116,7 +117,7 @@ export const injectableEnvForEnvironment: (txn: Transaction, env: string, withDe
     }
 }
 
-const handler = async function(_user: TState, args: {env: string, command: string}) {
+const handler = async function(_user: TState, args: {env: string, pending: boolean, command: string}) {
     const user = assertInRepo(_user);
     const txn = await user.metadataStore?.begin();
     const envs = await loadExistingEnvs(txn);
@@ -125,7 +126,9 @@ const handler = async function(_user: TState, args: {env: string, command: strin
         console.error(`No such environment.`);
         return;
     }
-    const env = await injectableEnvForEnvironment(txn, args.env);
+
+    const withDeploy = args.pending ? await getActiveDeploy(txn, args.env) : undefined;
+    const env = await injectableEnvForEnvironment(txn, args.env, withDeploy?._.name);
     execSync(args.command, {stdio: 'inherit', env: {...env, ...process.env}});
 };
 
@@ -136,6 +139,7 @@ const cmd = command({
     args: {
         json,
         env: allArgs.env,
+        pending: allArgs.pending,
         command: option({
             long: 'command',
             short: 'c',
