@@ -18,7 +18,6 @@ import { getTrace } from "../../../signing/utils";
 import chalk from "chalk";
 import { readFileSync } from "fs";
 import { getRepoRoot } from "../../configs";
-import { acquireDeployLock, releaseDeployLock } from "./utils-locks";
 
 const currentUser = () => execSync('git config --global user.email').toString('utf-8').trim();
 
