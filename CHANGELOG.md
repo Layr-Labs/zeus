@@ -1,5 +1,8 @@
 
 **[Current]** 
+1.3.4:
+- `zeus deploy verify` no longer submits a check to the repo upon completion. Will re-add in a future patch.
+
 1.3.3:
 - `zeus test`, `zeus run`, and `zeus env show` now support `--pending`
     - exposes the latest (uncommitted) contract addresses as part of an ongoing deploy.
