@@ -1,5 +1,8 @@
 
 **[Current]** 
+1.3.5:
+- Better support for arbitrary new networks (e.g Hoodi).
+
 1.3.4:
 - `zeus deploy verify` no longer submits a check to the repo upon completion. Will re-add in a future patch.
 

@@ -101,7 +101,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
                         }
                     }
                     
-                    return signer.address;
+                    return signer.address as `0x${string}`;
                 } catch (e) {
                     if ((e as Error).message.includes('Locked device')) {
                         console.error(`Error: Please unlock your ledger.`);

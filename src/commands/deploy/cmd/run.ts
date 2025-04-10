@@ -133,7 +133,7 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
             // fund the special account.
             console.log(chalk.gray(`+ using deployer address ${specialAccountAddress}`));
 
-            await testClient.setBalance(specialAccountAddress, parseEther('420'));
+            await testClient.setBalance(specialAccountAddress as `0x${string}`, parseEther('420'));
             
             break;
         }

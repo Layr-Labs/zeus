@@ -8,7 +8,7 @@ import { join } from "path";
 import ora from "ora";
 import { runTest } from "../../signing/strategies/test";
 import { canonicalPaths } from "../../metadata/paths";
-import { advance, cleanContractName, getChain, sleepMs } from "../../commands/deploy/cmd/utils";
+import { advance, cleanContractName, sleepMs } from "../../commands/deploy/cmd/utils";
 import chalk from "chalk";
 import { wouldYouLikeToContinue } from "../../commands/prompts";
 import { getRepoRoot } from "../../commands/configs";
@@ -203,7 +203,6 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
 
             const localRpcUrl = (eoaStrategy ? (await eoaStrategy.rpcUrl.get()) : await prompts.rpcUrl(deploy._.chainId));
             const client = createPublicClient({
-                chain: getChain(deploy._.chainId), 
                 transport: http(localRpcUrl),
             })
 

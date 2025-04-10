@@ -30,7 +30,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             console.warn(`This step returned no transactions. If this isn't intentional, consider cancelling your deploy.`);
             return {
                 empty: true,
-                safeAddress: getAddress(safeContext.addr),
+                safeAddress: getAddress(safeContext.addr) as `0x${string}`,
                 safeTxHash: undefined,
                 senderAddress: signer as `0x${string}`,
                 stateUpdates
@@ -62,7 +62,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         return {
             empty: false,
             output,
-            safeAddress: getAddress(safeContext.addr),
+            safeAddress: getAddress(safeContext.addr) as `0x${string}`,
             safeTxHash: hash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
             stateUpdates
@@ -83,7 +83,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             console.warn(`This step returned no transactions. If this isn't intentional, consider cancelling your deploy.`);
             return {
                 empty: true,
-                safeAddress: getAddress(safeContext.addr),
+                safeAddress: getAddress(safeContext.addr) as `0x${string}`,
                 safeTxHash: undefined,
                 senderAddress: signer as `0x${string}`,
                 stateUpdates
@@ -141,7 +141,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
             output,
             safeAddress: safeContext.addr,
             safeTxHash: hash as `0x${string}`,
-            senderAddress: getAddress(signer),
+            senderAddress: getAddress(signer) as `0x${string}`,
             signature: senderSignature,
             stateUpdates
         }

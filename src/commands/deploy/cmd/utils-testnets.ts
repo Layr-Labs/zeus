@@ -69,8 +69,8 @@ export class TenderlyTestClient implements TestClient {
             throw new Error(`Invalid transaction. (from/to required)`);
         }
         const tenderlyTxn = {
-            from: txn.from,
-            to: txn.to,
+            from: txn.from as `0x${string}`,
+            to: txn.to as `0x${string}`,
             gas: txn.gas !== undefined ? toHex(txn.gas) : undefined,
             gasPrice: txn.gasPrice !== undefined ? toHex(txn.gasPrice) : undefined,
             value: txn.value !== undefined ? toHex(txn.value) : undefined,

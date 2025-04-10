@@ -10,6 +10,14 @@ import * as AllChains from "viem/chains";
 import { OperationType } from '@safe-global/types-kit';
 import Safe from '@safe-global/protocol-kit'
 
+const getChain = (chainId: number) => {
+    const chain = Object.values(AllChains).find(value => value.id === chainId);
+    if (!chain) {
+        throw new Error(`Unsupported chain ${chainId}`);
+    }
+    return chain;
+}
+
 export class GnosisOnchainStrategy extends GnosisSigningStrategy {
     id = 'gnosis.onchain';
     description = 'Onchain Safe.execTransaction() (for 1/N multisigs only)';
@@ -55,14 +63,14 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             chain
         })
 
-        const signer = walletClient.account.address;
+        const signer = walletClient.account.address as `0x${string}`;
 
         const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
         if (multisigExecuteRequests.length === 0) {
             console.warn(`This step returned no transactions. If this isn't intentional, consider cancelling your deploy.`);
             return {
                 empty: true,
-                safeAddress: getAddress(safeContext.addr),
+                safeAddress: getAddress(safeContext.addr) as `0x${string}`,
                 safeTxHash: undefined,
                 senderAddress: signer as `0x${string}`,
                 stateUpdates
@@ -145,24 +153,19 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         }
         this.forMultisig = safeContext.addr;
 
-        const chain = Object.values(AllChains).find(value => value.id === this.deploy._.chainId);
-        if (!chain) {
-            throw new Error(`Unsupported chain ${this.deploy._.chainId}`);
-        }
         const walletClient = createWalletClient({
             account: privateKeyToAccount(await this.privateKey.get()),
             transport: http(await this.rpcUrl.get()),
-            chain
         })
 
-        const signer = walletClient.account.address;
+        const signer = walletClient.account.address as `0x${string}`;
 
         const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
         if (multisigExecuteRequests.length === 0) {
             console.warn(`This step returned no transactions. If this isn't intentional, consider cancelling your deploy.`);
             return {
                 empty: true,
-                safeAddress: getAddress(safeContext.addr),
+                safeAddress: getAddress(safeContext.addr) as `0x${string}`,
                 safeTxHash: undefined,
                 senderAddress: signer as `0x${string}`,
                 stateUpdates
@@ -198,6 +201,8 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         console.log(`Transaction: `);
         console.log(JSON.stringify(txn, null, 2));
 
+        const chain = getChain(this.deploy._.chainId);
+
         if (this.options?.defaultArgs?.fork) {
             // this is going to be immediate.
             const testClient = this.options?.defaultArgs?.testClient;
@@ -218,7 +223,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             })
 
             const rpcUrl = await this.rpcUrl.get();
-            const publicClient = createPublicClient({chain, transport: http(rpcUrl)});
+            const publicClient = createPublicClient({transport: http(rpcUrl)});
             const lastBlock = await publicClient.getBlock();
 
             // simulate time passing after all transactions, to prevent any clashes with timelocks etc.
@@ -242,7 +247,6 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
                 }
             }
         }
-
 
         const signatures = this.approvalSignature(signer);
         const nonce = await safe.read.nonce();
@@ -269,7 +273,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             txn.data.gasToken as `0x${string}`,
             txn.data.refundReceiver as `0x${string}`,
             signatures
-        ], {});
+        ], {chain});
        
         return {
             empty: false,

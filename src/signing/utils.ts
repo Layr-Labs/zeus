@@ -273,13 +273,13 @@ export function parseForgeOutput(stdout: string): TForgeOutput {
             }).filter(v => !!v);
 
             const contractDeploys = parsedLogs.filter(update => update.eventName === 'ZeusDeploy').map(update => {
-                return update.args;
+                return update.args as {name: string, addr: `0x${string}`, singleton: boolean};
             })
 
             const safeContext = parsedLogs.find(update => update.eventName === `ZeusRequireMultisig`)?.args;
             if (safeContext && safeContext.addr) {
                 // checksum all addresseds brought back.
-                safeContext.addr = getAddress(safeContext.addr)
+                safeContext.addr = getAddress(safeContext.addr) as `0x${string}`;
             }
 
             const stateUpdates = parsedLogs.filter(update => update.eventName === 'ZeusEnvironmentUpdate').map(update => {
@@ -312,7 +312,9 @@ export function parseForgeOutput(stdout: string): TForgeOutput {
                     value: parsedValue
                 }
             })
-            return {output: parsedJson, stateUpdates, contractDeploys, safeContext};
+            
+            // TODO: this cast is ugly
+            return {output: parsedJson, stateUpdates, contractDeploys, safeContext: safeContext as unknown as {addr: `0x${string}`, callType: number}};
         } catch (e) {
             throw new Error(`Failed to parse JSON: ${e}`);
         }
