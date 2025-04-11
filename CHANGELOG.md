@@ -1,6 +1,6 @@
 
 **[Current]** 
-1.3.5:
+1.4.0:
     Fixed:
         - Significant Performance Improvements.
             - Cold start[cellular] (1.3.4: 11.523s) => (1.3.5: 5.605s)  [-51%]
