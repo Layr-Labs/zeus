@@ -344,7 +344,7 @@ export function runWithArgsLive(cmd: string, args: string[], env: Record<string,
     });
 }
 
-export function runWithArgs(cmd: string, args: string[], env: Record<string, string | undefined>, liveOutput = false): Promise<Result> {
+export function runWithArgs(cmd: string, args: string[], env: Record<string, string | undefined>, liveOutput = true): Promise<Result> {
     return new Promise((resolve, reject) => {
         try {
             const child = spawn(cmd, args, {stdio: 'pipe', env: {

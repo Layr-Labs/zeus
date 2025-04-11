@@ -140,7 +140,9 @@ export const bip32Path = async () => {
                 const account = mnemonicToAccount('legal winner thank year wave sausage worth useful legal winner thank yellow') 
                 account.getHdKey().derive(val);
                 return true;
-            } catch {
+            } catch (e) {
+                console.error(`failed to parse bip32 path: ${e}`);
+                console.error(`Please enter another path.`)
                 return false;
             }
         }

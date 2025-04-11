@@ -21,7 +21,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
         super(deploy, transaction, options);
         this.bip32Path = this.arg(async () => {
             return await prompts.bip32Path();
-        }, 'bip32path')
+        })
     }
 
     async getSignature(version: string, txn: SafeTransaction, safeAddress: `0x${string}`): Promise<`0x${string}`> {

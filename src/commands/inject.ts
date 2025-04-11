@@ -59,6 +59,15 @@ export async function load(): Promise<TState> {
     let zeusHostRepo: string | undefined;
 
     const zeusHost = zeusRepo?.zeusHost ?? zeusProfile?.zeusHost;
+
+    if (zeusRepo?.zeusHost !== zeusProfile?.zeusHost && (zeusRepo?.zeusHost !== undefined && zeusProfile?.zeusHost !== undefined)) {
+        console.error(chalk.yellow('=========================================================='))
+        console.error(chalk.italic(chalk.yellow(`Warning: This repo requested a different zeusHost than your .zeusProfile:`)))
+        console.error(chalk.italic(chalk.yellow(`\t${chalk.bold(zeusRepo.zeusHost)} <--------------- using this one`)));
+        console.error(chalk.yellow('=========================================================='))
+        console.log();
+    }
+
     let metadataStore: MetadataStore | undefined;
     const localMetadataStore: MetadataStore | undefined = zeusHost ? new LocalCloneMetadataStore(zeusHost) : undefined;
 

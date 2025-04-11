@@ -3,12 +3,21 @@
 1.3.5:
     Fixed:
         - Significant Performance Improvements.
-            - Cold start: 
+            - Cold start[cellular] (1.3.4: 11.523s) => (1.3.5: 5.605s)  [-51%]
+            - Warm start[cellular] (1.3.4: ^) => (1.3.5: 1.938s) [-83%]
+            - Fixes:
+                - Checks against `npm` for latest package versions of zeus are limited to every 3 hours now.
+                - Fixed a bug related to the cloning of the read-only metadata copy
+                - Added an optimization to re-use cloned copies of the metadata
+        - Added additional debug logs when requesting an EIP-712 signature from a ledger.
+        - Forge tasks now share live output by default.
+        - Fixed a bug where the `eoa_wait_confirm` phase erroneously asked for a strategy.
 
     New: 
-        - Improved support for arbitrary new networks (e.g Hoodi).
-        - Zeus can now be run from any directory, by setting the `.zeusProfile`'s `zeusHost` URL to an https github URL.
-
+        - Improved aesthetic support for arbitrary new networks (e.g Hoodi).
+        - Fixed support for Hoodi.
+        - Most zeus commands can now be run from any directory, by setting the `.zeusProfile`'s `zeusHost` URL to an https github URL.
+        - `zeus shell` now allows assuming the zeus environment variables for a particular env into your current shell.
 
 1.3.4:
 - `zeus deploy verify` no longer submits a check to the repo upon completion. Will re-add in a future patch.

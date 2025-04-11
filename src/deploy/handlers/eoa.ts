@@ -191,7 +191,9 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
             break;
         }
         case "eoa_wait_confirm": {
-            eoaStrategy = eoaStrategy ?? fallbackEoaStrategy ?? await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {...options, nonInteractive: !!options?.nonInteractive, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}}) as EOABaseSigningStrategy;
+            if (eoaStrategy === undefined) {
+                eoaStrategy = fallbackEoaStrategy ?? await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {...options, nonInteractive: !!options?.nonInteractive, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}}) as EOABaseSigningStrategy
+            }
                 
             const foundryDeploy = await metatxn.getJSONFile<TFoundryDeploy>(
                 canonicalPaths.foundryDeploy({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId})    
@@ -201,7 +203,7 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
                 throw new HaltDeployError(deploy, 'foundry.deploy.json was corrupted.', false);
             }
 
-            const localRpcUrl = (eoaStrategy ? (await eoaStrategy.rpcUrl.get()) : await prompts.rpcUrl(deploy._.chainId));
+            const localRpcUrl = eoaStrategy ? await eoaStrategy.rpcUrl.get() : await prompts.rpcUrl(deploy._.chainId);
             const client = createPublicClient({
                 transport: http(localRpcUrl),
             })
