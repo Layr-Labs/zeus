@@ -1,6 +1,6 @@
 import {command, restPositionals, string} from 'cmd-ts';
 import {json} from './args';
-import { assertInRepo, inRepo, requires, TState } from './inject';
+import { assertInRepo, withHost, requires, TState } from './inject';
 import { runTest } from '../signing/strategies/test';
 import * as allArgs from  './args';
 import chalk from 'chalk';
@@ -51,7 +51,7 @@ const handler = async function(_user: TState, args: {scripts: string[], pending:
 
 const cmd = command({
     name: 'test',
-    description: 'Runs the test function of a migration, injecting the required parameters and deployed contract addresses.` ',
+    description: 'Runs the test function of a ZeusScript, injecting the required parameters and deployed contract addresses.` ',
     version: '1.0.0',
     args: {
         json,
@@ -64,6 +64,6 @@ const cmd = command({
             description: 'Path to script to test.'
         })
     },
-    handler: requires(handler, inRepo),
+    handler: requires(handler, withHost),
 })
 export default cmd;

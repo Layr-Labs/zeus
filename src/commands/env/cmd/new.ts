@@ -1,6 +1,6 @@
 import {command } from 'cmd-ts';
 import { loadExistingEnvs } from './list';
-import { assertLoggedIn, inRepo, loggedIn, requires, TState } from '../../inject';
+import { assertLoggedIn, withHost, loggedIn, requires, TState } from '../../inject';
 import { question, select } from '../../utils';
 import { TDeployManifest, TEnvironmentManifest } from '../../../metadata/schema'
 import chalk from 'chalk';
@@ -80,7 +80,7 @@ const cmd = command({
     description: 'create a new environment',
     version: '1.0.0',
     args: {},
-    handler: requires(handler, loggedIn, inRepo),
+    handler: requires(handler, loggedIn, withHost),
 })
 
 export default cmd;

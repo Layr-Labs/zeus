@@ -90,6 +90,9 @@ export const ledgerToAccount = async ({
                 primaryType,
                 types: types as Record<string, MessageTypeProperty[]>,
               })
+            
+            console.log(`Requesting EIP-712 signature from ledger: `);
+            console.log(JSON.stringify({domainSeperator, messageHash, path: dp}));
 
             const {r, s, v} = await ledger.signEIP712HashedMessage(dp, domainSeperator, messageHash)
 

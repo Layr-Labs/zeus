@@ -15,7 +15,7 @@ export class LedgerSigningStrategy extends EOABaseSigningStrategy {
         super(deploy, transaction, options);
         this.bip32Path = this.arg(async () => {
             return await prompts.bip32Path();
-        }, 'bip32path')
+        })
     }
 
     async getSignerAddress(): Promise<`0x${string}`> {

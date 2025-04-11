@@ -33,6 +33,6 @@ export default class EOASigningStrategy extends EOABaseSigningStrategy {
 
     async getSignerAddress(): Promise<`0x${string}`> {
         const privateKey = await this.privateKey.get();
-        return privateKeyToAccount(privateKey as `0x${string}`).address;
+        return privateKeyToAccount(privateKey as `0x${string}`).address as `0x${string}`;
     }
 }

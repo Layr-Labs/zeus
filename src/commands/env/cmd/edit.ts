@@ -1,6 +1,6 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
-import { assertLoggedIn, inRepo, loggedIn, requires, TState } from '../../inject';
+import { assertLoggedIn, withHost, loggedIn, requires, TState } from '../../inject';
 import { canonicalPaths } from '../../../metadata/paths';
 import * as allArgs from '../../args';
 import { editor } from '@inquirer/prompts';
@@ -73,7 +73,7 @@ const cmd = command({
         env: allArgs.envPositional,
         json,
     },
-    handler: requires(handler, loggedIn, inRepo),
+    handler: requires(handler, loggedIn, withHost),
 })
 
 export default cmd;

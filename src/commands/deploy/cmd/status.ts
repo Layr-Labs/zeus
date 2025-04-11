@@ -1,5 +1,5 @@
 import { command } from "cmd-ts";
-import { assertInRepo, inRepo, requires, TState } from "../../inject";
+import { assertInRepo, withHost, requires, TState } from "../../inject";
 import chalk from "chalk";
 import * as allArgs from "../../args";
 import { getActiveDeploy } from "./utils";
@@ -71,7 +71,7 @@ const cmd = command({
     args: {
         env: allArgs.env,
     },
-    handler: requires(handler, inRepo),
+    handler: requires(handler, withHost),
 })
 
 export default cmd;

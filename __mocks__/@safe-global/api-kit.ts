@@ -45,7 +45,7 @@ export const mockSafeInfo = (confirmations: {required: number, present: number},
         gasUsed: 40000,
         fee: "0.0004",
         origin: "StaticOrigin",
-        dataDecoded: "Static Decoded Data",
+        dataDecoded: {method: '', parameters: []},
         confirmationsRequired: confirmations.required,
         confirmations: [
             ...Array.from({ length: confirmations.present }, () => mockConfirmation())

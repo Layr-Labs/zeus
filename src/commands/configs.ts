@@ -14,7 +14,13 @@ export interface TZeusConfig {
 }
 
 export interface TZeusProfile {
-    accessToken: string | undefined,
+    accessToken?: string | undefined,
+    zeusHost?: string | undefined,
+    lastUpdateCheck?: number
+
+    // warn if the zeusHost in the profile doesn't match the zeusHost in the repo you're working in.
+    // default: true
+    warnOnMismatch?: boolean
 }
 
 export const configs = {
