@@ -51,6 +51,8 @@ export function assertLoggedIn(state: TState): TLoggedInState {
     return state;
 }
 
+let warnedOnMismatch = false;
+
 // get all zeus-state, from environment variables + repo.
 export async function load(): Promise<TState> {
     const zeusProfile = await configs.zeusProfile.load();
@@ -60,12 +62,16 @@ export async function load(): Promise<TState> {
 
     const zeusHost = zeusRepo?.zeusHost ?? zeusProfile?.zeusHost;
 
-    if (zeusRepo?.zeusHost !== zeusProfile?.zeusHost && (zeusRepo?.zeusHost !== undefined && zeusProfile?.zeusHost !== undefined)) {
-        console.error(chalk.yellow('=========================================================='))
-        console.error(chalk.italic(chalk.yellow(`Warning: This repo requested a different zeusHost than your .zeusProfile:`)))
-        console.error(chalk.italic(chalk.yellow(`\t${chalk.bold(zeusRepo.zeusHost)} <--------------- using this one`)));
-        console.error(chalk.yellow('=========================================================='))
-        console.log();
+    if (!warnedOnMismatch && zeusProfile?.warnOnMismatch !== false) {
+        if (zeusRepo?.zeusHost !== zeusProfile?.zeusHost && (zeusRepo?.zeusHost !== undefined && zeusProfile?.zeusHost !== undefined)) {
+            console.error(chalk.yellow('=========================================================='))
+            console.error(chalk.italic(chalk.yellow(`Warning: This repo requested a different zeusHost than your .zeusProfile:`)))
+            console.error(chalk.italic(chalk.yellow(`\t${chalk.bold(zeusRepo.zeusHost)} <--------------- using this one`)));
+            console.error(chalk.italic(`\tsilence with .zeusProfile "warnOnMismatch": false`))
+            console.error(chalk.yellow('=========================================================='))
+            console.log();
+        }
+        warnedOnMismatch = true;
     }
 
     let metadataStore: MetadataStore | undefined;
