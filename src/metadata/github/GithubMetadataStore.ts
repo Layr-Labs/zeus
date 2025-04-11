@@ -26,8 +26,9 @@ export class GithubMetadataStore implements MetadataStore {
         if (this.accessToken) {
             this.octokit = new Octokit({auth: this.accessToken});
         }
+        const zeusProfile = await configs.zeusProfile.load();
 
-        configs.zeusProfile.write({accessToken: this.accessToken})
+        configs.zeusProfile.write({...zeusProfile, accessToken: this.accessToken})
         return true;
     }
 

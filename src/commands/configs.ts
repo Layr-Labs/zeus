@@ -14,7 +14,9 @@ export interface TZeusConfig {
 }
 
 export interface TZeusProfile {
-    accessToken: string | undefined,
+    accessToken?: string | undefined,
+    zeusHost?: string | undefined,
+    lastUpdateCheck?: number
 }
 
 export const configs = {

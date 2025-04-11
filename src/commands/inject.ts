@@ -55,11 +55,12 @@ export function assertLoggedIn(state: TState): TLoggedInState {
 export async function load(): Promise<TState> {
     const zeusProfile = await configs.zeusProfile.load();
     const zeusRepo = await configs.zeus.load();
-
     let zeusHostOwner: string | undefined;
     let zeusHostRepo: string | undefined;
-    const zeusHost = zeusRepo?.zeusHost;
+
+    const zeusHost = zeusRepo?.zeusHost ?? zeusProfile?.zeusHost;
     let metadataStore: MetadataStore | undefined;
+    const localMetadataStore: MetadataStore | undefined = zeusHost ? new LocalCloneMetadataStore(zeusHost) : undefined;
 
     const isLoggedIn = await (async () => {
         if (zeusProfile?.accessToken) {
@@ -68,9 +69,9 @@ export async function load(): Promise<TState> {
         return false;
     })();
 
-    if (zeusRepo) {
+    if (zeusHost) {
         try {
-            const urlObj = new URL(zeusRepo.zeusHost);
+            const urlObj = new URL(zeusHost);
             const pathComponents = urlObj.pathname.split('/').filter(Boolean);
             const [owner, repo] = pathComponents.slice(-2);
             zeusHostOwner = owner;
@@ -86,23 +87,23 @@ export async function load(): Promise<TState> {
             (zeusHost !== undefined && zeusHostOwner !== undefined && zeusHostRepo !== undefined) ? 
             new GithubMetadataStore({owner: zeusHostOwner, repo: zeusHostRepo}) : undefined;
     } else {
-        // logged out.
+        // logged out
         if (zeusProfile?.accessToken) {
-            // overwrite invalid old access token.
             console.warn("access token invalid - logging out automatically.");
             await configs.zeusProfile.write({
-                accessToken: undefined
+                ...(zeusProfile ?? {}),
+                accessToken: undefined,
             })
         }
         
-        metadataStore = zeusHost ? new LocalCloneMetadataStore(zeusHost) : undefined;
+        metadataStore = localMetadataStore;
     }
 
     if (metadataStore) {
         await metadataStore.initialize();
     }
 
-    const localStore =  zeusHost ? new LocalCloneMetadataStore(zeusHost) : undefined;
+    const localStore = localMetadataStore;
     await localStore?.initialize();
 
     return {
@@ -145,10 +146,19 @@ export async function loggedIn(): Promise<void> {
     }
 }
 
+export async function withHost(): Promise<void> {
+    const repoConfig = await configs.zeus.load();
+    const zeusProfile = await configs.zeusProfile.load();
+    if (!(repoConfig?.zeusHost || zeusProfile?.zeusHost)) {
+        console.error('This command should be run from within a repository containing a `.zeus` file, OR with a valid ~/.zeusProfile "zeusHost" property set.');
+        process.exit(1);
+    }
+}
+
 export async function inRepo(): Promise<void> {
     const repoConfig = await configs.zeus.load();
     if (!repoConfig) {
-        console.error('This command should be run from within a repository containing a `.zeus` file.');
+        console.error('This command should be run from within a repository containing a `.zeus` file');
         process.exit(1);
     }
 }

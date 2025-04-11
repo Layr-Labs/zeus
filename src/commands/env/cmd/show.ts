@@ -1,6 +1,6 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
-import { assertInRepo, inRepo, requires, TState } from '../../inject';
+import { assertInRepo, withHost, requires, TState } from '../../inject';
 import * as allArgs from '../../args';
 import chalk from 'chalk';
 import { loadExistingEnvs } from './list';
@@ -39,7 +39,7 @@ const cmd = command({
         env: allArgs.envPositional,
         json,
     },
-    handler: requires(handler, inRepo),
+    handler: requires(handler, withHost),
 })
 
 export default cmd;

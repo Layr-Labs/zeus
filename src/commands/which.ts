@@ -1,6 +1,6 @@
 import {command, number, option, positional, string} from 'cmd-ts';
 import {json} from './args';
-import { assertInRepo, inRepo, requires, TState } from './inject';
+import { assertInRepo, withHost, requires, TState } from './inject';
 import * as allArgs from './args';
 import { TDeployedContract, TEnvironmentManifest } from '../metadata/schema';
 import { canonicalPaths } from '../metadata/paths';
@@ -96,7 +96,7 @@ const handler = async function(_user: TState, args: {contractOrAddress: string, 
 
 const cmd = command({
     name: 'which',
-    description: 'See a contract address on an environment (or all contract addresses!)` ',
+    description: 'Search for a contract address or contract name in an environment.`',
     version: '1.0.0',
     args: {
         json,
@@ -111,6 +111,6 @@ const cmd = command({
             defaultValue: () => 0
         })
     },
-    handler: requires(handler, inRepo),
+    handler: requires(handler, withHost),
 })
 export default cmd;

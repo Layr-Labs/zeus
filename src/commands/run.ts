@@ -1,6 +1,6 @@
 import {command, option} from 'cmd-ts';
 import {json} from './args';
-import { assertInRepo, inRepo, requires, TState } from './inject';
+import { assertInRepo, withHost, requires, TState } from './inject';
 import { loadExistingEnvs } from './env/cmd/list';
 import { execSync } from 'child_process';
 import { canonicalPaths } from '../metadata/paths';
@@ -146,6 +146,6 @@ const cmd = command({
             description: 'A full shell command to run.'
         })
     },
-    handler: requires(handler, inRepo),
+    handler: requires(handler, withHost),
 })
 export default cmd;

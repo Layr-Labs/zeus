@@ -73,7 +73,7 @@ const handler = async function(_user: TState) {
 
 const cmd = command({
     name: 'init',
-    description: 'initializes a contracts repo with zeus',
+    description: 'initializes a new project with zeus',
     version: '1.0.0',
     args: {},
     handler: requires(handler, loggedIn),

@@ -1,7 +1,7 @@
 import { command } from "cmd-ts";
 import {json} from '../../args';
 import * as allArgs from '../../args';
-import { assertInRepo, inRepo, requires, TState } from "../../inject";
+import { assertInRepo, withHost, requires, TState } from "../../inject";
 import { loadExistingEnvs } from "../../env/cmd/list";
 import { execSync } from "child_process";
 import ora from "ora";
@@ -304,7 +304,7 @@ const cmd = command({
         env: allArgs.env,
         json,
     },
-    handler: requires(handler, inRepo),
+    handler: requires(handler, withHost),
 })
 
 export default cmd;

@@ -1,7 +1,14 @@
 
 **[Current]** 
 1.3.5:
-- Better support for arbitrary new networks (e.g Hoodi).
+    Fixed:
+        - Significant Performance Improvements.
+            - Cold start: 
+
+    New: 
+        - Improved support for arbitrary new networks (e.g Hoodi).
+        - Zeus can now be run from any directory, by setting the `.zeusProfile`'s `zeusHost` URL to an https github URL.
+
 
 1.3.4:
 - `zeus deploy verify` no longer submits a check to the repo upon completion. Will re-add in a future patch.

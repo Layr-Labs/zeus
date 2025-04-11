@@ -1,6 +1,6 @@
 import {command, positional, string} from 'cmd-ts';
 import {json} from '../../args';
-import { assertInRepo, inRepo, requires, TState } from '../../inject';
+import { assertInRepo, withHost, requires, TState } from '../../inject';
 import { canonicalPaths } from '../../../metadata/paths';
 import { TEnvironmentManifest, TUpgrade } from '../../../metadata/schema';
 import * as allArgs from '../../args';
@@ -55,6 +55,6 @@ const cmd = command({
         env: allArgs.env,
         version: positional({type: string})
     },
-    handler: requires(handler, inRepo),
+    handler: requires(handler, withHost),
 })
 export default cmd;

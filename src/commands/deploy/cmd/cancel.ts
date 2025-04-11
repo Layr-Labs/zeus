@@ -1,5 +1,5 @@
 import { command } from "cmd-ts";
-import { assertLoggedIn, inRepo, loggedIn, requires, TState } from "../../inject";
+import { assertLoggedIn, withHost, loggedIn, requires, TState } from "../../inject";
 import { getActiveDeploy, updateLatestDeploy } from "./utils";
 import * as allArgs from '../../args';
 import EOAHandler from '../../../deploy/handlers/eoa'
@@ -49,7 +49,7 @@ const cmd = command({
     args: {
         env: allArgs.env
     },
-    handler: requires(handler, loggedIn, inRepo),
+    handler: requires(handler, loggedIn, withHost),
 })
 
 export default cmd;
