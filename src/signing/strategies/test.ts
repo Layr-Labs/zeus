@@ -59,9 +59,10 @@ export const runTest = async (args: {env: string, upgradePath: string, withDeplo
     const envConfig = await args.txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
 
     const upgradeJson = closestUpgradeJson(args.upgradePath);
-    const impliedFrom = envConfig._.deployedVersion;
-    const impliedTo = upgradeJson.to; // TODO: load the `upgrade.json` that is closest to `upgradePath`. Fail if you reach the repo root without finding one.
     
+    const impliedFrom = envConfig._.deployedVersion;
+    const impliedTo = upgradeJson.to; 
+
     const env = {
         ZEUS_DEPLOY_FROM_VERSION: impliedFrom,
         ZEUS_DEPLOY_TO_VERSION: impliedTo,
