@@ -86,7 +86,7 @@ export class LocalCloneTransaction implements Transaction {
 
             const basePath = path.dirname(outPath);
             if (!await exists(basePath)) {
-                await fs.mkdir(basePath);
+                await fs.mkdir(basePath, {recursive: true});
             }
 
             await fs.writeFile(outPath, toWrite);

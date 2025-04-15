@@ -18,6 +18,7 @@ import pkgInfo from '../package.json';
 import { execSync } from 'child_process';
 import { compare } from 'compare-versions';
 import { configs } from './commands/configs';
+import script from './commands/script';
 
 const HOURS = (1000) * (60) * (60);
 
@@ -53,7 +54,7 @@ const main = async () => {
 
         ${chalk.italic(`(zeus v${zeusInfo.Version}-${process.env.ZEUS_BUILD})`)}
         `,
-        cmds: { deploy, env, upgrade, login, run: runCmd, test: testCmd, init: initCmd, which, shell },
+        cmds: { deploy, env, upgrade, login, run: runCmd, test: testCmd, init: initCmd, which, shell, script },
     });
     run(zeus, process.argv.slice(2));
 }
