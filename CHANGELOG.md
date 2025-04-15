@@ -1,5 +1,9 @@
 
 **[Current]** 
+1.4.2:
+    Change:
+        - `ZEUS_DEPLOYED_TO` and `ZEUS_DEPLOYED_FROM` are automatically set during test executions, based on the nearest `upgrade.json`.
+
 1.4.1:
     NEW:
         - `zeus script --env <env> [--eoa | --multisig] ./path/to/ZeusScript.s.sol` allows running an individual portion of a migration outside of the context

@@ -54,9 +54,9 @@ export interface TBaseZeusEnv {
     ZEUS_ENV_VERSION: string
     ZEUS_VERSION: string
 
-    // information from the zeus upgrade object (from => to)
-    ZEUS_DEPLOY_FROM_VERSION: string,
-    ZEUS_DEPLOY_TO_VERSION: string,
+    // information from the zeus upgrade object (from => to).
+    ZEUS_DEPLOY_FROM_VERSION?: string,
+    ZEUS_DEPLOY_TO_VERSION?: string,
 }
 
 // if `withDeploy` is specified, we also inject instances/statics updated as part of the deploy.
@@ -105,8 +105,11 @@ export const injectableEnvForEnvironment: (txn: Transaction, env: string, withDe
         ZEUS_TEST: 'false', /* test environments should override this */
         ZEUS_ENV_VERSION: envManifest._.deployedVersion,
 
-        ZEUS_DEPLOY_FROM_VERSION: upgradeInfo?._.from ?? ``,
-        ZEUS_DEPLOY_TO_VERSION: upgradeInfo?._.to ?? ``,
+        // only apply `ZEUS_DEPLOY_FROM_VERSION` and `ZEUS_DEPLOY_TO_VERSION` if a deploy is set.
+        ...(upgradeInfo?._.from || upgradeInfo?._.to ? {
+            ZEUS_DEPLOY_FROM_VERSION: upgradeInfo?._.from,
+            ZEUS_DEPLOY_TO_VERSION: upgradeInfo?._.to,
+        } : {}),
 
         ZEUS_VERSION: zeusInfo.Version,
         ...(deployParametersToEnvironmentVariables({
