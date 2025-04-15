@@ -5,6 +5,7 @@ const exec = promisify(execCallback);
 import { MetadataStore, Transaction } from '../metadataStore';
 import { LocalCloneTransaction } from './LocalCloneTransaction';
 import { existsSync, mkdirSync, rmdirSync } from 'fs';
+import { keccak256, toHex } from 'viem';
 
 
 // -------------------------------------------------------
@@ -35,9 +36,11 @@ export class LocalCloneMetadataStore implements MetadataStore {
             return;
         }
         this.initialized = true;
+
+        const loc = keccak256(toHex(this.remoteRepoUrl)).substring(2, 8); // 6 strings 
         
-        const localUrl = path.join(process.env.HOME as string, '.zeus', 'data');
-        const localUrlGit = path.join(process.env.HOME as string, '.zeus', 'data', '.git');
+        const localUrl = path.join(process.env.HOME as string, '.zeus', 'data', loc);
+        const localUrlGit = path.join(process.env.HOME as string, '.zeus', 'data', loc, '.git');
         try {
             if (!existsSync(localUrl) || !existsSync(localUrlGit)) {
                 try {

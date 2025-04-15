@@ -1,5 +1,11 @@
 
 **[Current]** 
+1.4.1:
+    NEW:
+        - `zeus script --env <env> [--eoa | --multisig] ./path/to/ZeusScript.s.sol` allows running an individual portion of a migration outside of the context
+        of an upgrade! Use this if you need to interact with a multisig, deploy contracts, etc, and aren't upgrading the zeus environment's semver.
+    Fixes:
+        - Locally cloned metadata repo is now namespaced by the repo cloned, to prevent collisions.
 1.4.0:
     Fixed:
         - Significant Performance Improvements.

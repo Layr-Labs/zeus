@@ -290,29 +290,33 @@ const executeOrContinueDeployWithLock = async (name: string, env: string, user: 
     }
 }
 
+export const stepDeploy = async (deploy: SavebleDocument<TDeploy>, _user: TState, metatxn: Transaction, options: TStrategyOptions) => {
+    const curPhaseType = phaseType(deploy._.phase);
+    switch (curPhaseType) {
+        case 'system': {
+            await executeSystemPhase(deploy, metatxn, options)
+            break;
+        }
+        case 'multisig': {
+            await executeMultisigPhase(deploy, metatxn, options)
+            break;
+        }
+        case 'eoa': {
+            await executeEOAPhase(deploy, metatxn, options)
+            break;
+        } 
+        case 'script': {
+            await executeScriptPhase(deploy, metatxn, options);
+            break;
+        }
+    }
+};
+
 const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: TState, metatxn: Transaction, options: TStrategyOptions) => {
     try {
         while (true) {
             console.log(chalk.green(`[${deploy._.segments[deploy._.segmentId]?.filename ?? '<none>'}] ${deploy._.phase}`))
-            const curPhaseType = phaseType(deploy._.phase);
-            switch (curPhaseType) {
-                case 'system': {
-                    await executeSystemPhase(deploy, metatxn, options)
-                    break;
-                }
-                case 'multisig': {
-                    await executeMultisigPhase(deploy, metatxn, options)
-                    break;
-                }
-                case 'eoa': {
-                    await executeEOAPhase(deploy, metatxn, options)
-                    break;
-                } 
-                case 'script': {
-                    await executeScriptPhase(deploy, metatxn, options);
-                    break;
-                }
-            }
+            await stepDeploy(deploy, _user, metatxn, options);
         } 
     } catch (e) {
         if (e instanceof PauseDeployError) {
