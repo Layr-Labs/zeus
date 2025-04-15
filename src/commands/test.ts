@@ -6,10 +6,13 @@ import * as allArgs from  './args';
 import chalk from 'chalk';
 import { getActiveDeploy } from './deploy/cmd/utils';
 
-const handler = async function(_user: TState, args: {scripts: string[], pending: boolean, rpcUrl: string | undefined, env: string | undefined, verbose: boolean}) {
+const handler = async function(_user: TState, args: {scripts: string[], pending: boolean, rpcUrl: string | undefined, env: string, verbose: boolean}) {
     const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin();
-    const runContext = (args.env) ? {env: args.env} : undefined;
+    
+    const deploy = args.pending ? await getActiveDeploy(txn, args.env) : undefined;
+    const runContext = {deploy: deploy?._.name};
+    
     const result: Record<string, boolean> = {};
     const verboseHelp = args.verbose ? '' : chalk.italic(`(for full output, re-run with --verbose)`); 
     const timeTakenMs: Record<string, number> = {};
@@ -18,7 +21,7 @@ const handler = async function(_user: TState, args: {scripts: string[], pending:
     await Promise.all(args.scripts.map(async (script) => {
         const start = Date.now()
         try {
-            const res = await runTest({upgradePath: script, withDeploy: withDeploy?._.name, rpcUrl: args.rpcUrl, txn, context: runContext, verbose: args.verbose, json: false, rawOutput: true});
+            const res = await runTest({env: args.env, upgradePath: script, withDeploy: withDeploy?._.name, rpcUrl: args.rpcUrl, txn, context: runContext, verbose: args.verbose, json: false, rawOutput: true});
             timeTakenMs[script] = Date.now() - start;
             if (res.code !== 0) {
                 console.error(`❌ [${script}] - test failed ${verboseHelp}`);

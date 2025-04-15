@@ -42,7 +42,7 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                 const prompt = ora(`Running 'zeus test'`);
                 const spinner = prompt.start();
                 try {
-                    const res = await runTest({upgradePath: script, rpcUrl, txn: metatxn, context: {env: deploy._.env, deploy: deploy._.name}, verbose: false, json: true})
+                    const res = await runTest({env: deploy._.env, upgradePath: script, rpcUrl, txn: metatxn, context: {deploy: deploy._.name}, verbose: false, json: true})
                     if (res.code !== 0) {
                         throw new HaltDeployError(deploy, `One or more tests failed.`, false);
                     }
