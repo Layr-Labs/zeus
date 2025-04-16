@@ -152,6 +152,7 @@ export class HaltDeployError extends Error {
 export interface TStrategyOptions { 
     defaultArgs: TExecuteOptions,
     nonInteractive: boolean,
+    simulationAddress?: string,
 };
 
 export abstract class Strategy {

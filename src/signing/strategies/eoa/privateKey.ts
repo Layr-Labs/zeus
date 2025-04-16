@@ -14,11 +14,16 @@ export default class EOASigningStrategy extends EOABaseSigningStrategy {
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options: TStrategyOptions | undefined) {
         super(deploy, transaction, options);
         this.privateKey = this.arg(async () => {
+            console.trace("requesting private key");
             return await prompts.privateKey(this.deploy._.chainId);
         }, "overrideEoaPk");
     } 
 
     async subclassForgeArgs(): Promise<string[]> {
+        if (this.options?.simulationAddress !== undefined) {
+            return [`--sender`, this.options.simulationAddress];
+        }
+
         return ["--private-key", await this.privateKey.get()]
     }
 
@@ -27,11 +32,20 @@ export default class EOASigningStrategy extends EOABaseSigningStrategy {
     }
 
     async redactInOutput(): Promise<string[]> {
-        const privateKey = await this.privateKey.get();
-        return [privateKey, ...await super.redactInOutput()];
+        const redact = [];
+        try {
+            redact.push(await this.privateKey.getImmediately());
+        } catch {
+            //
+        }
+        return [...redact, ...await super.redactInOutput()];
     }
 
     async getSignerAddress(): Promise<`0x${string}`> {
+        if (this.options?.simulationAddress !== undefined) {
+            return this.options.simulationAddress as `0x${string}`;
+        }
+
         const privateKey = await this.privateKey.get();
         return privateKeyToAccount(privateKey as `0x${string}`).address as `0x${string}`;
     }

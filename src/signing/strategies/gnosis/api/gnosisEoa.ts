@@ -60,6 +60,10 @@ export class GnosisEOAApiStrategy extends GnosisApiStrategy {
     }
 
     async getSignerAddress(): Promise<`0x${string}`> {
+        if (this.options?.simulationAddress !== undefined) {
+            return this.options.simulationAddress as `0x${string}`;
+        }
+
         return privateKeyToAccount(await this.privateKey.get() as `0x${string}`).address as `0x${string}`;
     }
 }

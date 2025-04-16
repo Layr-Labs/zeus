@@ -136,7 +136,8 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
                             lastUpdatedIn: {
                                 name: deploy._.name,
                                 phase: deploy._.phase,
-                                segment: deploy._.segmentId
+                                segment: deploy._.segmentId,
+                                signer: sigRequest.signer,
                             },
                         };
                     }) || []);

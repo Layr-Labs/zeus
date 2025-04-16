@@ -21,6 +21,7 @@ export const rpcUrl = option({ type: optional(string), long: 'rpcUrl', short: 'r
 export const requiredRpcUrl = option({ type: string, long: 'rpcUrl', short: 'r', description: "Provide an RPC url."});
 
 export const signer = option({type: string, long: 'signer', short: 's', description: "An ethereum private key"});
+export const deploy = option({type: optional(string), long: 'deploy', short: 'd', description: "The name of a deploy to check. If not supplied, uses the current active deploy."})
 
 export const nonInteractive = flag({
     long: 'nonInteractive',

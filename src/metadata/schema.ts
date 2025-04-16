@@ -363,7 +363,8 @@ export interface TDeployedContract extends TDeployedContractSparse {
     lastUpdatedIn: {
         name: string,
         phase: string;
-        segment: number
+        segment: number;
+        signer: string;
     };
 }
 
