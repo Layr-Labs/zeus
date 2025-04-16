@@ -14,7 +14,6 @@ export default class EOASigningStrategy extends EOABaseSigningStrategy {
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options: TStrategyOptions | undefined) {
         super(deploy, transaction, options);
         this.privateKey = this.arg(async () => {
-            console.trace("requesting private key");
             return await prompts.privateKey(this.deploy._.chainId);
         }, "overrideEoaPk");
     } 
