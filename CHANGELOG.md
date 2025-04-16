@@ -2,7 +2,10 @@
 **[Current]** 
 1.4.3:
     Fixes:
-        - `zeus deploy verify` no longer requires access to a signer private key.
+        - `zeus deploy verify` 
+            - no longer requires access to a signer private key.
+            - now accepts --deploy for post-facto verifying a completed deploy.
+        
 
 1.4.2:
     Change:
