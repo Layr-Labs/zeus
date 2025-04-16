@@ -35,14 +35,14 @@ export function mockEnvManifest(): TEnvironmentManifest {
           static: {
             "SampleContract_Impl": {
               deployedBytecodeHash: `0x123`,
-              lastUpdatedIn: {name: '', phase: 'multisig_start', segment: 0},
+              lastUpdatedIn: {name: '', phase: 'multisig_start', segment: 0, signer: `0x0`},
               singleton: true,
               contract: `SampleContract`,
               address: `0xabc`
             },
             "SampleContract_Proxy": {
               deployedBytecodeHash: `0x456`,
-              lastUpdatedIn: {name: '', phase: 'multisig_start', segment: 0},
+              lastUpdatedIn: {name: '', phase: 'multisig_start', segment: 0, signer: `0x0`},
               singleton: true,
               contract: `SampleContract`,
               address: `0xdef`
@@ -51,7 +51,7 @@ export function mockEnvManifest(): TEnvironmentManifest {
           instances: [
             {
               deployedBytecodeHash: `0x456`,
-              lastUpdatedIn: {name: '', phase: 'multisig_start', segment: 0},
+              lastUpdatedIn: {name: '', phase: 'multisig_start', segment: 0, signer: `0x0`},
               singleton: false,
               contract: `SampleContract`,
               address: `0xafd`

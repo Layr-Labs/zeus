@@ -138,7 +138,8 @@ describe('system steps', () => {
           lastUpdatedIn: {
             phase: 'eoa_start',
             segment: 0,
-            name: 'deployName'
+            name: 'deployName',
+            signer: `0x0`
           }
         }
       ]}

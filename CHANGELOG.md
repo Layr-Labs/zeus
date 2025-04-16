@@ -1,5 +1,12 @@
 
 **[Current]** 
+1.4.3:
+    Fixes:
+        - `zeus deploy verify` 
+            - no longer requires access to a signer private key.
+            - now accepts --deploy for post-facto verifying a completed deploy.
+        
+
 1.4.2:
     Change:
         - `ZEUS_DEPLOYED_TO` and `ZEUS_DEPLOYED_FROM` are automatically set during test executions, based on the nearest `upgrade.json`.
