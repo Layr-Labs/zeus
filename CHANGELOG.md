@@ -1,5 +1,9 @@
 
 **[Current]** 
+1.4.4:
+    New:
+        - `zeus env show --pending` now highlights which addresses or state parameters have changed.
+
 1.4.3:
     Fixes:
         - `zeus deploy verify` 
