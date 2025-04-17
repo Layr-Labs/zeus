@@ -21,12 +21,34 @@ async function handler(_user: TState, args: {json: boolean |undefined, env: stri
         return;
     }
 
+    const preEnv =  await injectableEnvForEnvironment(txn, args.env);
     const env = await injectableEnvForEnvironment(txn, args.env, withDeploy?._.name);
     if (args.json) {
         console.log(JSON.stringify(env))
     } else {
         console.log(chalk.bold.underline(`Environment Parameters`))
-        console.table(env);
+
+        // highlight any parameters that have changed.
+        if (withDeploy) {
+            const keys = Object.keys(env);
+            interface Item {
+                name: string,
+                value: string,
+                dirty: string
+            }
+            const printableEnv: Item[] = [];
+            for (const key of keys) {
+                const item: Item = {
+                    name: key,
+                    value: env[key],
+                    dirty: preEnv[key] !== env[key] ? '⬅️' : ''
+                };
+                printableEnv.push(item);
+            } 
+            console.table(printableEnv);
+        } else {
+            console.table(env);
+        }
     }
 }
 
