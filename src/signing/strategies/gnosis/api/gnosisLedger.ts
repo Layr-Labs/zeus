@@ -26,6 +26,7 @@ export class GnosisLedgerStrategy extends GnosisApiStrategy {
 
     async getSignature(version: string, txn: SafeTransaction, safeAddress: `0x${string}`): Promise<`0x${string}`> {
         const signer = await getLedgerAccount(await this.bip32Path.get());
+
         if (!signer.signTypedData) {
             throw new Error(`This ledger does not support signing typed data, and cannot be used with zeus.`);
         }

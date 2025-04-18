@@ -1,5 +1,16 @@
 
 **[Current]** 
+1.5.0:
+    Fixes:
+        - Issues with ledger ("Unknown Error: 0x650e") will now give you a few attempts to reconnect your device.
+    
+    New: 
+        - Sign via a built-in web portal (tenderly simulations too!). 
+            The web portal supports:
+                - GridPlus
+                - Ledger
+                - Metamask, Phantom, & window.ethereum-based wallets
+
 1.4.4:
     New:
         - `zeus env show --pending` now highlights which addresses or state parameters have changed.
@@ -10,7 +21,6 @@
             - no longer requires access to a signer private key.
             - now accepts --deploy for post-facto verifying a completed deploy.
         
-
 1.4.2:
     Change:
         - `ZEUS_DEPLOYED_TO` and `ZEUS_DEPLOYED_FROM` are automatically set during test executions, based on the nearest `upgrade.json`.
