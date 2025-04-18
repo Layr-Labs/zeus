@@ -247,6 +247,51 @@
   color: #e74c3c;
 }
 
+/* Signer status styling */
+.signer-status {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.is-signer {
+  background-color: #e8f5e9;
+  border: 1px solid #2ecc71;
+}
+
+.not-signer {
+  background-color: #ffebee;
+  border: 1px solid #e74c3c;
+}
+
+.is-checking {
+  background-color: #e3f2fd;
+  border: 1px solid #2196f3;
+  animation: pulse 1.5s infinite;
+}
+
+.signer-badge {
+  color: #2ecc71;
+  font-weight: 600;
+}
+
+.not-signer-badge {
+  color: #e74c3c;
+  font-weight: 600;
+}
+
+.checking-badge {
+  color: #2196f3;
+  font-weight: 600;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { opacity: 0.8; }
+}
+
 .chain-warning {
   font-weight: bold;
   animation: pulse-warning 1.5s infinite;

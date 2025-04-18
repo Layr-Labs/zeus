@@ -1,10 +1,54 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 import { createConfig, http } from '@wagmi/core'
-import { mainnet, sepolia, goerli } from '@wagmi/core/chains'
+import { mainnet, sepolia, holesky } from '@wagmi/core/chains'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { WagmiProvider, useDisconnect, useAccount, useConnect, useSignTypedData, useSwitchChain } from 'wagmi'
+import { 
+  WagmiProvider, 
+  useDisconnect, 
+  useAccount, 
+  useConnect, 
+  useSignTypedData, 
+  useSwitchChain,
+  useReadContract,
+} from 'wagmi'
 import { injected, coinbaseWallet, walletConnect } from 'wagmi/connectors'
+
+// Gnosis Safe ABI - just the parts we need
+const safeAbi = [
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "isOwner",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getOwners",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
 
 // Using WalletConnect with a valid project ID
 const WALLET_CONNECT_PROJECT_ID = '2a1cb39c11c473fcfb2a02856fe6697a'
@@ -33,20 +77,7 @@ function parseQueryParams() {
 }
 
 // Define supported chains for our app
-const supportedChains = [mainnet, sepolia, goerli] as const;
-
-// For creating custom chain objects if needed (unused but kept for future reference)
-// @ts-ignore - Intentionally unused function kept for future reference
-const _createChain = (chainId: number) => {
-  return {
-    id: chainId,
-    name: `Chain ${chainId}`,
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    rpcUrls: {
-      default: { http: [`https://rpc.ankr.com/${chainId}`] },
-    },
-  };
-};
+const supportedChains = [mainnet, sepolia, holesky] as const;
 
 // Helper function to get a user-friendly chain name
 function getChainName(chainId: number): string {
@@ -76,9 +107,9 @@ function getChainName(chainId: number): string {
 const config = createConfig({
   chains: supportedChains,
   transports: {
-    [mainnet.id]: http(),
-    [sepolia.id]: http(),
-    [goerli.id]: http(),
+    [mainnet.id]: http('https://eth.llamarpc.com'),
+    [sepolia.id]: http('https://eth-sepolia.api.onfinality.io/public'),
+    [holesky.id]: http('https://holesky.gateway.tenderly.co'),
   },
   connectors: [
     // For better wallet detection
@@ -100,7 +131,7 @@ const config = createConfig({
     // For Coinbase Wallet
     coinbaseWallet({ 
       appName: 'Zeus Safe Signer',
-      appLogoUrl: '' // You can add a logo URL here if desired
+      appLogoUrl: '' 
     }),
   ],
 })
@@ -122,6 +153,9 @@ function SigningComponent() {
   const [signatureSubmitted, setSignatureSubmitted] = useState(false);
   const [finalSignature, setFinalSignature] = useState<string | null>(null);
   
+  // States for owner validation
+  const [isOwner, setIsOwner] = useState<boolean | null>(null);
+
   // Use EIP-712 typed data signing
   const { 
     signTypedData,
@@ -130,50 +164,48 @@ function SigningComponent() {
     error: signError
   } = useSignTypedData();
 
-  // Function to submit signature to server
-  const submitSignature = async (sig: string) => {
-    console.log('Submitting signature to server:', sig);
-    
-    try {
-      if (!address) {
-        throw new Error('No wallet address available');
-      }
-      
-      // Submit the signature to the server
-      const response = await fetch('/api/sign', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          signature: sig,
-          secret: params.secret,
-          address: address,
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Server error: ${response.status} - ${errorText}`);
-      }
-      
-      const result = await response.json();
-      console.log('Server response:', result);
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Unknown server error');
-      }
-      
-      return true;
-    } catch (err) {
-      console.error('Failed to submit signature:', err);
-      setError(`Failed to submit signature: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      return false;
-    }
-  };
-
-  // Effect to handle signature success
   useEffect(() => {
+    const submitSignature = async (sig: string) => {
+      console.log('Submitting signature to server:', sig);
+      
+      try {
+        if (!address) {
+          throw new Error('No wallet address available');
+        }
+        
+        // Submit the signature to the server
+        const response = await fetch('/api/sign', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            signature: sig,
+            secret: params.secret,
+            address: address,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Server error: ${response.status} - ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log('Server response:', result);
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Unknown server error');
+        }
+        
+        return true;
+      } catch (err) {
+        console.error('Failed to submit signature:', err);
+        setError(`Failed to submit signature: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        return false;
+      }
+    };
+
     const handleNewSignature = async () => {
       if (signature) {
         console.log('SIGNATURE DETECTED:', signature);
@@ -206,7 +238,47 @@ function SigningComponent() {
     }
   }, [signature, signError, address, params.secret]);
   
-  // No countdown effect needed anymore
+  // Get the Safe address from typedData
+  const safeAddress = params.typedData?.domain?.verifyingContract as `0x${string}` | undefined;
+  const safeChainId = params.typedData ? Number(params.typedData.domain.chainId) : undefined;
+  
+  // Use wagmi to directly check if the connected address is an owner of the Safe contract
+  const { data: isOwnerData, isLoading: isOwnerLoading, error: isOwnerError } = useReadContract({
+    address: safeAddress,
+    abi: safeAbi,
+    functionName: 'isOwner',
+    args: address ? [address] : undefined,
+    chainId: safeChainId,
+    query: {
+      enabled: !!address && !!safeAddress && !!safeChainId && isConnected,
+    }
+  });
+
+  // Update the isOwner state when the contract read returns
+  useEffect(() => {
+    if (isOwnerData !== undefined) {
+      console.log('Is wallet an owner of Safe?', isOwnerData);
+      setIsOwner(isOwnerData);
+      
+      if (!isOwnerData) {
+        setError(`Connected wallet (${address}) is not a signer for this Safe. Please connect a wallet that is authorized to sign.`);
+      } else {
+        // Clear error if it was about not being an owner
+        if (error && error.includes('not a signer')) {
+          setError('');
+        }
+      }
+    }
+  }, [isOwnerData, address, error]);
+  
+  
+  // Log any errors from contract reads
+  useEffect(() => {
+    if (isOwnerError) {
+      console.error('Error checking if address is owner:', isOwnerError);
+      setError(`Could not verify if you're a signer: ${isOwnerError instanceof Error ? isOwnerError.message : 'Unknown error'}`);
+    }
+  }, [isOwnerError]);
   
   // Effect to check if chain matches and update UI
   useEffect(() => {
@@ -218,11 +290,13 @@ function SigningComponent() {
         setStatus(`Incorrect chain detected. Please switch to ${getChainName(requiredChainId)} (Chain ID: ${requiredChainId})`);
         setError(`Wallet is on wrong chain. Please switch to ${getChainName(requiredChainId)}.`);
       } else {
-        // Chain matches what we need - clear any chain-related errors
-        setError('');
+        // Chain matches what we need - clear chain-related errors only
+        if (error && error.includes('wrong chain')) {
+          setError('');
+        }
       }
     }
-  }, [isConnected, currentChainId, params.typedData]);
+  }, [isConnected, currentChainId, error, params.typedData]);
   
   // Function to get Tenderly simulation URL
   const getSimulationUrl = (): string | null => {
@@ -290,6 +364,17 @@ function SigningComponent() {
       
       // Try to switch chains
       handleSwitchChain();
+      return;
+    }
+    
+    // Check if user is a signer
+    if (isOwnerLoading) {
+      setStatus('Checking if your wallet is authorized to sign...');
+      return; // Wait for the check to complete
+    }
+    
+    if (isOwner === false) {
+      setError(`This wallet (${address}) is not authorized to sign transactions for this Safe. Please connect a wallet that is a signer.`);
       return;
     }
 
@@ -477,6 +562,20 @@ function SigningComponent() {
             <span className="label">Connected Address:</span>
             <span className="value">{address}</span>
             
+            {/* Display signer status */}
+            {isOwnerLoading ? (
+              <div className="signer-status is-checking">
+                <span className="checking-badge">🔄 Checking authorization...</span>
+              </div>
+            ) : isOwner !== null && (
+              <div className={`signer-status ${isOwner ? 'is-signer' : 'not-signer'}`}>
+                {isOwner ? 
+                  <span className="signer-badge">✓ Authorized Signer</span> :
+                  <span className="not-signer-badge">❌ Not a signer for this Safe</span>
+                }
+              </div>
+            )}
+            
             {params.typedData && (
               <div className="chain-info">
                 <span className="label">Required Chain:</span>
@@ -526,9 +625,17 @@ function SigningComponent() {
             <button 
               className="sign-button" 
               onClick={handleSign}
-              disabled={!hasSimulated || isPending || isSigning}
+              disabled={!hasSimulated || isPending || isSigning || isOwner === false || isOwnerLoading}
+              title={
+                isOwnerLoading ? 'Checking authorization...' :
+                isOwner === false ? 'Only authorized signers can sign transactions' :
+                ''
+              }
             >
-              {isPending ? 'Check Wallet...' : 'Sign'}
+              {isPending ? 'Check Wallet...' : 
+               isOwnerLoading ? 'Checking Authorization...' : 
+               isOwner === false ? 'Not Authorized' : 
+               'Sign'}
             </button>
           </div>
           
@@ -539,7 +646,7 @@ function SigningComponent() {
           )}
           
           <div className="disconnect-link">
-            <a href="#" onClick={(e) => { e.preventDefault(); disconnect(); }}>
+            <a href="#" onClick={(e) => { e.preventDefault(); disconnect(); setIsOwner(null); }}>
               Switch wallet
             </a>
           </div>

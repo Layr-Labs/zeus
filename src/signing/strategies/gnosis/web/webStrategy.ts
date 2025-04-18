@@ -222,6 +222,8 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
             app.use(express.static(sitePath));
             app.use(express.json());
             
+            // We're now checking Safe owners directly from the frontend
+            
             // Endpoint for receiving the signature
             // @ts-expect-error express-typing is weird
             app.post('/api/sign', async (req: Request, res: Response) => {
@@ -244,7 +246,6 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
                 
                 try {
                     // Verify the signature using viem's verifyTypedData
-
                     const isValid = await verifyTypedData({
                         address: data.address as `0x${string}`,
                         // @ts-expect-error verification of typed data is weird in typescript
@@ -263,8 +264,40 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
                         return res.status(400).json({ error: 'Signature verification failed' });
                     }
                     
-                    console.log(chalk.green(`Signature verified successfully for address ${data.address}`));
+                    // Verify that the address is an owner of the Safe
+                    try {
+                        // TypeScript fix: explicitly check for domain object with verifyingContract 
+                        const domain = typedData.domain as Record<string, unknown> | undefined;
+                        const safeAddress = domain?.verifyingContract as string;
+                        
+                        if (safeAddress) {
+                            const safeSDK = await Safe.init({
+                                provider: await this.rpcUrl.get(),
+                                signer: undefined,
+                                safeAddress: getAddress(safeAddress)
+                            });
+                            
+                            const owners = await safeSDK.getOwners();
+                            const isOwner = owners.some(
+                                owner => owner.toLowerCase() === data.address.toLowerCase()
+                            );
+                            
+                            if (!isOwner) {
+                                console.error(chalk.red(`Address ${data.address} is not an owner of Safe ${safeAddress}`));
+                                return res.status(401).json({ 
+                                    error: 'Not authorized to sign for this Safe',
+                                    details: 'The connected wallet is not an owner of this Safe'
+                                });
+                            }
+                            
+                            console.log(chalk.green(`Address ${data.address} is an owner of Safe ${safeAddress}`));
+                        }
+                    } catch (err) {
+                        console.warn(chalk.yellow(`Could not verify if address is an owner: ${err instanceof Error ? err.message : err}`));
+                        // Continue anyway since we couldn't verify
+                    }
                     
+                    console.log(chalk.green(`Signature verified successfully for address ${data.address}`));
                     
                     // Close the server after receiving the signature
                     if (this.resolveSignaturePromise) {
