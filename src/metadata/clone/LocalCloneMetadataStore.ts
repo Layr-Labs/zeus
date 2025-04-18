@@ -4,7 +4,7 @@ import { promisify } from 'util';
 const exec = promisify(execCallback);
 import { MetadataStore, Transaction } from '../metadataStore';
 import { LocalCloneTransaction } from './LocalCloneTransaction';
-import { existsSync, mkdirSync, rmdirSync } from 'fs';
+import { existsSync, mkdirSync, rmSync } from 'fs';
 import { keccak256, toHex } from 'viem';
 
 
@@ -44,7 +44,7 @@ export class LocalCloneMetadataStore implements MetadataStore {
         try {
             if (!existsSync(localUrl) || !existsSync(localUrlGit)) {
                 try {
-                    rmdirSync(localUrl);
+                    rmSync(localUrl, {recursive: true});
                 } catch (_e) {
                     // force rm.
                 }
@@ -57,7 +57,7 @@ export class LocalCloneMetadataStore implements MetadataStore {
         } catch (e) {
             // if anything fails, rm the dir and reclone.
             console.error(`Experienced an error while syncing zeus: (reclone may be slower) ${e}`);
-            rmdirSync(localUrl);
+            rmSync(localUrl, {recursive: true});
             mkdirSync(localUrl, {recursive: true});
             await exec(`${GIT_CLONE} ${this.remoteRepoUrl} ${localUrl}`);
         }

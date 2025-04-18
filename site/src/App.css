@@ -1,0 +1,594 @@
+#root {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.app {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  color: #333;
+}
+
+.signing-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.signing-container h1 {
+  margin: 0;
+  color: #1a1a1a;
+  font-size: 1.8rem;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.transaction-notice {
+  background-color: #fff8e6;
+  border: 1px solid #ffd77a;
+  border-radius: 8px;
+  padding: 0.8rem 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.transaction-notice p {
+  margin: 0;
+  color: #856404;
+  font-weight: 600;
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+.simulation-required {
+  text-align: center;
+  color: #721c24;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.transaction-details {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #eaeaea;
+  /* Removed max-height and overflow-y to show all content without scrolling */
+}
+
+.transaction-details h2 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.4rem;
+  color: #333;
+}
+
+.transaction-details h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  color: #444;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.3rem;
+}
+
+.detail-section {
+  margin-bottom: 1.5rem;
+  padding: 0.5rem;
+  background-color: #f3f3f3;
+  border-radius: 6px;
+}
+
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.label {
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  color: #555;
+}
+
+.value {
+  font-family: monospace;
+  background-color: #f0f0f0;
+  padding: 0.5rem;
+  border-radius: 4px;
+  word-break: break-all;
+  font-size: 0.9rem;
+  border: 1px solid #ddd;
+}
+
+.type-container {
+  margin-bottom: 1rem;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+}
+
+.type-name {
+  font-weight: 600;
+  color: #333;
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+.type-fields {
+  margin-left: 1rem;
+}
+
+.field-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  border-bottom: 1px dashed #e0e0e0;
+}
+
+.field-name {
+  font-weight: 500;
+  color: #444;
+}
+
+.field-type {
+  font-family: monospace;
+  color: #0066cc;
+  background-color: #f5f5f5;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.8rem;
+}
+
+.connect-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 1.5rem;
+}
+
+.connect-text {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.connectors-list {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 500px;
+}
+
+.connector-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 1rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 200px;
+  flex: 1;
+}
+
+/* Styles for the specific connectors */
+.connector-button[data-connector="injected"] {
+  border-color: #f6851b;
+  background-color: #fcf8f2;
+}
+
+.connector-button[data-connector="walletConnect"] {
+  border-color: #3396ff;
+  background-color: #f5f9ff;
+}
+
+.connector-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.connector-button[data-connector="injected"]:hover {
+  background-color: #fef6eb;
+}
+
+.connector-button[data-connector="walletConnect"]:hover {
+  background-color: #edf6ff;
+}
+
+.connector-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.connected-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.connected-address {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chain-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.chain-id {
+  display: inline-flex;
+  align-items: center;
+}
+
+.chain-match {
+  color: #2ecc71;
+}
+
+.chain-mismatch {
+  color: #e74c3c;
+}
+
+.chain-warning {
+  font-weight: bold;
+  animation: pulse-warning 1.5s infinite;
+}
+
+.switch-chain-button {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  margin-left: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.switch-chain-button:hover {
+  background-color: #c0392b;
+}
+
+.button-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.sign-button {
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.sign-button:hover:not(:disabled) {
+  background-color: #27ae60;
+}
+
+.sign-button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+  position: relative;
+}
+
+.sign-button:disabled::after {
+  content: '🔒';
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+}
+
+/* Removed disconnect button styles as we're now using a text link */
+
+.simulate-button {
+  background-color: rgb(97, 57, 229);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  text-decoration: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.simulate-button:hover {
+  background-color: rgb(87, 51, 207);
+}
+
+.simulate-button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+.simulation-status {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #f8f9fa;
+  border: 1px solid rgb(97, 57, 229);
+  border-radius: 6px;
+  padding: 0.5rem;
+  color: #333;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.simulation-checkmark {
+  color: rgb(97, 57, 229);
+  font-weight: bold;
+  margin-right: 0.3rem;
+}
+
+.simulate-again-button {
+  background: none;
+  border: none;
+  color: rgb(97, 57, 229);
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  padding: 0.3rem 0;
+  margin-top: 0.3rem;
+}
+
+.simulate-again-button:hover {
+  color: rgb(87, 51, 207);
+}
+
+.simulate-again-button:disabled {
+  color: #95a5a6;
+  cursor: not-allowed;
+}
+
+.tenderly-link-container {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+.tenderly-simple-link {
+  color: rgb(97, 57, 229);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tenderly-simple-link::before {
+  content: '↗';
+  margin-right: 4px;
+  font-size: 0.8rem;
+}
+
+.tenderly-simple-link:hover {
+  color: rgb(87, 51, 207);
+  text-decoration: underline;
+}
+
+.disconnect-link {
+  text-align: center;
+  margin-top: 1.5rem;
+}
+
+.disconnect-link a {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.disconnect-link a:hover {
+  color: #e74c3c;
+  text-decoration: underline;
+}
+
+.error-message {
+  background-color: #ffeded;
+  color: #e74c3c;
+  padding: 1rem;
+  border-radius: 6px;
+  border-left: 4px solid #e74c3c;
+  margin: 1rem 0;
+}
+
+.status-message {
+  background-color: #edf8ff;
+  color: #3498db;
+  padding: 1rem;
+  border-radius: 6px;
+  border-left: 4px solid #3498db;
+  margin: 1rem 0;
+}
+
+.error-container {
+  text-align: center;
+  padding: 2rem;
+  background-color: #ffeded;
+  border-radius: 8px;
+  border: 1px solid #e74c3c;
+}
+
+.success-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 80vh;
+  background-color: #f8f9fa;
+}
+
+.success-message {
+  text-align: center;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  max-width: 90%;
+  width: 500px;
+  animation: fadeIn 0.5s ease-in;
+}
+
+.success-icon {
+  display: block;
+  font-size: 4rem;
+  color: #2ecc71;
+  margin-bottom: 1rem;
+}
+
+.success-message h1 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.success-message h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  color: #555;
+  border-top: 1px solid #eee;
+  padding-top: 1rem;
+}
+
+.success-message p {
+  color: #555;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.done-message {
+  color: #2ecc71;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+  padding: 10px;
+  border: 1px solid #2ecc71;
+  border-radius: 6px;
+  background-color: #f0fff5;
+  text-align: center;
+}
+
+.loader {
+  width: 48px;
+  height: 6px;
+  display: block;
+  margin: 0 auto 2rem auto;
+  position: relative;
+  border-radius: 4px;
+  background: #f3f3f3;
+  overflow: hidden;
+}
+
+.loader::after {
+  content: '';
+  width: 40%;
+  height: 100%;
+  background: #3498db;
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 4px;
+  animation: loading 1.5s infinite ease-in-out;
+}
+
+@keyframes loading {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+
+.signature-debug {
+  background-color: #f8f9fa;
+  border: 1px solid #eaeaea;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  font-family: monospace;
+  font-size: 0.85rem;
+  text-align: left;
+  overflow: auto;
+  max-height: 300px;
+}
+
+.debug-label {
+  font-weight: bold;
+  color: #444;
+  margin-bottom: 0.3rem;
+}
+
+.debug-value {
+  color: #555;
+  word-break: break-all;
+  background-color: #efefef;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+
+.debug-value pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.8rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.close-button {
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.close-button:hover {
+  background-color: #27ae60;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-warning {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}

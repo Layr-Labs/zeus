@@ -6,7 +6,7 @@ import { pickStrategy } from "../../prompts";
 
 export const supportedSigners: Record<TSegmentType, string[]> = {
     "eoa": ["eoa", "ledger"],
-    "multisig": ["gnosis.api.eoa", "gnosis.api.ledger", "gnosis.onchain"],
+    "multisig": ["gnosis.api.eoa", "gnosis.api.ledger", "gnosis.api.web", "gnosis.onchain"],
     "script": [],
     "system": [],
 }

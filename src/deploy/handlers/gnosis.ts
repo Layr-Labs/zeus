@@ -154,7 +154,7 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
 
             const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId)})
             const multisigTxn = await safeApi.getTransaction(safeTxHash);
-
+h
             if (multisigTxn.confirmations?.length === multisigTxn.confirmationsRequired) {
                 console.log(chalk.green(`SafeTxn(${safeTxHash}): ${multisigTxn.confirmations?.length}/${multisigTxn.confirmationsRequired} confirmations received!`))
                 await advance(deploy);
