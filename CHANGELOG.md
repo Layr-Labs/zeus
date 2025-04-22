@@ -5,11 +5,15 @@
         - Issues with ledger ("Unknown Error: 0x650e") will now give you a few attempts to reconnect your device.
     
     New: 
-        - Sign via a built-in web portal (tenderly simulations too!). 
-            The web portal supports:
-                - GridPlus
-                - Ledger
-                - Metamask, Phantom, & window.ethereum-based wallets
+        - FOR MULTISIGS: Sign via a built-in web portal. 
+            - The web portal supports:
+                - Signing with;
+                    - GridPlus
+                    - Ledger
+                    - Metamask, Phantom, & window.ethereum-based wallets
+            - Linking to a tenderly simulation
+            - Viewing the full raw typedData
+            - Transaction cancellation (via `zeus deploy cancel`) and nornmal signing flows.
 
 1.4.4:
     New:
