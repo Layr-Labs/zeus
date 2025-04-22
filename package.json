@@ -10,10 +10,10 @@
     "test-debug": "TS_NODE_PROJECT=tsconfig.json  NODE_NO_WARNINGS=1 node --experimental-vm-modules --inspect-brk ./node_modules/jest/bin/jest",
     "start": "node dist/index.js",
     "debug": "node --inspect-brk dist/index.js",
-    "lint": "eslint .",
+    "lint": "eslint src/**/*.ts",
     "build-site": "cd site && npm run build",
     "prepack": "npm run build-site && npm run build-prod",
-    "lint-fix": "eslint . --fix",
+    "lint-fix": "eslint src/**/*.ts --fix",
     "watch": "webpack --watch -c webpack.config.dev.cjs",
     "build-dev": "webpack -c webpack.config.dev.cjs",
     "build-prod": "webpack -c webpack.config.prod.cjs"

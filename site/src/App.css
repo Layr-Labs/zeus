@@ -61,6 +61,54 @@
   /* Removed max-height and overflow-y to show all content without scrolling */
 }
 
+/* View mode toggle */
+.view-mode-toggle {
+  display: flex;
+  margin-bottom: 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.toggle-button {
+  flex: 1;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.toggle-button.active {
+  background: #4a6cf7;
+  color: white;
+  font-weight: bold;
+}
+
+.toggle-button:first-child {
+  border-right: 1px solid #ddd;
+}
+
+/* Raw message container */
+.raw-message-container {
+  background: #f8f8f8;
+  border-radius: 4px;
+  padding: 10px;
+}
+
+.raw-message-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: monospace;
+  font-size: 13px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: #f0f0f0;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
 .transaction-details h2 {
   margin-top: 0;
   margin-bottom: 1rem;

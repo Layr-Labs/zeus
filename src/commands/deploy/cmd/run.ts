@@ -329,8 +329,7 @@ const executeOrContinueDeploy = async (deploy: SavebleDocument<TDeploy>, _user: 
                 return;
             }
 
-            console.warn(`The deploy halted. See log output for more information.`);
-            console.warn(e);
+            console.warn(`The deploy halted. You may continue this deploy with --resume.`);
         } else {
             console.error(`An unknown error occurred while performing the deploy.`)
             console.error(`<see log output for more information on how to continue>`)

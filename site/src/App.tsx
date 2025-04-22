@@ -58,6 +58,7 @@ function parseQueryParams() {
   
   // Get the encoded EIP712 data from the typedData parameter
   const typedDataParam = params.get('typedData');
+  const rawMessageParam = params.get('rawMessage');
   
   // Parse the encoded typed data if it exists
   let typedData = null;
@@ -70,8 +71,20 @@ function parseQueryParams() {
     }
   }
   
+  // Parse the raw message if it exists
+  let rawMessage = null;
+  if (rawMessageParam) {
+    try {
+      rawMessage = JSON.parse(decodeURIComponent(rawMessageParam));
+      console.log('Parsed raw message data:', rawMessage);
+    } catch (err) {
+      console.error('Failed to parse raw message from URL parameter:', err);
+    }
+  }
+  
   return {
     typedData, // The parsed EIP-712 typed data object
+    rawMessage, // The parsed raw message object
     secret: params.get('secret'),
   };
 }
@@ -155,6 +168,9 @@ function SigningComponent() {
   
   // States for owner validation
   const [isOwner, setIsOwner] = useState<boolean | null>(null);
+  
+  // State for view mode (parsed or raw)
+  const [viewMode, setViewMode] = useState<'parsed' | 'raw'>('parsed');
 
   // Use EIP-712 typed data signing
   const { 
@@ -475,57 +491,88 @@ function SigningComponent() {
       <div className="transaction-details">
         <h2>Transaction Details</h2>
         
-        {/* Primary Type */}
-        <div className="detail-row">
-          <span className="label">Message Type:</span>
-          <span className="value">{params.typedData?.primaryType || 'Unknown'}</span>
+        {/* View Mode Toggle */}
+        <div className="view-mode-toggle">
+          <button 
+            className={`toggle-button ${viewMode === 'parsed' ? 'active' : ''}`}
+            onClick={() => setViewMode('parsed')}
+          >
+            Parsed View
+          </button>
+          <button 
+            className={`toggle-button ${viewMode === 'raw' ? 'active' : ''}`}
+            onClick={() => setViewMode('raw')}
+          >
+            Raw Message
+          </button>
         </div>
         
-        {/* Domain Information */}
-        <div className="detail-section">
-          <h3>Domain</h3>
-          <div className="detail-row">
-            <span className="label">Name:</span>
-            <span className="value">{params.typedData?.domain?.name || 'Unknown'}</span>
-          </div>
-          <div className="detail-row">
-            <span className="label">Version:</span>
-            <span className="value">{params.typedData?.domain?.version || 'Unknown'}</span>
-          </div>
-          <div className="detail-row">
-            <span className="label">Chain ID:</span>
-            <span className="value">{params.typedData?.domain?.chainId || 'Unknown'}</span>
-          </div>
-        </div>
-        
-        {/* Message Content */}
-        <div className="detail-section">
-          <h3>Message</h3>
-          {params.typedData?.message && Object.entries(params.typedData.message).map(([key, value]) => (
-            <div className="detail-row" key={key}>
-              <span className="label">{key}:</span>
-              <span className="value">{String(value)}</span>
+        {viewMode === 'parsed' ? (
+          <>
+            {/* Primary Type */}
+            <div className="detail-row">
+              <span className="label">Message Type:</span>
+              <span className="value">{params.typedData?.primaryType || 'Unknown'}</span>
             </div>
-          ))}
-        </div>
-        
-        {/* Types Structure */}
-        <div className="detail-section">
-          <h3>Types</h3>
-          {params.typedData?.types && Object.entries(params.typedData.types).map(([typeName, fields]) => (
-            <div className="type-container" key={typeName}>
-              <span className="type-name">{typeName}</span>
-              <div className="type-fields">
-                {Array.isArray(fields) && fields.map((field, index) => (
-                  <div className="field-row" key={index}>
-                    <span className="field-name">{field.name}</span>
-                    <span className="field-type">{field.type}</span>
-                  </div>
-                ))}
+            
+            {/* Domain Information */}
+            <div className="detail-section">
+              <h3>Domain</h3>
+              <div className="detail-row">
+                <span className="label">Name:</span>
+                <span className="value">{params.typedData?.domain?.name || 'Unknown'}</span>
+              </div>
+              <div className="detail-row">
+                <span className="label">Version:</span>
+                <span className="value">{params.typedData?.domain?.version || 'Unknown'}</span>
+              </div>
+              <div className="detail-row">
+                <span className="label">Chain ID:</span>
+                <span className="value">{params.typedData?.domain?.chainId || 'Unknown'}</span>
+              </div>
+              <div className="detail-row">
+                <span className="label">Verifying Contract:</span>
+                <span className="value">{params.typedData?.domain?.verifyingContract || 'Unknown'}</span>
               </div>
             </div>
-          ))}
-        </div>
+            
+            {/* Message Content */}
+            <div className="detail-section">
+              <h3>Message</h3>
+              {params.typedData?.message && Object.entries(params.typedData.message).map(([key, value]) => (
+                <div className="detail-row" key={key}>
+                  <span className="label">{key}:</span>
+                  <span className="value">{String(value)}</span>
+                </div>
+              ))}
+            </div>
+            
+            {/* Types Structure */}
+            <div className="detail-section">
+              <h3>Types</h3>
+              {params.typedData?.types && Object.entries(params.typedData.types).map(([typeName, fields]) => (
+                <div className="type-container" key={typeName}>
+                  <span className="type-name">{typeName}</span>
+                  <div className="type-fields">
+                    {Array.isArray(fields) && fields.map((field, index) => (
+                      <div className="field-row" key={index}>
+                        <span className="field-name">{field.name}</span>
+                        <span className="field-type">{field.type}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="raw-message-container">
+            <h3>Raw Typed Data</h3>
+            <pre className="raw-message-pre">
+              {JSON.stringify(params.typedData, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
 
       {error && <div className="error-message">{error}</div>}

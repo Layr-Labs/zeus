@@ -1,10 +1,10 @@
 /* eslint-disable */
 import { GnosisSigningStrategy } from "../gnosis";
 import { SavebleDocument } from "../../../../metadata/metadataStore";
-import { TDeploy, TMultisigPhase } from "../../../../metadata/schema";
+import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/schema";
 import { TSignatureRequest, TSignedGnosisRequest } from "../../../strategy";
 import Safe from '@safe-global/protocol-kit'
-import { OperationType } from '@safe-global/types-kit';
+import { OperationType, SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
 import { getAddress, hexToNumber, verifyTypedData } from "viem";
 import express from 'express';
@@ -124,27 +124,8 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
             ),
         })
         const version = await protocolKitOwner1.getContractVersion();
-        const types = getEip712TxTypes(version);
-        const typedData = {
-            types: types as unknown as Record<string, unknown>,
-            domain: {
-                verifyingContract: safeContext.addr,
-                chainId: this.deploy._.chainId,
-            },
-            primaryType: 'SafeTx',
-            message: {
-                ...txn.data,
-                value: txn.data.value,
-                safeTxGas: txn.data.safeTxGas,
-                baseGas: txn.data.baseGas,
-                gasPrice: txn.data.gasPrice,
-                nonce: txn.data.nonce,
-                refundReceiver: txn.data.refundReceiver,
-            }
-        };
-
-        // Get signature via web interface
-        const {signature, sender} = await this.startWebServer(typedData);
+        
+        const {signature, sender} = await this.requestSignature(txn, protocolKitOwner1, safeContext.addr);
         
         if (stateUpdates) {
             console.log(chalk.bold.underline(`Updated Environment: `));
@@ -178,9 +159,28 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
         } as TSignedGnosisRequest;
     }
 
-    private async startWebServer(typedData: Record<string, unknown>): Promise<TWebModalSignature> {
+    private async requestSignature(txn: SafeTransaction, protocolKitOwner1: Safe, safeAddress: string): Promise<TWebModalSignature> {
         // Create the EIP-712 typed data object for signing using Gnosis Safe format
         // This matches the format used by getEip712TxTypes in @safe-global/protocol-kit
+        const version = await protocolKitOwner1.getContractVersion();
+        const types = getEip712TxTypes(version);
+        const typedData = {
+            types: types as unknown as Record<string, unknown>,
+            domain: {
+                verifyingContract: safeAddress,
+                chainId: this.deploy._.chainId,
+            },
+            primaryType: 'SafeTx',
+            message: {
+                ...txn.data,
+                value: txn.data.value,
+                safeTxGas: txn.data.safeTxGas,
+                baseGas: txn.data.baseGas,
+                gasPrice: txn.data.gasPrice,
+                nonce: txn.data.nonce,
+                refundReceiver: txn.data.refundReceiver,
+            }
+        };
        
         return new Promise<TWebModalSignature>((resolve) => {
             const port = getRandomPort();
@@ -346,20 +346,44 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
     }
 
     async cancel(deploy: SavebleDocument<TDeploy>): Promise<void> {
-        // Close the web server if it's running
-        if (this.server) {
-            this.server.close();
-            this.server = null;
-            console.log('Signing process cancelled and server shut down.');
-            return;
-        }
-
         switch (deploy._.phase as TMultisigPhase) {
             case "multisig_start":
             case "multisig_wait_signers":
-                console.log('Cancelling web signing process.');
+            case "multisig_execute": {
+                const metadata = deploy._.metadata[deploy._.segmentId] as MultisigMetadata;
+                if (!metadata || Object.keys(metadata).length === 0) {
+                    return;
+                }
+                const signer = metadata.signer;
+                const rpcUrl = await this.rpcUrl.get();
+                const protocolKitOwner = await Safe.init({
+                    provider: rpcUrl,
+                    safeAddress: metadata.multisig
+                });
+
+                const apiKit = new SafeApiKit({
+                    chainId: BigInt(deploy._.chainId),
+                    txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId), // TODO: we probably want the option to inject a custom tx service url here...
+                })
+                const tx = await apiKit.getTransaction(metadata.gnosisTransactionHash);
+                if (tx.isExecuted) {
+                    throw new Error(`Cannot cancel, transaction ${tx.transactionHash} already executed.`);
+                }
+
+                const rejectionTxn = await protocolKitOwner.createRejectionTransaction(tx.nonce);
+                const hash = await protocolKitOwner.getTransactionHash(rejectionTxn) as `0x${string}`;
+                const sig = await this.requestSignature(rejectionTxn, protocolKitOwner, metadata.multisig)
+
+                await apiKit.proposeTransaction({
+                    safeAddress: metadata.multisig,
+                    safeTransactionData: rejectionTxn.data,
+                    safeTxHash: hash,
+                    senderAddress: sig.sender,
+                    senderSignature: sig.signature,
+                })
                 return;
-            case "multisig_execute":
+            }
+
             case "multisig_wait_confirm":
                 throw new Error('Transaction is already being processed and cannot be cancelled.');
             default:
