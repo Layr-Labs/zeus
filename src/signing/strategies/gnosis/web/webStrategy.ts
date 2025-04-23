@@ -196,18 +196,12 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
                 const __filename = fileURLToPath(import.meta.url);
                 const __dirname = dirname(__filename);
                 
-                // First try the package installation path
-                sitePath = path.resolve(__dirname, '../../../../../site/dist');
+                // Look only in the distribution package path
+                sitePath = path.resolve(__dirname, '../../../../../dist/site-dist');
                 
-                // If that doesn't exist, try the relative path from the project root
+                // If it doesn't exist, log error with debugging information
                 if (!fs.existsSync(sitePath)) {
-                    sitePath = path.resolve(process.cwd(), 'site/dist');
-                }
-                
-                // If that doesn't exist either, log verbose error to help with debugging
-                if (!fs.existsSync(sitePath)) {
-                    console.error(`Could not find site/dist directory at ${sitePath}`);
-                    console.error(`Current directory: ${process.cwd()}`);
+                    console.error(`Could not find site-dist directory at ${sitePath}`);
                     console.error(`__dirname: ${__dirname}`);
                     throw new Error('Failed to locate web signing interface files');
                 }
@@ -248,13 +242,9 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
                     // Verify the signature using viem's verifyTypedData
                     const isValid = await verifyTypedData({
                         address: data.address as `0x${string}`,
-                        // @ts-expect-error verification of typed data is weird in typescript
                         domain: typedData.domain,
-                        // @ts-expect-error verification of typed data is weird in typescript
                         types: typedData.types,
-                        // @ts-expect-error verification of typed data is weird in typescript
                         primaryType: typedData.primaryType,
-                        // @ts-expect-error verification of typed data is weird in typescript
                         message: typedData.message,
                         signature: data.signature as `0x${string}`,
                     });

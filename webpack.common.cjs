@@ -38,7 +38,7 @@ module.exports = {
       patterns: [
         { 
           from: path.resolve(__dirname, "site/dist"), 
-          to: "../site/dist" 
+          to: "site-dist" 
         },
       ],
     }),

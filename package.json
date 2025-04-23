@@ -23,7 +23,7 @@
   },
   "files": [
     "dist/bundle.cjs",
-    "site/dist",
+    "dist/site-dist",
     "package.json",
     "LICENSE"
   ],
