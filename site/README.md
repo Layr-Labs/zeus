@@ -1,54 +1,39 @@
-# React + TypeScript + Vite
+# Zeus Web Signing Interface
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This directory contains the web interface used for Safe transaction signing. The interface is built in React and is used by the WebGnosisSigningStrategy to present a signing UI to users.
 
-Currently, two official plugins are available:
+## Functionality
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Displays transaction details in a user-friendly format
+- Supports various wallet connections (MetaMask, WalletConnect, etc.)
+- Provides both parsed and raw message views
+- Validates that the connected wallet is authorized to sign
+- Simulates transactions via Tenderly before signing
+- Securely passes signatures back to the CLI
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+To develop the web interface:
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```bash
+# From the site directory
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Building
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+The site is automatically built during the package build process. The build artifacts are copied to `dist/site-dist` in the main package, which ensures they're included when the package is published to npm.
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+```bash
+# From the root directory
+npm run build-site
 ```
+
+## Distribution
+
+When the Zeus package is installed, the WebGnosisSigningStrategy will look for the web interface files in the `dist/site-dist` directory relative to the strategy's location.
+
+## Styling
+
+The interface uses CSS for styling with a focus on clarity and usability. The styles are defined in App.css and are designed to work well on various screen sizes.
