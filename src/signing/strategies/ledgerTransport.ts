@@ -17,6 +17,7 @@ export const getLedgerAccount = async (derivationPath = DEFAULT_BASE_DERIVATION_
                 ledgerAccounts[derivationPath] = await ledgerToAccount({
                     derivationPath: derivationPath.slice(2) as `44'/60'/0'/0${string}`
                 })
+                return ledgerAccounts[derivationPath];
             } catch (e: unknown) {
                 if (e instanceof Error && e.message.includes(UNKNOWN_ERROR)) {
                     console.error(`ledger gave: UNKNOWN ERROR.`);
