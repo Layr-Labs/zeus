@@ -15,8 +15,8 @@
     "prepack": "npm run build-site && npm run build-prod",
     "lint-fix": "eslint src/**/*.ts --fix",
     "watch": "webpack --watch -c webpack.config.dev.cjs",
-    "build-dev": "webpack -c webpack.config.dev.cjs",
-    "build-prod": "webpack -c webpack.config.prod.cjs"
+    "build-dev": "npm run build-site && webpack -c webpack.config.dev.cjs",
+    "build-prod": "npm run build-site && webpack -c webpack.config.prod.cjs"
   },
   "bin": {
     "zeus": "./dist/bundle.cjs"
