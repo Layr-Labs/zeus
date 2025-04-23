@@ -154,7 +154,7 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
 
             const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId)})
             const multisigTxn = await safeApi.getTransaction(safeTxHash);
-
+            
             if (multisigTxn.confirmations?.length === multisigTxn.confirmationsRequired) {
                 console.log(chalk.green(`SafeTxn(${safeTxHash}): ${multisigTxn.confirmations?.length}/${multisigTxn.confirmationsRequired} confirmations received!`))
                 await advance(deploy);
@@ -290,7 +290,7 @@ const handler: PhaseTypeHandler = {
                     return; // no information on what transaction was sent... just cancel and ignore it :/
                 }
 
-                console.error(`Your deploy queued a multisig transaction () which must be cancelled.`)
+                console.error(`Your deploy queued a multisig transaction which must be cancelled.`)
                 console.error(`Gnosis cancellation involves submitting an empty txn with an identical nonce, to overwrite the txn onchain.`)
 
                 const strategy = await promptForStrategyWithOptions(deploy, metatxn, `How would you like to submit this transaction?`, {nonInteractive: false, defaultArgs: {etherscanApiKey: false}})

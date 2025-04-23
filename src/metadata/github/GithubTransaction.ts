@@ -51,7 +51,7 @@ export class GithubTransaction implements Transaction {
         const latestCommitSha = refData.object.sha;
         if (latestCommitSha !== this.baseCommitHash) {
             // someone ran a deploy while you were running. abort.
-            console.error(`[txn] Failed to commit metadata -- an update occurred while you were modifying state. Please try again. (latest=${latestCommitSha},base=${this.baseCommitHash})`);
+            console.warn(`[txn] warning: an update occurred while you were modifying state. (latest=${latestCommitSha},base=${this.baseCommitHash})`);
             return;
         }
 

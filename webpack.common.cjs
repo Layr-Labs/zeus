@@ -1,5 +1,7 @@
 const webpack = require("webpack");
 const webpackNodeExternals = require("webpack-node-externals");
+const path = require("path");
+const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = {
   target: 'node',
@@ -9,7 +11,7 @@ module.exports = {
       {
         test: /\.tsx?$/,
         use: 'ts-loader',
-        exclude: /node_modules/,
+        exclude: [/node_modules/, /site\//],
       },
     ],
   },
@@ -31,6 +33,14 @@ module.exports = {
     new webpack.BannerPlugin({
       banner: "#!/usr/bin/env -S node --no-deprecation",
       raw: true,
+    }),
+    new CopyPlugin({
+      patterns: [
+        { 
+          from: path.resolve(__dirname, "site/dist"), 
+          to: "site-dist" 
+        },
+      ],
     }),
   ],
 };

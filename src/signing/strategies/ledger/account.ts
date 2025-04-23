@@ -22,10 +22,19 @@ export const trimLeading0x = (input: string | `0x${string}`): string => input.st
 
 export const DEFAULT_DERIVATION_PATH  = `44'/60'/0'/0/0` // derivationPathAtIndex(0)
 
-
 interface MessageTypeProperty {
     name: string
     type: string
+}
+
+let _ledger: Eth | undefined;
+export const getLedger: () => Promise<Eth> = async () => {
+    if (_ledger !== undefined) {
+        return _ledger;
+    }
+
+    _ledger = new Eth(await TransportNodeHid.open(''));
+    return _ledger;
 }
 
 // based off the idea from (https://github.com/celo-org/developer-tooling/blob/master/packages/viem-account-ledger/src/ledger-to-account.ts),
@@ -33,10 +42,9 @@ interface MessageTypeProperty {
 export const ledgerToAccount = async ({
     derivationPath
 }: TLedgerAccountArgs) => {
+    const ledger = await getLedger();
     const dp = derivationPath === undefined ? DEFAULT_DERIVATION_PATH : derivationPath;
-    const ledger = new Eth(await TransportNodeHid.open(''));
     const { address, publicKey } = await ledger.getAddress(dp, true)
-
 
     const account = toAccount({
         address: getAddress(address),

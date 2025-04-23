@@ -1,6 +1,6 @@
 {
   "name": "@layr-labs/zeus",
-  "version": "1.4.4",
+  "version": "1.5.0",
   "description": "web3 deployer / metadata manager",
   "main": "src/index.ts",
   "scripts": {
@@ -10,9 +10,10 @@
     "test-debug": "TS_NODE_PROJECT=tsconfig.json  NODE_NO_WARNINGS=1 node --experimental-vm-modules --inspect-brk ./node_modules/jest/bin/jest",
     "start": "node dist/index.js",
     "debug": "node --inspect-brk dist/index.js",
-    "lint": "eslint .",
-    "prepack": "npm run build-prod",
-    "lint-fix": "eslint . --fix",
+    "lint": "eslint src/**/*.ts",
+    "build-site": "cd site && npm run build",
+    "prepack": "npm run build-site && npm run build-prod",
+    "lint-fix": "eslint src/**/*.ts --fix",
     "watch": "webpack --watch -c webpack.config.dev.cjs",
     "build-dev": "webpack -c webpack.config.dev.cjs",
     "build-prod": "webpack -c webpack.config.prod.cjs"
@@ -22,6 +23,7 @@
   },
   "files": [
     "dist/bundle.cjs",
+    "dist/site-dist",
     "package.json",
     "LICENSE"
   ],
@@ -65,6 +67,7 @@
     "@jest/globals": "^29.7.0",
     "@types/eslint__js": "^8.42.3",
     "@types/prompt-sync": "^4.2.3",
+    "copy-webpack-plugin": "^13.0.0",
     "eslint": "^9.13.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
