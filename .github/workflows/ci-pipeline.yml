@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm ci
+        run: (cd site && npm ci) && npm ci
       - name: Build Dev
         run: npm run build-dev
 
@@ -39,7 +39,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install dependencies
-        run: npm ci
+        run: (cd site && npm ci) && npm ci
       - name: Build Prod
         run: npm run build-prod
 
