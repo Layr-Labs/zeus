@@ -193,11 +193,7 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
             // In production this will be included with the package
             let sitePath;
             try {
-                const __filename = fileURLToPath(import.meta.url);
-                const __dirname = dirname(__filename);
-                
-                // Look only in the distribution package path
-                sitePath = path.resolve(__dirname, '../../../../../dist/site-dist');
+                sitePath = path.resolve(__dirname, './site-dist');
                 
                 // If it doesn't exist, log error with debugging information
                 if (!fs.existsSync(sitePath)) {

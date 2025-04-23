@@ -1,5 +1,9 @@
 
 **[Current]** 
+1.5.1:
+    Fixes:
+        - A distribution bug with 1.5.0 that resulted in the web based signing breaking.
+
 1.5.0:
     Fixes:
         - Issues with ledger ("Unknown Error: 0x650e") will now give you a few attempts to reconnect your device.
