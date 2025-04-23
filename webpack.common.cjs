@@ -15,6 +15,9 @@ module.exports = {
       },
     ],
   },
+  node: {
+    __dirname: false
+  },
   externals: {
     'usb': 'commonjs usb', 
     'node-hid': 'node-hid',
