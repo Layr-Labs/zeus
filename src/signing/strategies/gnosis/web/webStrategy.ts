@@ -153,8 +153,8 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
             output,
             safeAddress: getAddress(safeContext.addr) as `0x${string}`,
             safeTxHash: hash as `0x${string}`,
-            senderAddress: signature.split(":")[0] as `0x${string}`,
-            signature: signature.split(":")[1] as `0x${string}`,
+            senderAddress: getAddress(sender),
+            signature: signature,
             stateUpdates
         } as TSignedGnosisRequest;
     }
