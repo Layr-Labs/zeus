@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import './App.css'
 import { createConfig, http } from '@wagmi/core'
 import { mainnet, sepolia, holesky } from '@wagmi/core/chains'
@@ -13,45 +13,20 @@ import {
   useReadContract,
 } from 'wagmi'
 import { injected, coinbaseWallet, walletConnect } from 'wagmi/connectors'
-
-// Gnosis Safe ABI - just the parts we need
-const safeAbi = [
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      }
-    ],
-    "name": "isOwner",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getOwners",
-    "outputs": [
-      {
-        "internalType": "address[]",
-        "name": "",
-        "type": "address[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-] as const;
+import { abi as safeAbi } from './Safe';
+import { encodeFunctionData, encodePacked, hashTypedData } from 'viem'
 
 // Using WalletConnect with a valid project ID
 const WALLET_CONNECT_PROJECT_ID = '2a1cb39c11c473fcfb2a02856fe6697a'
+
+function approvalSignature(signer: `0x${string}`) {
+  const paddedSigner = `0x${'0'.repeat(24)}${signer.slice(2)}` as `0x${string}`;
+  return encodePacked(['bytes32', 'bytes32', 'bytes1'], [
+      paddedSigner, /* r */
+      ('0x' + '0'.repeat(64)) as `0x${string}`, /* s */
+      `0x01` /* v - indicating that this is an approval */
+  ])
+}
 
 function parseQueryParams() {
   const params = new URLSearchParams(window.location.search);
@@ -65,7 +40,6 @@ function parseQueryParams() {
   if (typedDataParam) {
     try {
       typedData = JSON.parse(decodeURIComponent(typedDataParam));
-      console.log('Parsed EIP-712 typed data:', typedData);
     } catch (err) {
       console.error('Failed to parse typed data from URL parameter:', err);
     }
@@ -121,7 +95,7 @@ const config = createConfig({
   chains: supportedChains,
   transports: {
     [mainnet.id]: http('https://eth.llamarpc.com'),
-    [sepolia.id]: http('https://eth-sepolia.api.onfinality.io/public'),
+    [sepolia.id]: http('https://sepolia.gateway.tenderly.co'),
     [holesky.id]: http('https://holesky.gateway.tenderly.co'),
   },
   connectors: [
@@ -179,6 +153,12 @@ function SigningComponent() {
     data: signature,
     error: signError
   } = useSignTypedData();
+
+  const messageHash = useMemo(() => {
+    if (!params) return '';
+
+    return hashTypedData(params.typedData);
+  },[params]);
 
   useEffect(() => {
     const submitSignature = async (sig: string) => {
@@ -273,7 +253,6 @@ function SigningComponent() {
   // Update the isOwner state when the contract read returns
   useEffect(() => {
     if (isOwnerData !== undefined) {
-      console.log('Is wallet an owner of Safe?', isOwnerData);
       setIsOwner(isOwnerData);
       
       if (!isOwnerData) {
@@ -315,32 +294,54 @@ function SigningComponent() {
   }, [isConnected, currentChainId, error, params.typedData]);
   
   // Function to get Tenderly simulation URL
-  const getSimulationUrl = (): string | null => {
+  const simulationUrl = useMemo(() => {
     if (!params.typedData) {
       return null;
     }
     
     try {
-      // Extract components from the typed data
       const { domain, message } = params.typedData;
-      
-      // Use the chain ID directly for the network parameter
-      const networkParam = `network=${domain.chainId}`;
-      
-      return `https://dashboard.tenderly.co/simulator/new?${
-        address ? `from=${address}&` : ''
-      }${networkParam}&${
-        message.to ? `contractAddress=${message.to}&` : ''
-      }${
-        message.value ? `value=${message.value}&` : ''
-      }${
-        message.data ? `rawFunctionInput=${message.data}` : ''
-      }`;
+
+      const {to, value, data} = message;
+      const signatures = approvalSignature(address!);
+
+      const thresholdOverride = [
+        {
+          "contractAddress": domain.verifyingContract,
+          "balance": "",
+          "storage": [
+            {
+              "key": "0x0000000000000000000000000000000000000000000000000000000000000004", // threshold storage slot
+              "value": "0x0000000000000000000000000000000000000000000000000000000000000001" // set to 1.
+            }
+          ],
+          "open": true
+        }
+      ];
+
+      const actualData = encodeFunctionData({
+        abi: safeAbi,
+        functionName: 'execTransaction',
+        args: [
+          to,
+          BigInt(value),
+          data,
+          message.operation,
+          BigInt(message.safeTxGas),
+          BigInt(message.baseGas),
+          BigInt(message.gasPrice),
+          message.gasToken as `0x${string}`,
+          message.refundReceiver as `0x${string}`,
+          signatures
+        ]
+      })
+      const actualTo = params.typedData?.domain?.verifyingContract as `0x${string}`;
+      return `https://dashboard.tenderly.co/simulator/new?from=${address}&network=${domain.chainId}&contractAddress=${actualTo}&value=${message.value}&rawFunctionInput=${actualData}&stateOverrides=${encodeURIComponent(JSON.stringify(thresholdOverride))}`
     } catch (err) {
       console.error('Error creating simulation URL:', err);
       return null;
     }
-  };
+  }, [address, params]);
   
   // Function to handle chain switching
   const handleSwitchChain = () => {
@@ -418,8 +419,6 @@ function SigningComponent() {
         chainId: typeof domain.chainId === 'number' ? domain.chainId : Number(domain.chainId)
       };
       
-      console.log('Using modified domain for signing:', modifiedDomain);
-      
       // Use signTypedData with the parameters from the URL
       await signTypedData({
         domain: modifiedDomain,
@@ -489,6 +488,7 @@ function SigningComponent() {
       </div>
       
       <div className="transaction-details">
+
         <h2>Transaction Details</h2>
         
         {/* View Mode Toggle */}
@@ -505,6 +505,11 @@ function SigningComponent() {
           >
             Raw Message
           </button>
+        </div>
+
+        <div className="detail-row">
+          <span className="label">Message Hash:</span>
+          <span className="value">{messageHash || 'Unknown'}</span>
         </div>
         
         {viewMode === 'parsed' ? (
@@ -596,8 +601,8 @@ function SigningComponent() {
                   data-connector={connector.id}
                   onClick={() => connect({ connector })}
                 >
-                  {connector.id === 'injected' ? 'MetaMask (GridPlus)' :
-                   connector.id === 'walletConnect' ? 'WalletConnect (Ledger)' :
+                  {connector.id === 'injected' ? 'MetaMask' :
+                   connector.id === 'walletConnect' ? 'WalletConnect' :
                    connector.name}
                 </button>
               ))}
@@ -647,7 +652,7 @@ function SigningComponent() {
           <div className="button-group">
             {!hasSimulated ? (
               <a 
-                href={getSimulationUrl() || '#'}
+                href={simulationUrl || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="simulate-button" 
@@ -659,7 +664,7 @@ function SigningComponent() {
               <div className="simulation-status">
                 <span className="simulation-checkmark">✓</span> Simulation created
                 <a 
-                  href={getSimulationUrl() || '#'} 
+                  href={simulationUrl || '#'} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="tenderly-simple-link"

@@ -1,5 +1,13 @@
 
 **[Current]** 
+1.5.2:
+    Fixes:
+        - Fixed an issue where the `Web Interface` strategy incorrectly recorded the signature as the sender address.
+        - Fixed an issue where the `Web Interface` did not correctly simulate multisig calls. 
+            - Simulations are now wrapped in `Safe.execTransaction()`, with a single approval and state override of `threshold=1`.
+    New:
+        - The `Web Interface` strategy now displays the anticipated message hash.
+
 1.5.1:
     Fixes:
         - A distribution bug with 1.5.0 that resulted in the web based signing breaking.
