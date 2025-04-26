@@ -7,6 +7,12 @@
 
 Zeus manages complex deploy processes for onchain software.
 
+## Documentation
+
+[**Visit the Zeus Documentation →**](https://layr-labs.github.io/zeus/)
+
+Comprehensive guides and API references to help you get started with Zeus, write migrations, and manage environments.
+
 ## Should I use Zeus?
 
 You may find Zeus useful if:
@@ -40,12 +46,12 @@ Zeus integrates with `forge`, and adds:
 
 # Getting Started
 
-Check out our examples here: [zeus-examples](https://google.com/TODO).
+Check out our examples in the [Documentation](https://layr-labs.github.io/zeus/migrations/first-migration).
 
 Here are some common things to do with Zeus:
 
 ### Writing an upgrade
-See the "How to write upgrades" section.
+See the [Writing Your First Migration](https://layr-labs.github.io/zeus/migrations/first-migration) documentation.
 
 ### Running Zeus Tests
 Every upgrade script you write will (hopefully) have tests in it. You can run those scripts as tests
