@@ -40,3 +40,82 @@
     justify-content: center;
   }
 }
+
+.installationContainer {
+  background-color: var(--ifm-color-emphasis-100);
+  padding: 3rem 0;
+  text-align: center;
+}
+
+.installationBlock {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem auto;
+  position: relative;
+}
+
+.codeBlock {
+  background-color: #1a1b23;
+  border-radius: 8px;
+  padding: 1.5rem 2rem;
+  color: #f0f0f0;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 1.1rem;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  overflow-x: auto;
+  width: auto;
+  display: inline-block;
+  text-align: left;
+  position: relative;
+  border-left: 4px solid var(--ifm-color-primary);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.codeBlock:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.prompt {
+  color: #a0a0a0;
+  margin-right: 8px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.cursor {
+  display: inline-block;
+  width: 10px;
+  height: 1.2em;
+  background-color: #f0f0f0;
+  margin-left: 6px;
+  vertical-align: middle;
+  animation: blink 1s step-end infinite;
+}
+
+.copyButton {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 4px;
+  color: #a0a0a0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.copyButton:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
