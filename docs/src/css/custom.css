@@ -1,0 +1,251 @@
+/**
+ * Custom styles for Zeus documentation with EigenLayer branding
+ */
+
+/* EigenLayer brand colors */
+:root {
+  /* Primary color from EigenLayer blue */
+  --ifm-color-primary: #a6c0f4; /* EigenLayer blue (166, 192, 244) */
+  --ifm-color-primary-dark: #89a9f0;
+  --ifm-color-primary-darker: #7b9eec;
+  --ifm-color-primary-darkest: #4f7de5;
+  --ifm-color-primary-light: #c3d7f8;
+  --ifm-color-primary-lighter: #d1e0f9;
+  --ifm-color-primary-lightest: #ffffff;
+  
+  /* Accent color for text */
+  --eigen-accent: #180d68; /* EigenLayer deep blue (24, 13, 104) */
+  
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(166, 192, 244, 0.1);
+  
+  --ifm-navbar-background-color: #ffffff;
+  --ifm-navbar-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+  
+  --ifm-heading-color: var(--eigen-accent);
+  --ifm-heading-font-weight: 600;
+  
+  --ifm-link-color: #4169e1; /* Royal blue for links */
+  --ifm-link-hover-color: #1e40af; /* Darker blue on hover */
+  
+  --ifm-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --ifm-color-primary: #a6c0f4; /* Keep same primary */
+  --ifm-color-primary-dark: #89a9f0;
+  --ifm-color-primary-darker: #7b9eec;
+  --ifm-color-primary-darkest: #4f7de5;
+  --ifm-color-primary-light: #c3d7f8;
+  --ifm-color-primary-lighter: #d1e0f9;
+  --ifm-color-primary-lightest: #ffffff;
+  
+  --docusaurus-highlighted-code-line-bg: rgba(166, 192, 244, 0.3);
+  
+  --ifm-navbar-background-color: #0d0735; /* Darker shade of accent color */
+  --ifm-background-color: #070422; /* Very dark blue, almost black */
+  
+  --ifm-heading-color: #ffffff;
+  --ifm-text-color: #e6e6fa; /* Lavender for better readability */
+  --ifm-link-color: #a6c0f4; /* Match primary for links in dark mode */
+  --ifm-link-hover-color: #ffffff;
+}
+
+/* Add Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Enhance code blocks */
+.prism-code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(24, 13, 104, 0.1);
+}
+
+/* Add spacing for better readability */
+.markdown > h2 {
+  margin-top: 2.5rem;
+  color: var(--eigen-accent);
+}
+
+.markdown > h3 {
+  margin-top: 2rem;
+  color: var(--eigen-accent);
+}
+
+/* Button styling */
+.button {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  background-color: var(--ifm-color-primary);
+  color: var(--eigen-accent);
+  border: none;
+}
+
+.button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(24, 13, 104, 0.2);
+  background-color: var(--ifm-color-primary-dark);
+}
+
+.button--secondary {
+  background-color: var(--eigen-accent);
+  color: white !important;
+}
+
+.button--secondary:hover {
+  background-color: #231697; /* Slightly lighter */
+  color: white !important;
+}
+
+.button--outline.button--secondary {
+  color: white !important;
+}
+
+/* Feature section enhancement */
+.features {
+  padding: 4rem 0;
+  background-color: rgba(166, 192, 244, 0.1);
+}
+
+/* Hero section styling */
+.hero {
+  background-color: var(--ifm-color-primary);
+}
+
+.hero__title {
+  color: var(--eigen-accent);
+  font-weight: 700;
+}
+
+.hero__subtitle {
+  color: var(--eigen-accent);
+  opacity: 0.85;
+}
+
+/* Navbar customization */
+.navbar {
+  box-shadow: 0 2px 8px rgba(24, 13, 104, 0.1);
+}
+
+.navbar__title {
+  font-weight: 600;
+  color: var(--eigen-accent);
+}
+
+.navbar__link {
+  color: var(--eigen-accent);
+  font-weight: 500;
+}
+
+.navbar__link:hover {
+  color: var(--ifm-color-primary-darkest);
+}
+
+/* Sidebar styling */
+.menu {
+  padding: 1rem;
+  border-right: 1px solid rgba(166, 192, 244, 0.3);
+}
+
+.menu__link {
+  border-radius: 6px;
+}
+
+.menu__link--active {
+  background-color: rgba(166, 192, 244, 0.2);
+  color: var(--eigen-accent);
+  font-weight: 500;
+}
+
+/* Feature icon styling */
+.featureIcon {
+  font-size: 3rem;
+  color: var(--eigen-accent);
+  margin-bottom: 1rem;
+}
+
+/* Dark mode adjustments */
+[data-theme='dark'] .hero {
+  background-color: #0f0839;
+}
+
+[data-theme='dark'] .hero__title,
+[data-theme='dark'] .hero__subtitle {
+  color: white;
+}
+
+[data-theme='dark'] .features {
+  background-color: rgba(166, 192, 244, 0.05);
+}
+
+[data-theme='dark'] .menu__link--active {
+  background-color: rgba(166, 192, 244, 0.2);
+  color: white;
+}
+
+/* Card styling */
+.card {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(24, 13, 104, 0.1);
+  transition: all 0.3s ease;
+  border: 1px solid rgba(166, 192, 244, 0.3);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(24, 13, 104, 0.15);
+}
+
+/* EigenLayer Logo specifics */
+.navbar__logo {
+  height: 30px;
+  margin-right: 0.5rem;
+}
+
+.navbar__brand {
+  margin-right: 1.5rem;
+}
+
+/* Footer customization */
+.footer {
+  background-color: #070422;
+  color: #a6c0f4;
+}
+
+.footer__link-item {
+  color: #c3d7f8;
+}
+
+.footer__link-item:hover {
+  color: white;
+}
+
+/* Make tables nicer */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(24, 13, 104, 0.1);
+}
+
+thead {
+  background-color: rgba(166, 192, 244, 0.3);
+}
+
+th {
+  color: var(--eigen-accent);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+}
+
+[data-theme='dark'] thead {
+  background-color: rgba(166, 192, 244, 0.1);
+}
+
+[data-theme='dark'] th {
+  color: white;
+}
