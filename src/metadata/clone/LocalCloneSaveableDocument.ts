@@ -17,7 +17,7 @@ function serialize(item: string | object) {
     }
 }
 
-interface TOptions {
+export interface TOptions {
     verbose?: boolean;
 }
 

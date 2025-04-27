@@ -11,7 +11,7 @@ export const loadExistingEnvs = async (txn: Transaction) => {
     return environments.filter(e => e.type === 'dir');
 };
 
-async function handler(_user: TState, args: {json: boolean |undefined}): Promise<void> {
+export async function handler(_user: TState, args: {json: boolean |undefined}): Promise<void> {
     const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin();
     const envs = await loadExistingEnvs(txn);
