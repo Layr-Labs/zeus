@@ -15,7 +15,6 @@ export async function handler(_user: TState, args: {json: boolean |undefined}): 
     const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin();
     const envs = await loadExistingEnvs(txn);
-    debugger;
 
     if (args.json) {
         console.log(JSON.stringify(envs));

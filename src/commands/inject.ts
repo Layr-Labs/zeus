@@ -55,7 +55,6 @@ let warnedOnMismatch = false;
 
 // get all zeus-state, from environment variables + repo.
 export async function load(): Promise<TState> {
-    debugger; // should never hit
     const zeusProfile = await configs.zeusProfile.load();
     const zeusRepo = await configs.zeus.load();
     let zeusHostOwner: string | undefined;
