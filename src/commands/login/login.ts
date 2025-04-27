@@ -2,7 +2,7 @@ import {command} from 'cmd-ts';
 import {json} from '../args';
 import { inRepo, requires, TState } from '../inject';
 
-async function handler(user: TState) {
+export async function handler(user: TState) {
     try {
         await user.login();
         console.log(`Happy deploying!`);

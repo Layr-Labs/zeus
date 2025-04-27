@@ -11,7 +11,7 @@ import { SavebleDocument } from '../metadata/metadataStore';
 import { stepDeploy } from './deploy/cmd/run';
 import chalk from 'chalk';
 
-const handler = async function(user: TState, args: {scripts: string[], multisig: boolean, eoa: boolean, json: boolean, env: string}) {
+export const handler = async function(user: TState, args: {scripts: string[], multisig: boolean, eoa: boolean, json: boolean, env: string}) {
     if (!user.loggedOutMetadataStore) {
         throw new Error('uh oh.');
     }
@@ -19,13 +19,13 @@ const handler = async function(user: TState, args: {scripts: string[], multisig:
     // Validate script path
     if (args.scripts.length !== 1) {
         console.error('Exactly one script must be specified');
-        process.exit(1);
+        return process.exit(1);
     }
     
     const scriptPath = args.scripts[0];
     if (!fs.existsSync(scriptPath)) {
         console.error(`Script not found: ${scriptPath}`);
-        process.exit(1);
+        return process.exit(1);
     }
     
     const txn = await user.loggedOutMetadataStore.begin();
@@ -33,12 +33,16 @@ const handler = async function(user: TState, args: {scripts: string[], multisig:
     
     if (!envs.find(e => e.name === args.env)) {
         console.error(`No such environment: ${args.env}`);
-        process.exit(1);
+        return process.exit(1);
     }
     
     // Get current environment version
     const envManifest = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
-    
+    if (envManifest._.chainId === undefined) {
+        console.error(`No such environment: ${args.env}`);
+        return process.exit(1);
+    }
+
     const strategyType = args.multisig ? 'multisig' : 'eoa';
     const startingPhase: TDeployPhase = args.multisig ? 'multisig_start' : 'eoa_validate';
     
@@ -87,7 +91,7 @@ const handler = async function(user: TState, args: {scripts: string[], multisig:
     } catch (error) {
         console.error(`Script execution failed (phase=${dummyDeploy.phase},segment=${dummyDeploy.segmentId+1}/${dummyDeploy.segments.length})`);
         console.error(error);
-        process.exit(1);
+        return process.exit(1);
     }
 };
 

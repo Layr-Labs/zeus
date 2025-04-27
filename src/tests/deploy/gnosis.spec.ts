@@ -215,6 +215,6 @@ describe('executeMultisigPhase', () => {
   })
 
   afterEach(() => {
-    jest.resetAllMocks();
+    jest.restoreAllMocks();
   });
 });
