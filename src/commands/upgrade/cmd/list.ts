@@ -6,15 +6,13 @@ import { TEnvironmentManifest, TUpgrade } from '../../../metadata/schema';
 import { envOptional } from '../../args';
 import semver from 'semver';
 
-const handler = async function(_user: TState, args: {env: string | undefined}) {
+export const handler = async function(_user: TState, args: {env: string | undefined}) {
     const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin();
-
     const forRequiredVersion = await (async () => {
         if (!args.env) {
             return undefined;
         }
-
         const env = await txn.getJSONFile<TEnvironmentManifest>(canonicalPaths.environmentManifest(args.env));
         if (env === undefined || Object.keys(env._).length === 0) {
             throw new Error(`No such environment: ${args.env}`);
@@ -24,7 +22,7 @@ const handler = async function(_user: TState, args: {env: string | undefined}) {
     })();
 
     const upgrades = await txn.getDirectory(canonicalPaths.allUpgrades());
-    if (!upgrades) {
+    if (!upgrades || upgrades.length === 0) {
         console.error(`No upgrades have been registered. Register one with 'zeus upgrade new'`);
         return;
     }

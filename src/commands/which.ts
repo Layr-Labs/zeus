@@ -17,7 +17,7 @@ const findContract: ((env: string, contractName: string, instance: number | unde
     }
 }
 
-const handler = async function(_user: TState, args: {contractOrAddress: string, env: string | undefined, instance: number}) {
+export const handler = async function(_user: TState, args: {contractOrAddress: string, env: string | undefined, instance: number}) {
     const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin();
 

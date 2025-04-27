@@ -8,7 +8,7 @@ import { injectableEnvForEnvironment } from '../../run';
 import { getActiveDeploy } from '../../deploy/cmd/utils';
 
 
-async function handler(_user: TState, args: {json: boolean |undefined, env: string, pending: boolean}): Promise<void> {
+export async function handler(_user: TState, args: {json: boolean |undefined, env: string, pending: boolean}): Promise<void> {
     const user = assertInRepo(_user);
     const txn = await user.metadataStore.begin({verbose: true});
     const envs = await loadExistingEnvs(txn);
