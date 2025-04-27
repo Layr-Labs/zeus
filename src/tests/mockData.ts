@@ -29,7 +29,9 @@ export const mockUser = (meta: MetadataStore) => {
     return {
         zeusHostOwner: 'tester-labs',
         zeusHostRepo: 'invalid%./repo',
-        login: async () => {},
+        login: async () => {
+          // stubbed
+        },
         metadataStore: meta,
         loggedOutMetadataStore: meta,
         github: undefined

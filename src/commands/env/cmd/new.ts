@@ -6,7 +6,7 @@ import { TDeployManifest, TEnvironmentManifest } from '../../../metadata/schema'
 import chalk from 'chalk';
 import { canonicalPaths } from '../../../metadata/paths';
 
-async function handler(_user: TState): Promise<void> {
+export async function handler(_user: TState): Promise<void> {
     const user = assertLoggedIn(_user);
     const txn = await user.metadataStore.begin();
 

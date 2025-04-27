@@ -3,7 +3,7 @@ import {assertLoggedIn, loggedIn, requires, TState } from './inject';
 import { configs, getRepoRoot } from './configs';
 import { question } from './utils';
 import path from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import fs from 'fs';
 import chalk from 'chalk';
 import { Octokit } from 'octokit';
 
@@ -40,7 +40,7 @@ const getZeusMetadataRepo = async (github: Octokit) => {
     }
 }
 
-const handler = async function(_user: TState) {
+export const handler = async function(_user: TState) {
     const repoConfig = await configs.zeus.load();
     const user = assertLoggedIn(_user);
 
@@ -60,8 +60,8 @@ const handler = async function(_user: TState) {
     })
 
     const migrationDirectoryNormalized = path.join(getRepoRoot(), migrationDirectory);
-    if (!existsSync(migrationDirectoryNormalized)) {
-        mkdirSync(migrationDirectoryNormalized, {recursive: true});
+    if (!fs.existsSync(migrationDirectoryNormalized)) {
+        fs.mkdirSync(migrationDirectoryNormalized, {recursive: true});
         console.log(chalk.green(`+ created directory '${migrationDirectoryNormalized}'`))
     }
 

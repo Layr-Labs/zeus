@@ -64,7 +64,11 @@ export class MockFile<T extends string | object> implements SavebleDocument<T> {
 
 
 export class MockTransaction implements Transaction {
-    constructor(private files: Record<string, string | object | undefined | null>) {}
+    refs: Record<string, SavebleDocument<unknown>>;
+
+    constructor(private files: Record<string, string | object | undefined | null>) {
+        this.refs = {};
+    }
 
     async getDirectory(pathToSearch: string): Promise<TDirectory> {
         const seen = new Set();
@@ -99,10 +103,15 @@ export class MockTransaction implements Transaction {
     }
 
     async getJSONFile<T extends object>(path: string): Promise<SavebleDocument<T>> {
-        return new MockFile<T>(path, serialize(this.files[path]), this.files[path] as T, true);
+        if (!this.refs[path]) {
+            this.refs[path] = new MockFile<T>(path, serialize(this.files[path]), this.files[path] as T, true);
+            jest.spyOn(this.refs[path], 'save');
+        }
+
+        return this.refs[path] as SavebleDocument<T>;
     }
 
-    async commit(log: string): Promise<void> {
+    async commit(_log: string): Promise<void> {
         // unsupported.
     }
 
@@ -113,9 +122,16 @@ export class MockTransaction implements Transaction {
 
 
 export class MockMetadataStore implements MetadataStore {
+    transaction: MockTransaction;
+
     // - "null" indicates that the path is a directory.
     // - "undefined" indicates that the path is not real.
-    constructor(private files?: Record<string, string | object | undefined | null>) {}
+    constructor(private files?: Record<string, string | object | undefined | null>) {
+        this.transaction = new MockTransaction(this.files ?? {});
+        jest.spyOn(this.transaction, 'commit');
+        jest.spyOn(this.transaction, 'getDirectory');
+        jest.spyOn(this.transaction, 'getJSONFile');
+    }
 
     async login() {
         return false;
@@ -126,9 +142,11 @@ export class MockMetadataStore implements MetadataStore {
     }
 
     // async constructor
-    async initialize() {}
+    async initialize() {
+        // stubbed
+    }
 
-    async begin(options?: {verbose?: boolean}): Promise<Transaction> {
-        return new MockTransaction(this.files ?? {});
+    async begin(_options?: {verbose?: boolean}): Promise<Transaction> {
+        return this.transaction;
     }
 }

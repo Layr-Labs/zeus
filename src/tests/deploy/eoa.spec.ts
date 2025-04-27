@@ -35,7 +35,7 @@ describe('executeEOAPhase', () => {
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    jest.restoreAllMocks();
   });
 
   it('should exit early if phase is unknown', async () => {
