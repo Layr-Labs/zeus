@@ -1,16 +1,43 @@
 
 import { JSONBackedConfig } from './config';
-import path from 'path';
+import path, { join, normalize } from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
+import { existsSync, readFileSync } from 'fs';
 
+// report the repoRoot as the closest directory containing a `.zeus` file.
 export const getRepoRoot = () => {
-    return execSync('git rev-parse --show-toplevel').toString('utf-8').trim();
+    const root = execSync('git rev-parse --show-toplevel').toString('utf-8').trim();
+
+    const zeusConfigPath = join(root, 'zeus');
+    if (existsSync(zeusConfigPath)) {
+        const config = JSON.parse(readFileSync(zeusConfigPath, 'utf-8')) as TZeusConfig;
+        const suppliedRoot = config.root;
+        if (suppliedRoot) {
+            return normalize(join(root, suppliedRoot));
+        }
+    }
+    
+    return root;
 }
 
 export interface TZeusConfig {
+    /**
+     * The default zeusHost that people should submit metadata to while using
+     * your repository.
+     */
     zeusHost: string,
+
+    /**
+     * Relative to $root, where are your migrations located?
+     */
     migrationDirectory: string
+
+    /**
+     * The root path that the contracts / zeus project is located under. This path is
+     * relative to the repo root.
+     */
+    root?: string
 }
 
 export interface TZeusProfile {

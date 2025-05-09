@@ -1,4 +1,6 @@
 import {join} from 'path';
+import { TDeploy } from './schema';
+import { getRepoRoot } from '../commands/configs';
 
 export const canonicalPaths = {
     // root deploys directory for a given env
@@ -11,6 +13,10 @@ export const canonicalPaths = {
         canonicalPaths.deployDirectory('', args.env, args.name),
         "deploy.json"
     ),
+
+    scriptLocation: (deploy: TDeploy, segment: number) => join(getRepoRoot(), deploy.upgradePath, deploy.segments[segment].filename),
+
+    currentScriptLocation: (deploy: TDeploy) => join(getRepoRoot(), deploy.upgradePath, deploy.segments[deploy.segmentId].filename),
 
     deployDeployedContracts: (args: {env: string, name: string}) => join(
         canonicalPaths.deployDirectory('', args.env, args.name),

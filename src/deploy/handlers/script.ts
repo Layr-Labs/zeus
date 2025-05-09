@@ -1,4 +1,3 @@
-import { join } from "path";
 import { SavebleDocument, Transaction } from "../../metadata/metadataStore";
 import { ArgumentValidFn, TArtifactScriptRun, TDeploy } from "../../metadata/schema";
 import { HaltDeployError, TStrategyOptions } from "../../signing/strategy";
@@ -20,7 +19,7 @@ interface ExecSyncError {
 
 export async function executeScriptPhase(deploy: SavebleDocument<TDeploy>, metatxn: Transaction, _options: TStrategyOptions): Promise<void> {
     const seg = deploy._.segments[deploy._.segmentId];
-    const script = join(deploy._.upgradePath, seg.filename);   
+    const script = canonicalPaths.currentScriptLocation(deploy._);   
     if (!existsSync(script)) {
         console.error(`Script ${script} does not exist. Make sure your local copy is OK before proceeding.`);
         throw new HaltDeployError(deploy, `Script ${script} does not exist.`);

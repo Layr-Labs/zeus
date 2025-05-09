@@ -12,7 +12,7 @@ import { canonicalPaths } from "../../../metadata/paths";
 import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
 import { ForgeSolidityMetadata, TDeploy, TDeployedContractsManifest } from "../../../metadata/schema";
 import { createPublicClient, hexToBytes, http, toHex } from "viem";
-import { join } from "path";
+import { basename } from "path";
 import { computeFairHash } from "../utils";
 import { getTrace } from "../../../signing/utils";
 import chalk from "chalk";
@@ -86,7 +86,7 @@ async function handler(_user: TState, args: {env: string, deploy: string | undef
         for (let i = 0; i <= deploy._.segmentId; i++) {
             console.log(`Verifying deploy: step (${i+1}/${deploy._.segmentId+1})...`)
             const segment = deploy._.segments[i];
-            const script = join(deploy._.upgradePath, deploy._.segments[i].filename);
+            const script = canonicalPaths.scriptLocation(deploy._, i);
                     
             switch (segment.type) {
                 case 'eoa': {
@@ -259,14 +259,14 @@ async function handler(_user: TState, args: {env: string, deploy: string | undef
                         // allow verifying the multisig txn hash.
                         console.log(chalk.bold(`This deploy has a multisig step ongoing. Checking that the provided gnosisHash matches the local copy.`))
 
-                        const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
+                        const script = canonicalPaths.scriptLocation(deploy._, i);
                         const request = await strategy.prepare(script);
                         const gnosisTxnHash = (request as TGnosisRequest).safeTxHash;
 
                         if (proposedTxHash === gnosisTxnHash) {
-                            console.log(`${chalk.green('✔')} ${script} (${gnosisTxnHash})`);
+                            console.log(`${chalk.green('✔')} ${basename(script)} (${gnosisTxnHash})`);
                         } else {
-                            console.error(`${chalk.red('x')} ${script} (local=${gnosisTxnHash},reported=${proposedTxHash})`);
+                            console.error(`${chalk.red('x')} ${basename(script)} (local=${gnosisTxnHash},reported=${proposedTxHash})`);
                             throw new Error(`Multisig transaction did not match (local=${gnosisTxnHash},reported=${proposedTxHash})`);
                         }
                     } else {

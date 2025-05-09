@@ -1,5 +1,3 @@
-
-import { join } from "path";
 import { existsSync } from "fs";
 import ora from "ora";
 import chalk from "chalk";
@@ -36,7 +34,7 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
 
     switch (deploy._.phase) {
         case "multisig_start": {         
-            const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);  
+            const script = canonicalPaths.currentScriptLocation(deploy._);
             // `gnosis.api` + `gnosis.onchain`.     
             if (existsSync(script)) {
                 const prompt = ora(`Running 'zeus test'`);

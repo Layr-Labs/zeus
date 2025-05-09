@@ -4,7 +4,6 @@ import EOABaseSigningStrategy from "../../signing/strategies/eoa/eoa";
 import { HaltDeployError, TForgeRequest, TFoundryDeploy, TStrategyOptions } from "../../signing/strategy";
 import { ForgeSolidityMetadata, TDeploy, TDeployedContractsManifest, TDeployStateMutations, TMutation, TTestOutput } from "../../metadata/schema";
 import EOASigningStrategy from "../../signing/strategies/eoa/privateKey";
-import { join } from "path";
 import ora from "ora";
 import { runTest } from "../../signing/strategies/test";
 import { canonicalPaths } from "../../metadata/paths";
@@ -39,7 +38,7 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
     switch (deploy._.phase) {
         // eoa states
         case "eoa_validate": {
-            const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
+            const script = canonicalPaths.currentScriptLocation(deploy._);
             if (!existsSync(script)) {
                 console.error(`existsSync(${script}) = false`);
                 console.error(`Missing expected script: ${script}`);
@@ -99,7 +98,7 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
             break;
         }
         case "eoa_start": {
-            const script = join(deploy._.upgradePath, deploy._.segments[deploy._.segmentId].filename);
+            const script = canonicalPaths.currentScriptLocation(deploy._);
             if (existsSync(script)) {
                 eoaStrategy = fallbackEoaStrategy ?? await strategies.promptForStrategyWithOptions(deploy, metatxn, undefined, {...options, nonInteractive: !!options?.nonInteractive, defaultArgs: {...(options?.defaultArgs ?? {}), rpcUrl}}) as EOABaseSigningStrategy;
                 const sigRequest = await eoaStrategy.requestNew(script, deploy._) as TForgeRequest;

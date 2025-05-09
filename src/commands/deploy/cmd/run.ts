@@ -202,7 +202,7 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
             return;
         }
 
-        const upgradePath = normalize(join(repoConfig.migrationDirectory, args.upgrade));
+        const upgradePath = normalize(join(getRepoRoot(), repoConfig.migrationDirectory, args.upgrade));
         const absoluteUpgradePath = normalize(join(getRepoRoot(), upgradePath))
 
         if (!existsSync(absoluteUpgradePath) || !lstatSync(absoluteUpgradePath).isDirectory() ) {
