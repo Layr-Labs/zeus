@@ -8,6 +8,10 @@ description: Managing environment settings and parameters
 
 Zeus environments can be configured with various parameters to customize deployment behavior. This guide covers how to set up and configure environments effectively.
 
+## Configuration File Location
+
+Zeus searches for a `.zeus` configuration file in your repository, starting at the root directory. If no configuration file exists at the root, Zeus will locate the `.zeus` file closest to the root in any subdirectory.
+
 ## Creating a New Environment
 
 To create a new environment, use the `zeus env new` command:
