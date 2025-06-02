@@ -9,7 +9,7 @@ export const getRepoRoot = () => {
 }
 
 // Finds the shallowest .zeus file within the repository
-const findClosestZeusFile = async (): Promise<string> => {
+const findClosestZeusFile = (): string => {
     const repoRoot = getRepoRoot();
     const rootZeusFile = path.join(repoRoot, '.zeus');
     
