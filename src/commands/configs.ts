@@ -9,13 +9,13 @@ export const getRepoRoot = () => {
 }
 
 // Finds the shallowest .zeus file within the repository
-const findClosestZeusFile = (): string => {
+export const findClosestZeusFile = (): string => {
     const repoRoot = getRepoRoot();
     const rootZeusFile = path.join(repoRoot, '.zeus');
-    
+
     // Check root first - most common case
     if (fs.existsSync(rootZeusFile)) return rootZeusFile;
-    
+
     // Search for .zeus files in subdirectories
     try {
         const files = execSync('git ls-files -co --exclude-standard "*/.zeus"', { 
@@ -26,7 +26,7 @@ const findClosestZeusFile = (): string => {
         .split('\n')
         .filter(Boolean)
         .sort((a, b) => a.split('/').length - b.split('/').length);
-        
+
         if (files[0]) return path.join(repoRoot, files[0]);
     } catch {
         // If git command fails, fall back to root .zeus file
