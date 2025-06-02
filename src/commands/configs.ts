@@ -28,7 +28,9 @@ const findClosestZeusFile = (): string => {
         .sort((a, b) => a.split('/').length - b.split('/').length);
         
         if (files[0]) return path.join(repoRoot, files[0]);
-    } catch {}
+    } catch {
+        // If git command fails, fall back to root .zeus file
+    }
 
     return rootZeusFile;
 }
