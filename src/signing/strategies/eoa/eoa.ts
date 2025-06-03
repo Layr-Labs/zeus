@@ -1,7 +1,7 @@
 import { ICachedArg, Strategy, TSignatureRequest, TStrategyOptions } from "../../strategy";
 import { canonicalPaths } from "../../../metadata/paths";
-import { getRepoRoot } from '../../../commands/configs';
-import { basename } from "path";
+import { configs } from '../../../commands/configs';
+import { basename, dirname } from "path";
 import { existsSync, readFileSync } from "fs";
 import chalk from "chalk";
 import { TDeploy } from "../../../metadata/schema";
@@ -110,7 +110,8 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
         let deployLatest: TForgeRun | undefined = undefined;
         const signer = await this.getSignerAddress();
 
-        const deployLatestPath = canonicalPaths.forgeDeployLatestMetadata(getRepoRoot(), basename(pathToUpgrade), deploy.chainId, 'runAsEOA');
+        const zeusConfigDirName = dirname(await configs.zeus.path());
+        const deployLatestPath = canonicalPaths.forgeDeployLatestMetadata(zeusConfigDirName, basename(pathToUpgrade), deploy.chainId, 'runAsEOA');
         if (!existsSync(deployLatestPath)) {
             console.warn(`This deploy did not broadcast any new contracts. If this was intended, you can ignore this.`);
             if (Object.keys(contractDeploys).length > 0) {
@@ -119,7 +120,7 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
         } else {
             deployLatest = JSON.parse(readFileSync(deployLatestPath, {encoding: 'utf-8'})) as TForgeRun;
             const {timestamp, chain} = deployLatest;
-            runLatest = JSON.parse(readFileSync(canonicalPaths.forgeRunJson(getRepoRoot(), basename(pathToUpgrade), chain as number, timestamp), {encoding: 'utf-8'})) as TForgeRun
+            runLatest = JSON.parse(readFileSync(canonicalPaths.forgeRunJson(zeusConfigDirName, basename(pathToUpgrade), chain as number, timestamp), {encoding: 'utf-8'})) as TForgeRun
             const signer = deployLatest?.transactions[0]?.transaction?.from;
             console.log(chalk.italic(`using wallet: ${signer}`));
         }
