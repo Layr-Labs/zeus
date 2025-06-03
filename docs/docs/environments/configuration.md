@@ -10,7 +10,7 @@ Zeus environments can be configured with various parameters to customize deploym
 
 ## Configuration File Location
 
-Zeus searches for a `.zeus` configuration file in your repository, starting at the root directory. If no configuration file exists at the root, Zeus will locate the `.zeus` file closest to the root in any subdirectory.
+Zeus searches for a `.zeus` configuration file in your repository, beginning at the root directory. If no configuration file is found at the root level, Zeus will search subdirectories and use the `.zeus` file located closest to the root. When your `.zeus` file is located in a subdirectory, make sure to run Zeus commands from that subdirectory's location.
 
 ## Creating a New Environment
 
