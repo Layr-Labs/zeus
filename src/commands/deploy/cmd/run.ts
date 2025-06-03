@@ -1,9 +1,9 @@
 import { command } from "cmd-ts";
 import * as allArgs from '../../args';
 import { TState, requires, isLoggedIn, inRepo, TInRepoState, isInRepo } from "../../inject";
-import { configs, getRepoRoot } from '../../configs';
+import { configs } from '../../configs';
 import { getActiveDeploy, phaseType, formatNow, blankDeploy } from "./utils";
-import { join, normalize } from 'path';
+import { dirname, join, normalize } from 'path';
 import { existsSync, lstatSync } from "fs";
 import { HaltDeployError, PauseDeployError, TStrategyOptions } from "../../../signing/strategy";
 import chalk from "chalk";
@@ -202,8 +202,9 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
             return;
         }
 
+        const zeusConfigDirName = dirname(await configs.zeus.path());
         const upgradePath = normalize(join(repoConfig.migrationDirectory, args.upgrade));
-        const absoluteUpgradePath = normalize(join(getRepoRoot(), upgradePath))
+        const absoluteUpgradePath = normalize(join(zeusConfigDirName, upgradePath))
 
         if (!existsSync(absoluteUpgradePath) || !lstatSync(absoluteUpgradePath).isDirectory() ) {
             console.error(`Upgrade ${args.upgrade} doesn't exist, or isn't a directory. (searching '${absoluteUpgradePath}')`)

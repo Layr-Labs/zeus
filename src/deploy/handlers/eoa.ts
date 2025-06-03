@@ -4,14 +4,14 @@ import EOABaseSigningStrategy from "../../signing/strategies/eoa/eoa";
 import { HaltDeployError, TForgeRequest, TFoundryDeploy, TStrategyOptions } from "../../signing/strategy";
 import { ForgeSolidityMetadata, TDeploy, TDeployedContractsManifest, TDeployStateMutations, TMutation, TTestOutput } from "../../metadata/schema";
 import EOASigningStrategy from "../../signing/strategies/eoa/privateKey";
-import { join } from "path";
+import { dirname, join } from "path";
 import ora from "ora";
 import { runTest } from "../../signing/strategies/test";
 import { canonicalPaths } from "../../metadata/paths";
 import { advance, cleanContractName, sleepMs } from "../../commands/deploy/cmd/utils";
 import chalk from "chalk";
 import { wouldYouLikeToContinue } from "../../commands/prompts";
-import { getRepoRoot } from "../../commands/configs";
+import { configs } from "../../commands/configs";
 import { computeFairHash } from "../../commands/deploy/utils";
 import { injectableEnvForEnvironment } from "../../commands/run";
 import { createPublicClient, http, TransactionReceiptNotFoundError } from "viem";
@@ -124,8 +124,9 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
                     await foundryDeploy.save();
 
                     // look up any contracts compiled and their associated bytecode.
+                    const zeusConfigDirName = dirname(await configs.zeus.path());
                     const withDeployedBytecodeHashes = await Promise.all(sigRequest.deployedContracts?.map(async (contract) => {
-                        const contractInfo = JSON.parse(readFileSync(canonicalPaths.contractInformation(getRepoRoot(), cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
+                        const contractInfo = JSON.parse(readFileSync(canonicalPaths.contractInformation(zeusConfigDirName, cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
                         // save the contract abi.
                         const segmentAbi = await metatxn.getJSONFile<ForgeSolidityMetadata>(canonicalPaths.segmentContractAbi({...deploy._, contractName: cleanContractName(contract.contract)}))
                         segmentAbi._ = contractInfo;
