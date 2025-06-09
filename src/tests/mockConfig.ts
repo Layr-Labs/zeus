@@ -1,3 +1,4 @@
+import { dirname } from "path";
 import { JSONBackedConfig } from "../commands/config";
 
 export class MockConfig<T> implements JSONBackedConfig<T> {
@@ -11,6 +12,10 @@ export class MockConfig<T> implements JSONBackedConfig<T> {
 
     async path(): Promise<string> {
         return this.providedPath ? this.providedPath : await this.defaultPath();
+    }
+
+    async dirname(): Promise<string> {
+        return dirname(await this.path());
     }
 
     async load(): Promise<T | undefined> {
