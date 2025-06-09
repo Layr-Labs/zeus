@@ -12,7 +12,7 @@ import { canonicalPaths } from "../../../metadata/paths";
 import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
 import { ForgeSolidityMetadata, TDeploy, TDeployedContractsManifest } from "../../../metadata/schema";
 import { createPublicClient, hexToBytes, http, toHex } from "viem";
-import { dirname, join } from "path";
+import { join } from "path";
 import { computeFairHash } from "../utils";
 import { getTrace } from "../../../signing/utils";
 import chalk from "chalk";
@@ -118,7 +118,7 @@ async function handler(_user: TState, args: {env: string, deploy: string | undef
                         const publicClient = createPublicClient({chain, transport: http(customRpcUrl)})
                         const onchainBytecode: Record<string, `0x${string}`> = {};
             
-                        const zeusConfigDirName = dirname(await configs.zeus.path());
+                        const zeusConfigDirName = await configs.zeus.dirname();
                         const contractMetadata = Object.fromEntries(deployedContracts._.contracts.map(contract => {
                             const metadata = JSON.parse(readFileSync(canonicalPaths.contractJson(zeusConfigDirName, cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
                             return [contract.contract, metadata];

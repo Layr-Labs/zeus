@@ -4,7 +4,7 @@ import EOABaseSigningStrategy from "../../signing/strategies/eoa/eoa";
 import { HaltDeployError, TForgeRequest, TFoundryDeploy, TStrategyOptions } from "../../signing/strategy";
 import { ForgeSolidityMetadata, TDeploy, TDeployedContractsManifest, TDeployStateMutations, TMutation, TTestOutput } from "../../metadata/schema";
 import EOASigningStrategy from "../../signing/strategies/eoa/privateKey";
-import { dirname, join } from "path";
+import { join } from "path";
 import ora from "ora";
 import { runTest } from "../../signing/strategies/test";
 import { canonicalPaths } from "../../metadata/paths";
@@ -124,7 +124,7 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
                     await foundryDeploy.save();
 
                     // look up any contracts compiled and their associated bytecode.
-                    const zeusConfigDirName = dirname(await configs.zeus.path());
+                    const zeusConfigDirName = await configs.zeus.dirname();
                     const withDeployedBytecodeHashes = await Promise.all(sigRequest.deployedContracts?.map(async (contract) => {
                         const contractInfo = JSON.parse(readFileSync(canonicalPaths.contractInformation(zeusConfigDirName, cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
                         // save the contract abi.

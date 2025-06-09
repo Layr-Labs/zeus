@@ -1,7 +1,7 @@
 import { ICachedArg, Strategy, TSignatureRequest, TStrategyOptions } from "../../strategy";
 import { canonicalPaths } from "../../../metadata/paths";
 import { configs } from '../../../commands/configs';
-import { basename, dirname } from "path";
+import { basename } from "path";
 import { existsSync, readFileSync } from "fs";
 import chalk from "chalk";
 import { TDeploy } from "../../../metadata/schema";
@@ -110,7 +110,7 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
         let deployLatest: TForgeRun | undefined = undefined;
         const signer = await this.getSignerAddress();
 
-        const zeusConfigDirName = dirname(await configs.zeus.path());
+        const zeusConfigDirName = await configs.zeus.dirname();
         const deployLatestPath = canonicalPaths.forgeDeployLatestMetadata(zeusConfigDirName, basename(pathToUpgrade), deploy.chainId, 'runAsEOA');
         if (!existsSync(deployLatestPath)) {
             console.warn(`This deploy did not broadcast any new contracts. If this was intended, you can ignore this.`);
