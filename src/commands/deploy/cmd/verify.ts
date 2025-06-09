@@ -17,7 +17,7 @@ import { computeFairHash } from "../utils";
 import { getTrace } from "../../../signing/utils";
 import chalk from "chalk";
 import { readFileSync } from "fs";
-import { getRepoRoot } from "../../configs";
+import { configs } from "../../configs";
 import EOASigningStrategy from "../../../signing/strategies/eoa/privateKey";
 import { GnosisEOAApiStrategy } from "../../../signing/strategies/gnosis/api/gnosisEoa";
 
@@ -118,8 +118,9 @@ async function handler(_user: TState, args: {env: string, deploy: string | undef
                         const publicClient = createPublicClient({chain, transport: http(customRpcUrl)})
                         const onchainBytecode: Record<string, `0x${string}`> = {};
             
+                        const zeusConfigDirName = await configs.zeus.dirname();
                         const contractMetadata = Object.fromEntries(deployedContracts._.contracts.map(contract => {
-                            const metadata = JSON.parse(readFileSync(canonicalPaths.contractJson(getRepoRoot(), cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
+                            const metadata = JSON.parse(readFileSync(canonicalPaths.contractJson(zeusConfigDirName, cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
                             return [contract.contract, metadata];
                         }));
             

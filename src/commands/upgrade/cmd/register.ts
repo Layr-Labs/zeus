@@ -1,7 +1,7 @@
 import {command} from 'cmd-ts';
 import {json} from '../../args';
 import { assertLoggedIn, inRepo, loggedIn, requires, TState } from '../../inject';
-import { configs, getRepoRoot } from '../../configs';
+import { configs } from '../../configs';
 import { search, select } from '@inquirer/prompts';
 import path, { join } from 'path';
 import * as fs from 'fs';
@@ -19,11 +19,12 @@ const handler = async function(_user: TState) {
     throw new Error(`Can only run in repo.`);
   }
 
+  const zeusConfigDirName = await configs.zeus.dirname();
   const migrationDirectory: string = await search({
     message: 'Upgrade directory?',
     source: async (input) => {
       const migrationDirectory = join(
-        getRepoRoot(),
+        zeusConfigDirName,
         zeusConfig.migrationDirectory,
       );
       const contents = fs.readdirSync(migrationDirectory);
@@ -33,7 +34,7 @@ const handler = async function(_user: TState) {
 
   // check that at least 1 .s.sol file exists.
   const migrationDirAbsolute = join(
-    getRepoRoot(),
+    zeusConfigDirName,
     zeusConfig.migrationDirectory,
     migrationDirectory,
   );

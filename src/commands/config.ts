@@ -1,6 +1,7 @@
 
 import chalk from 'chalk';
 import { readFileSync, writeFileSync } from 'fs';
+import { dirname } from 'path';
 
 export class JSONBackedConfig<T> {
     defaultPath: () => Promise<string>;
@@ -13,6 +14,10 @@ export class JSONBackedConfig<T> {
 
     async path(): Promise<string> {
         return this.providedPath ? this.providedPath : await this.defaultPath();
+    }
+
+    async dirname(): Promise<string> {
+        return dirname(await this.path());
     }
 
     async load(): Promise<T | undefined> {
