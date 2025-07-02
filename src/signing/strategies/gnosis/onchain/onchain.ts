@@ -47,7 +47,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
 
     async prepare(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
         const forge = await this.runForgeScript(pathToUpgrade);
-        const {output, stateUpdates, safeContext} = forge;
+        const {output, stateUpdates, safeContext, contractDeploys} = forge;
         if (!safeContext) {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
@@ -73,7 +73,14 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
                 safeAddress: getAddress(safeContext.addr) as `0x${string}`,
                 safeTxHash: undefined,
                 senderAddress: signer as `0x${string}`,
-                stateUpdates
+                stateUpdates,
+                deployedContracts: contractDeploys.map((ct) => {
+                    return {
+                        address: ct.addr,
+                        contract: ct.name,
+                        singleton: ct.singleton
+                    }
+                })
             }
         }
 
@@ -137,6 +144,13 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             safeTxHash: txHash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
             stateUpdates,
+            deployedContracts: contractDeploys.map((ct) => {
+                return {
+                    address: ct.addr,
+                    contract: ct.name,
+                    singleton: ct.singleton
+                }
+            }),
             immediateExecution: {
                 transaction: undefined,
                 success: simulation.result,
@@ -147,7 +161,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
 
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
         const forge = await this.runForgeScript(pathToUpgrade);
-        const {output, stateUpdates, safeContext} = forge;
+        const {output, stateUpdates, safeContext, contractDeploys} = forge;
         if (!safeContext) {
             throw new Error(`Invalid script -- this was not a multisig script.`);
         }
@@ -168,7 +182,14 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
                 safeAddress: getAddress(safeContext.addr) as `0x${string}`,
                 safeTxHash: undefined,
                 senderAddress: signer as `0x${string}`,
-                stateUpdates
+                stateUpdates,
+                deployedContracts: contractDeploys.map((ct) => {
+                    return {
+                        address: ct.addr,
+                        contract: ct.name,
+                        singleton: ct.singleton
+                    }
+                })
             }
         }
 
@@ -241,6 +262,13 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
                 safeTxHash: tx as `0x${string}`,
                 senderAddress: `0x0`,
                 stateUpdates,
+                deployedContracts: contractDeploys.map((ct) => {
+                    return {
+                        address: ct.addr,
+                        contract: ct.name,
+                        singleton: ct.singleton
+                    }
+                }),
                 immediateExecution: {
                     transaction: tx,
                     success: true,
@@ -282,6 +310,13 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             safeTxHash: txHash as `0x${string}`,
             senderAddress: signer as `0x${string}`,
             stateUpdates,
+            deployedContracts: contractDeploys.map((ct) => {
+                return {
+                    address: ct.addr,
+                    contract: ct.name,
+                    singleton: ct.singleton
+                }
+            }),
             immediateExecution: {
                 transaction: tx,
                 success: true,
