@@ -159,9 +159,11 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                     (deploy._.metadata[deploy._.segmentId] as MultisigMetadata).confirmed = true;
                     (deploy._.metadata[deploy._.segmentId] as MultisigMetadata).immediateExecutionHash = sigRequest.immediateExecution.transaction;
                     console.log(`Transaction recorded: ${sigRequest.immediateExecution.transaction}`)
-                    await advanceSegment(deploy);
+                    // We need to save and commit before advancing directly to the next segment.
+                    // Otherwise, the metatxn will not be committed
                     await deploy.save();
                     await metatxn.commit(`[deploy ${deploy._.name}] multisig transaction completed instantly`);
+                    await advanceSegment(deploy);
                    
                 } else {
                     await advance(deploy);
