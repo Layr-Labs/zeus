@@ -59,6 +59,8 @@ export interface TGnosisRequest extends HasStateUpdates {
         success: boolean,
         simulation?: unknown
     }
+    // any contracts known to have been deployed by this operation.
+    deployedContracts?: TDeployedContractSparse[] | undefined,
 }
 
 export interface TSignedGnosisRequest extends TGnosisRequest {

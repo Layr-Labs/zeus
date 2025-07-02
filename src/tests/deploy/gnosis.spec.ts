@@ -1,16 +1,18 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { SavebleDocument, Transaction } from '../../metadata/metadataStore';
-import { TStrategyOptions } from '../../signing/strategy';
+import { TStrategyOptions, TGnosisRequest } from '../../signing/strategy';
 import { TDeploy } from '../../metadata/schema';
-import {mockDeployDocument, mockTransaction} from './mock';
+import {mockDeployDocument, mockTransaction, mockNextSelectedStrategy} from './mock';
 import MockApiKit, { mockGetTransaction, mockSafeInfo } from '../../../__mocks__/@safe-global/api-kit';
 import { canonicalPaths } from '../../metadata/paths';
 import { PublicClient } from 'viem';
+import { mockForgeScriptOutput, MockStrategy } from './mockStrategy';
 
 const {runTest} = await import('../../signing/strategies/test');
 const prompts = await import('../../commands/prompts')
 const {executeMultisigPhase} = await import('../../deploy/handlers/gnosis');
 const { createPublicClient, TransactionReceiptNotFoundError } = await import('viem');
+const configs = await import('../../commands/configs');
 
 jest.mock("@safe-global/api-kit", () => MockApiKit);
 
@@ -24,22 +26,82 @@ describe('executeMultisigPhase', () => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'table').mockImplementation(() => {});
 
-    deploy = mockDeployDocument('multisig_start', '1-multisig.s.sol');
+    deploy = mockDeployDocument('multisig_start', '3-multisig.s.sol');
     metatxn = mockTransaction();
     options = {
       nonInteractive: false,
       defaultArgs: {rpcUrl: 'https://google.com'}
     };
+    
+    // Mock configs.zeus.dirname
+    jest.spyOn(configs.configs.zeus, 'dirname').mockResolvedValue('/mock/zeus/dir');
   });
 
   describe("multisig_start", () => {
     beforeEach(() => {
       deploy._.phase = "multisig_start";
+      // Mock runTest to pass by default
+      (runTest as jest.Mock<typeof runTest>).mockResolvedValue({ forge: undefined, code: 0, stdout: '', stderr: '' });
     });
 
     it("should fail if script doesn't exist", async () => {
+      const missingDeploy = mockDeployDocument('multisig_start', 'missing/script.s.sol') as SavebleDocument<TDeploy>;
+      await expect(executeMultisigPhase(missingDeploy, metatxn, options)).rejects.toThrowError('The deploy halted: Missing expected script');
+    })
 
+    describe("deployed contracts handling", () => {
+      let mockGnosisStrategy: any;
+      let mockGnosisRequest: TGnosisRequest;
+
+      beforeEach(() => {
+        // Create a mock Gnosis strategy
+        mockGnosisStrategy = {
+          id: 'gnosis.api',
+          requestNew: jest.fn()
+        };
+      });
+
+      it("should process sigRequest without deployed contracts handling", async () => {
+        // This test verifies the basic flow works without deployed contracts
+        mockGnosisRequest = {
+          empty: false,
+          safeAddress: '0xsafeAddress' as `0x${string}`,
+          safeTxHash: '0xsafeTxHash' as `0x${string}`,
+          senderAddress: '0xsenderAddress' as `0x${string}`,
+          stateUpdates: []
+        };
+
+        mockGnosisStrategy.requestNew.mockResolvedValue(mockGnosisRequest);
+        mockNextSelectedStrategy(mockGnosisStrategy);
+
+        await executeMultisigPhase(deploy, metatxn, options);
+
+        // Verify the phase advanced
+        expect(deploy.save).toHaveBeenCalled();
+        expect(metatxn.commit).toHaveBeenCalled();
+      });
+
+      it("should handle empty transactions", async () => {
+        mockGnosisRequest = {
+          empty: true,
+          safeAddress: '0xsafeAddress' as `0x${string}`,
+          safeTxHash: undefined,
+          senderAddress: '0xsenderAddress' as `0x${string}`,
+          stateUpdates: []
+        };
+
+        mockGnosisStrategy.requestNew.mockResolvedValue(mockGnosisRequest);
+        mockNextSelectedStrategy(mockGnosisStrategy);
+
+        await executeMultisigPhase(deploy, metatxn, options);
+
+        // Should log that script did not output a transaction
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('This script did not output a transaction'));
+        expect(deploy.save).toHaveBeenCalled();
+        expect(metatxn.commit).toHaveBeenCalled();
+      });
     })
 
     describe("immediate execution mode", () => {
@@ -48,15 +110,15 @@ describe('executeMultisigPhase', () => {
       })
 
       it("should halt if unsuccessful", async () => {
-
+        // TODO: implement
       })
       it("should advice to next segment if successful", async () => {
-
+        // TODO: implement
       })
     })
 
     it("should save multisig run if successful and advance", () => {
-
+      // TODO: implement
     })
   })
   

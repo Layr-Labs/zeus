@@ -48,7 +48,7 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
     private resolveSignaturePromise: ((result: TWebModalSignature) => void) | null = null;
 
     async prepare(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const { output, stateUpdates, safeContext } = await this.runForgeScript(pathToUpgrade);
+        const { output, stateUpdates, safeContext, contractDeploys } = await this.runForgeScript(pathToUpgrade);
         
         if (!safeContext) {
             throw new Error(`Invalid script -- this was not a multisig script.`);
@@ -64,7 +64,14 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
                 safeAddress: getAddress(safeContext.addr) as `0x${string}`,
                 safeTxHash: undefined,
                 senderAddress: undefined,
-                stateUpdates
+                stateUpdates,
+                deployedContracts: contractDeploys.map((ct) => {
+                    return {
+                        address: ct.addr,
+                        contract: ct.name,
+                        singleton: ct.singleton
+                    }
+                })
             };
         }
 
@@ -78,12 +85,19 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
             safeAddress: getAddress(safeContext.addr) as `0x${string}`,
             safeTxHash: undefined,
             senderAddress: undefined,
-            stateUpdates
+            stateUpdates,
+            deployedContracts: contractDeploys.map((ct) => {
+                return {
+                    address: ct.addr,
+                    contract: ct.name,
+                    singleton: ct.singleton
+                }
+            })
         };
     }
 
     async requestNew(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
-        const { output, stateUpdates, safeContext } = await this.runForgeScript(pathToUpgrade);
+        const { output, stateUpdates, safeContext, contractDeploys } = await this.runForgeScript(pathToUpgrade);
         
         if (!safeContext) {
             throw new Error(`Invalid script -- this was not a multisig script.`);
@@ -99,7 +113,14 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
                 safeAddress: getAddress(safeContext.addr) as `0x${string}`,
                 safeTxHash: undefined,
                 senderAddress: undefined,
-                stateUpdates
+                stateUpdates,
+                deployedContracts: contractDeploys.map((ct) => {
+                    return {
+                        address: ct.addr,
+                        contract: ct.name,
+                        singleton: ct.singleton
+                    }
+                })
             };
         }
 
@@ -155,7 +176,14 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
             safeTxHash: hash as `0x${string}`,
             senderAddress: getAddress(sender),
             signature: signature,
-            stateUpdates
+            stateUpdates,
+            deployedContracts: contractDeploys.map((ct) => {
+                return {
+                    address: ct.addr,
+                    contract: ct.name,
+                    singleton: ct.singleton
+                }
+            })
         } as TSignedGnosisRequest;
     }
 

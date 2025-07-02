@@ -1,6 +1,5 @@
-
 import { join } from "path";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import ora from "ora";
 import chalk from "chalk";
 import { createPublicClient, http } from "viem";
@@ -10,8 +9,8 @@ import { SavebleDocument, Transaction } from "../../metadata/metadataStore";
 import { HaltDeployError, PauseDeployError, TGnosisRequest, TStrategyOptions } from "../../signing/strategy";
 import { GnosisSigningStrategy } from "../../signing/strategies/gnosis/gnosis";
 import { GnosisOnchainStrategy } from "../../signing/strategies/gnosis/onchain/onchain";
-import { MultisigMetadata, TDeploy, TDeployStateMutations, TMutation, TTestOutput } from "../../metadata/schema";
-import { advance, advanceSegment, getChain, isTerminalPhase } from "../../commands/deploy/cmd/utils";
+import { MultisigMetadata, TDeploy, TDeployStateMutations, TMutation, TTestOutput, TDeployedContractsManifest, ForgeSolidityMetadata } from "../../metadata/schema";
+import { advance, advanceSegment, getChain, isTerminalPhase, cleanContractName } from "../../commands/deploy/cmd/utils";
 import { injectableEnvForEnvironment } from "../../commands/run";
 import { canonicalPaths } from "../../metadata/paths";
 import { multisigBaseUrl, overrideTxServiceUrlForChainId } from "../../signing/strategies/gnosis/api/utils";
@@ -19,6 +18,8 @@ import { PhaseTypeHandler } from "./base";
 import { promptForStrategy, promptForStrategyWithOptions } from "../../commands/deploy/cmd/utils-strategies";
 import { runTest } from "../../signing/strategies/test";
 import * as prompts from '../../commands/prompts';
+import { configs } from "../../commands/configs";
+import { computeFairHash } from "../../commands/deploy/utils";
 
 export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, metatxn: Transaction, options: TStrategyOptions | undefined): Promise<void> {
     let multisigStrategy: GnosisSigningStrategy | undefined = undefined;
@@ -108,6 +109,40 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                         })
                     ];
                     await deployStateMutations.save();
+                }
+
+                // Handle deployed contracts from ZeusDeploy events
+                if (sigRequest.deployedContracts && sigRequest.deployedContracts.length > 0) {
+                    const zeusConfigDirName = await configs.zeus.dirname();
+                    const withDeployedBytecodeHashes = await Promise.all(sigRequest.deployedContracts.map(async (contract) => {
+                        const contractInfo = JSON.parse(readFileSync(canonicalPaths.contractInformation(zeusConfigDirName, cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
+                        // save the contract abi.
+                        const segmentAbi = await metatxn.getJSONFile<ForgeSolidityMetadata>(canonicalPaths.segmentContractAbi({...deploy._, contractName: cleanContractName(contract.contract)}))
+                        segmentAbi._ = contractInfo;
+                        await segmentAbi.save();
+                        return {
+                            ...contract,
+                            deployedBytecodeHash: computeFairHash(contractInfo.deployedBytecode.object, contractInfo),
+                            lastUpdatedIn: {
+                                name: deploy._.name,
+                                phase: deploy._.phase,
+                                segment: deploy._.segmentId,
+                                signer: sigRequest.senderAddress || '0x0',
+                            },
+                        };
+                    }));
+
+                    const deployedContracts = await metatxn.getJSONFile<TDeployedContractsManifest>(canonicalPaths.deployDeployedContracts(deploy._));
+                    if (!deployedContracts._.contracts) {
+                        deployedContracts._.contracts = [];
+                    }
+
+                    deployedContracts._.contracts.push(...withDeployedBytecodeHashes);
+                    await deployedContracts.save();
+
+                    console.log(`Deployed Contracts (via multisig):`);
+                    console.table(withDeployedBytecodeHashes.map(v => {return {...v, lastUpdatedIn: undefined}}));
+                    console.log();
                 }
 
                 const multisigRun = await metatxn.getJSONFile<TGnosisRequest>(canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
