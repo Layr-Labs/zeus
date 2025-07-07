@@ -216,7 +216,7 @@ export async function handler(_user: TState, args: {env: string, resume: boolean
         const deployJson = await metaTxn.getJSONFile<TDeploy>(deployJsonPath);
 
         const upgradeManifest = await metaTxn.getJSONFile<TUpgrade>(canonicalPaths.upgradeManifest(args.upgrade));
-        if (!semver.satisfies(envManifest._.deployedVersion ?? '0.0.0', upgradeManifest._.from)) {
+        if (!semver.satisfies(envManifest._.deployedVersion ?? '0.0.0', upgradeManifest._.from, { includePrerelease: true })) {
             console.error(`Unsupported upgrade. ${upgradeManifest._.name} requires an environment meet the following version criteria: (${upgradeManifest._.from})`);
             console.error(`Environment ${envManifest._.id} is currently deployed at '${envManifest._.deployedVersion}'`);
             return;

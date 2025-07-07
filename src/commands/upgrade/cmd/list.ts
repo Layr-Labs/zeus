@@ -36,7 +36,7 @@ export const handler = async function(_user: TState, args: {env: string | undefi
 
 
     if (forRequiredVersion !== undefined) {
-        upgradesAndManifests = upgradesAndManifests.filter(upMan => semver.satisfies(forRequiredVersion, upMan.manifest._.from));
+        upgradesAndManifests = upgradesAndManifests.filter(upMan => semver.satisfies(forRequiredVersion, upMan.manifest._.from, { includePrerelease: true }));
     }
 
     upgradesAndManifests.forEach(data => {

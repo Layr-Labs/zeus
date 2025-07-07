@@ -15,7 +15,7 @@ export function findUpgradePaths(from: string, to: string, allUpgrades: TUpgrade
     const allPaths: Path[] = [];
     const availableRoutes: TPartialRoute[] = 
         allUpgrades
-            .filter(upgrade => semver.satisfies(from, upgrade.from))
+            .filter(upgrade => semver.satisfies(from, upgrade.from, { includePrerelease: true }))
             .map((upgrade) => {
                 return {
                     version: upgrade.to,
@@ -34,7 +34,7 @@ export function findUpgradePaths(from: string, to: string, allUpgrades: TUpgrade
 
         // see what upgrades we have available.
         allUpgrades
-            .filter(upgrade => semver.satisfies(route.version, upgrade.from) && !route.upgradePath.includes(upgrade.name))
+            .filter(upgrade => semver.satisfies(route.version, upgrade.from, { includePrerelease: true }) && !route.upgradePath.includes(upgrade.name))
             .map<TPartialRoute>(upgrade => {
                 return {
                     version: upgrade.to,
