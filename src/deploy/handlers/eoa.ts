@@ -91,9 +91,9 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
                 }
             }
 
+            await advance(deploy);
             await deploy.save();
             await metatxn.commit(`[deploy ${deploy._.name}] eoa test`);
-            await advance(deploy);
             console.log(chalk.green(`+ recorded successful test run`));
 
             break;
@@ -111,8 +111,8 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
                         deployments: sigRequest.deployedContracts ?? [],
                         confirmed: false
                     }
-                    await deploy.save();
                     await advance(deploy);
+                    await deploy.save();
 
                     const foundryRun = await metatxn.getJSONFile(canonicalPaths.foundryRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}));
                     const foundryDeploy = await metatxn.getJSONFile<TFoundryDeploy>(canonicalPaths.foundryDeploy({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}));
@@ -259,9 +259,9 @@ export async function executeEOAPhase(deploy: SavebleDocument<TDeploy>, metatxn:
             }
 
             deploy._.metadata[deploy._.segmentId].confirmed = true;
+            await advance(deploy);
             await deploy.save();
             await metatxn.commit(`[deploy ${deploy._.name}] eoa transaction confirmed`);
-            await advance(deploy);
             break;
         }
         default:
