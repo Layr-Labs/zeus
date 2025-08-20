@@ -12,6 +12,11 @@ describe('semver prerelease handling with includePrerelease option', () => {
       expect(semver.satisfies('1.0.0-beta.1', '>=0.9.0', { includePrerelease: true })).toBe(true);
     });
 
+    it('should match prerelease versions with >= ranges', () => {
+      // The exact case from the user's issue
+      expect(semver.satisfies('1.7.0-rc.3', '>=1.6.0 <1.8.0', { includePrerelease: true })).toBe(true);
+    });
+
     it('should not match prerelease versions with >= ranges without includePrerelease', () => {
       // Without the option, prereleases are excluded
       expect(semver.satisfies('1.7.0-rc.0', '>=1.3.0')).toBe(false);

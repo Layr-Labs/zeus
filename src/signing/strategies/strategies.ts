@@ -2,7 +2,8 @@ import { SavebleDocument, Transaction } from '../../metadata/metadataStore';
 import { TDeploy } from '../../metadata/schema';
 import {Strategy, TStrategyOptions} from '../strategy';
 import EOASigningStrategy from './eoa/privateKey';
-import { GnosisOnchainStrategy } from './gnosis/onchain/onchain';
+import { GnosisOnchainEoaStrategy } from './gnosis/onchain/onchainEoa';
+import { GnosisOnchainLedgerStrategy } from './gnosis/onchain/onchainLedger';
 import { GnosisEOAApiStrategy } from './gnosis/api/gnosisEoa';
 import { GnosisLedgerStrategy } from './gnosis/api/gnosisLedger';
 import { LedgerSigningStrategy } from './eoa/ledger';
@@ -13,6 +14,7 @@ export const all: (new (deploy: SavebleDocument<TDeploy>, metadata: Transaction,
     LedgerSigningStrategy,
     GnosisEOAApiStrategy,
     GnosisLedgerStrategy,
-    GnosisOnchainStrategy,
+    GnosisOnchainEoaStrategy,
+    GnosisOnchainLedgerStrategy,
     WebGnosisSigningStrategy
 ]

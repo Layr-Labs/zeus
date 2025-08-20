@@ -8,7 +8,7 @@ import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
 import { SavebleDocument, Transaction } from "../../metadata/metadataStore";
 import { HaltDeployError, PauseDeployError, TGnosisRequest, TStrategyOptions } from "../../signing/strategy";
 import { GnosisSigningStrategy } from "../../signing/strategies/gnosis/gnosis";
-import { GnosisOnchainStrategy } from "../../signing/strategies/gnosis/onchain/onchain";
+import { GnosisOnchainEoaStrategy } from "../../signing/strategies/gnosis/onchain/onchainEoa";
 import { MultisigMetadata, TDeploy, TDeployStateMutations, TMutation, TTestOutput, TDeployedContractsManifest, ForgeSolidityMetadata } from "../../metadata/schema";
 import { advance, advanceSegment, getChain, isTerminalPhase, cleanContractName } from "../../commands/deploy/cmd/utils";
 import { injectableEnvForEnvironment } from "../../commands/run";
@@ -25,7 +25,7 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
     let multisigStrategy: GnosisSigningStrategy | undefined = undefined;
 
     if (options?.nonInteractive || options?.defaultArgs?.fork) {
-        multisigStrategy = new GnosisOnchainStrategy(deploy, metatxn, options);
+        multisigStrategy = new GnosisOnchainEoaStrategy(deploy, metatxn, options);
     }
 
     const rpcUrl = await (async () => {
