@@ -7,7 +7,7 @@ import { privateKey, signerKey } from "../../../../commands/prompts";
 import { privateKeyToAccount } from "viem/accounts";
 import { Chain } from "viem/chains";
 
-export class GnosisOnchainStrategy extends GnosisOnchainBaseStrategy {
+export class GnosisOnchainEOAStrategy extends GnosisOnchainBaseStrategy {
     id = 'gnosis.onchain.eoa';
     description = 'Onchain EOA - Safe.execTransaction() (for 1/N multisigs only)';
 
