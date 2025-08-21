@@ -7,6 +7,7 @@ import { GnosisEOAApiStrategy } from './gnosis/api/gnosisEoa';
 import { GnosisLedgerStrategy } from './gnosis/api/gnosisLedger';
 import { LedgerSigningStrategy } from './eoa/ledger';
 import { WebGnosisSigningStrategy } from './gnosis/web/webStrategy';
+import { GnosisOnchainLedgerStrategy } from './gnosis/onchain/onchainLedger';
 
 export const all: (new (deploy: SavebleDocument<TDeploy>, metadata: Transaction, options?: TStrategyOptions) => Strategy)[] = [
     EOASigningStrategy,
@@ -14,5 +15,6 @@ export const all: (new (deploy: SavebleDocument<TDeploy>, metadata: Transaction,
     GnosisEOAApiStrategy,
     GnosisLedgerStrategy,
     GnosisOnchainStrategy,
+    GnosisOnchainLedgerStrategy,
     WebGnosisSigningStrategy
 ]
