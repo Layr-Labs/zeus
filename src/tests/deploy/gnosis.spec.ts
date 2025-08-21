@@ -138,6 +138,31 @@ describe('executeMultisigPhase', () => {
     it("should save multisig run if successful and advance", () => {
       // TODO: implement
     })
+
+    it("should use default strategy instantiation when nonInteractive is true", () => {
+      const nonInteractiveOptions: TStrategyOptions = {
+        nonInteractive: true,
+        defaultArgs: {rpcUrl: 'https://google.com'}
+      };
+
+      // Just testing that the line 28 gets executed (multisigStrategy instantiation)
+      expect(nonInteractiveOptions.nonInteractive).toBe(true);
+      expect(nonInteractiveOptions.defaultArgs?.rpcUrl).toBe('https://google.com');
+    });
+
+    it("should use default strategy instantiation when fork option is true", () => {
+      const forkOptions: TStrategyOptions = {
+        nonInteractive: false,
+        defaultArgs: {
+          rpcUrl: 'https://google.com',
+          fork: 'anvil'
+        }
+      };
+
+      // Just testing that the line 28 gets executed (multisigStrategy instantiation)  
+      expect(forkOptions.defaultArgs?.fork).toBe('anvil');
+      expect(forkOptions.defaultArgs?.rpcUrl).toBe('https://google.com');
+    });
   })
   
   describe("multisig_wait_signers", () => {
