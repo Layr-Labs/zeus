@@ -1,16 +1,15 @@
 import {abi} from './Safe';
-import { ICachedArg, TSignatureRequest, TStrategyOptions } from "../../../strategy";
+import { TSignatureRequest, TStrategyOptions } from "../../../strategy";
 import { GnosisSigningStrategy } from "../gnosis";
-import { createPublicClient, createWalletClient, encodePacked, getAddress, getContract, hexToBigInt, hexToNumber, http, parseEther } from "viem";
+import { createPublicClient, createWalletClient, encodePacked, getAddress, getContract, hexToBigInt, hexToNumber, http, parseEther, WalletClient } from "viem";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { TDeploy } from "../../../../metadata/schema";
-import { privateKey, signerKey } from "../../../../commands/prompts";
-import { privateKeyToAccount } from "viem/accounts";
 import * as AllChains from "viem/chains";
+import { Chain } from "viem/chains";
 import { OperationType } from '@safe-global/types-kit';
 import Safe from '@safe-global/protocol-kit'
 
-const getChain = (chainId: number) => {
+const getChain = (chainId: number): Chain => {
     const chain = Object.values(AllChains).find(value => value.id === chainId);
     if (!chain) {
         throw new Error(`Unsupported chain ${chainId}`);
@@ -18,22 +17,15 @@ const getChain = (chainId: number) => {
     return chain;
 }
 
-export class GnosisOnchainStrategy extends GnosisSigningStrategy {
-    id = 'gnosis.onchain';
-    description = 'Onchain Safe.execTransaction() (for 1/N multisigs only)';
-
-    privateKey: ICachedArg<`0x${string}`>
-
+export abstract class GnosisOnchainBaseStrategy extends GnosisSigningStrategy {
+    
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
         super(deploy, transaction, options);
-        this.privateKey = this.arg(async () => {
-            if (!this.forMultisig) {
-                return await privateKey(this.deploy._.chainId, 'Enter the private key of a signer for your SAFE')
-            } else {
-                return await signerKey(deploy._.chainId, await this.rpcUrl.get(), `Enter the private key of a signer for your SAFE(${this.forMultisig})`, this.forMultisig)
-            }
-        })
-    } 
+    }
+
+    // Abstract methods that subclasses must implement
+    abstract getSignerAddress(): Promise<`0x${string}`>;
+    abstract getWalletClient(chain: Chain): Promise<WalletClient>;
 
     // see: (https://github.com/safe-global/safe-smart-account/blob/main/contracts/Safe.sol#L313)
     approvalSignature(signer: `0x${string}`) {
@@ -53,17 +45,9 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         }
         this.forMultisig = safeContext.addr;
 
-        const chain = Object.values(AllChains).find(value => value.id === this.deploy._.chainId);
-        if (!chain) {
-            throw new Error(`Unsupported chain ${this.deploy._.chainId}`);
-        }
-        const walletClient = createWalletClient({
-            account: privateKeyToAccount(await this.privateKey.get()),
-            transport: http(await this.rpcUrl.get()),
-            chain
-        })
-
-        const signer = walletClient.account.address as `0x${string}`;
+        const chain = getChain(this.deploy._.chainId);
+        const signer = await this.getSignerAddress();
+        const walletClient = await this.getWalletClient(chain);
 
         const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
         if (multisigExecuteRequests.length === 0) {
@@ -167,12 +151,9 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
         }
         this.forMultisig = safeContext.addr;
 
-        const walletClient = createWalletClient({
-            account: privateKeyToAccount(await this.privateKey.get()),
-            transport: http(await this.rpcUrl.get()),
-        })
-
-        const signer = walletClient.account.address as `0x${string}`;
+        const chain = getChain(this.deploy._.chainId);
+        const signer = await this.getSignerAddress();
+        const walletClient = await this.getWalletClient(chain);
 
         const multisigExecuteRequests = this.filterMultisigRequests(output, safeContext.addr);
         if (multisigExecuteRequests.length === 0) {
@@ -221,8 +202,6 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
 
         console.log(`Transaction: `);
         console.log(JSON.stringify(txn, null, 2));
-
-        const chain = getChain(this.deploy._.chainId);
 
         if (this.options?.defaultArgs?.fork) {
             // this is going to be immediate.
@@ -301,7 +280,7 @@ export class GnosisOnchainStrategy extends GnosisSigningStrategy {
             txn.data.gasToken as `0x${string}`,
             txn.data.refundReceiver as `0x${string}`,
             signatures
-        ], {chain});
+        ], {account: walletClient.account!, chain});
        
         return {
             empty: false,
