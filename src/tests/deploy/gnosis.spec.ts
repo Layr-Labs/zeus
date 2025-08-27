@@ -8,8 +8,26 @@ import { canonicalPaths } from '../../metadata/paths';
 import { PublicClient } from 'viem';
 import { mockForgeScriptOutput, MockStrategy } from './mockStrategy';
 
+// Mock prompts module before importing
+jest.unstable_mockModule('../../commands/prompts', () => ({
+  safeTxServiceUrl: jest.fn<any>().mockResolvedValue('https://mock-safe-api.example.com'),
+  rpcUrl: jest.fn<any>().mockResolvedValue('https://google.com'),
+  wouldYouLikeToContinue: jest.fn<any>().mockResolvedValue(true),
+  chainIdName: jest.fn<any>((chainId: number) => `chains/${chainId}`),
+  privateKey: jest.fn<any>().mockResolvedValue('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'),
+  signerKey: jest.fn<any>().mockResolvedValue('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'),
+  checkShouldSignGnosisMessage: jest.fn<any>().mockResolvedValue(undefined),
+  pressAnyButtonToContinue: jest.fn<any>().mockResolvedValue(undefined),
+  bip32Path: jest.fn<any>().mockResolvedValue(`m/44'/60'/0'/0/0`),
+  addressIndex: jest.fn<any>().mockResolvedValue(0),
+  etherscanApiKey: jest.fn<any>().mockResolvedValue(false),
+  envVarOrPrompt: jest.fn<any>().mockResolvedValue('mock-value'),
+  pickStrategy: jest.fn<any>().mockResolvedValue('gnosis.onchain'),
+  getChainId: jest.fn<any>().mockResolvedValue(1)
+}));
+
 const {runTest} = await import('../../signing/strategies/test');
-const prompts = await import('../../commands/prompts')
+const prompts = await import('../../commands/prompts') as any;
 const {executeMultisigPhase} = await import('../../deploy/handlers/gnosis');
 const { createPublicClient, TransactionReceiptNotFoundError } = await import('viem');
 const configs = await import('../../commands/configs');
