@@ -1,8 +1,8 @@
 /* eslint-disable */
 import { GnosisSigningStrategy } from "../gnosis";
-import { SavebleDocument } from "../../../../metadata/metadataStore";
+import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/schema";
-import { TSignatureRequest, TSignedGnosisRequest } from "../../../strategy";
+import { ICachedArg, TSignatureRequest, TSignedGnosisRequest, TStrategyOptions } from "../../../strategy";
 import Safe from '@safe-global/protocol-kit'
 import { OperationType, SafeTransaction } from '@safe-global/types-kit';
 import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
@@ -19,6 +19,7 @@ import open from 'open';
 import { overrideTxServiceUrlForChainId } from "../api/utils";
 import { Request, Response } from "express";
 import SafeApiKit from "@safe-global/api-kit";
+import * as prompts from '../../../../commands/prompts';
 
 // For generating a random port between 3000 and 65535
 function getRandomPort() {
@@ -44,8 +45,17 @@ interface SignatureData {
 export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
     id = 'gnosis.api.web';
     description = 'Gnosis API - Web Interface (Metamask, Ledger, GridPlus)';
+    safeTxServiceUrl: ICachedArg<string | undefined>
     private server: ReturnType<typeof createServer> | null = null;
     private resolveSignaturePromise: ((result: TWebModalSignature) => void) | null = null;
+
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
+        super(deploy, transaction, options);
+        this.safeTxServiceUrl = this.arg(async () => {
+            const defaultUrl = overrideTxServiceUrlForChainId(deploy._.chainId);
+            return await prompts.safeTxServiceUrl(deploy._.chainId, defaultUrl);
+        });
+    }
 
     async prepare(pathToUpgrade: string): Promise<TSignatureRequest | undefined> {
         const { output, stateUpdates, safeContext, contractDeploys } = await this.runForgeScript(pathToUpgrade);
@@ -158,7 +168,7 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
         
         const apiKit = new SafeApiKit({
             chainId: BigInt(this.deploy._.chainId),
-            txServiceUrl: overrideTxServiceUrlForChainId(this.deploy._.chainId),
+            txServiceUrl: await this.safeTxServiceUrl.get(),
         })
 
         await apiKit.proposeTransaction({
@@ -377,7 +387,7 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
 
                 const apiKit = new SafeApiKit({
                     chainId: BigInt(deploy._.chainId),
-                    txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId), // TODO: we probably want the option to inject a custom tx service url here...
+                    txServiceUrl: await this.safeTxServiceUrl.get(),
                 })
                 const tx = await apiKit.getTransaction(metadata.gnosisTransactionHash);
                 if (tx.isExecuted) {

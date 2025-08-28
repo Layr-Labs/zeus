@@ -1,17 +1,27 @@
 import { GnosisSigningStrategy } from "../gnosis";
 import SafeApiKit from "@safe-global/api-kit";
 import Safe from '@safe-global/protocol-kit'
-import { SavebleDocument } from "../../../../metadata/metadataStore";
+import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";
 import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/schema";
 import { overrideTxServiceUrlForChainId } from "./utils";
-import { TSignatureRequest } from "../../../strategy";
+import { ICachedArg, TSignatureRequest, TStrategyOptions } from "../../../strategy";
 import { OperationType } from '@safe-global/types-kit';
 import chalk from "chalk";
 import { getAddress, hexToNumber } from "viem";
 import { SafeTransaction } from '@safe-global/types-kit';
+import * as prompts from '../../../../commands/prompts';
 
 
 export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
+    safeTxServiceUrl: ICachedArg<string | undefined>
+
+    constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
+        super(deploy, transaction, options);
+        this.safeTxServiceUrl = this.arg(async () => {
+            const defaultUrl = overrideTxServiceUrlForChainId(deploy._.chainId);
+            return await prompts.safeTxServiceUrl(deploy._.chainId, defaultUrl);
+        });
+    }
 
     abstract getSignature(safeVersion: string, txn: SafeTransaction, safeAddress: `0x${string}`): Promise<`0x${string}`>;
     abstract getSignerAddress(): Promise<`0x${string}`>;
@@ -116,7 +126,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         
         const apiKit = new SafeApiKit({
             chainId: BigInt(this.deploy._.chainId),
-            txServiceUrl: overrideTxServiceUrlForChainId(this.deploy._.chainId),
+            txServiceUrl: await this.safeTxServiceUrl.get(),
         })
 
         const protocolKitOwner1 = await Safe.init({
@@ -196,7 +206,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
 
                 const apiKit = new SafeApiKit({
                     chainId: BigInt(deploy._.chainId),
-                    txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId), // TODO: we probably want the option to inject a custom tx service url here...
+                    txServiceUrl: await this.safeTxServiceUrl.get(),
                 })
                 const tx = await apiKit.getTransaction(metadata.gnosisTransactionHash);
                 if (tx.isExecuted) {

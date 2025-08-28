@@ -229,6 +229,43 @@ export const chainIdName = (chainId: number) => {
     return chain?.name ?? `chains/${chainId}`;
 };
 
+export const safeTxServiceUrl = async (chainId: number, defaultUrl: string | undefined) => {
+    const useCustom = await select({
+        prompt: "What Safe URL would you like to use?",
+        choices: [{
+            name: 'Default',
+            value: 'default',
+            description: defaultUrl ? `Use default Safe API (${defaultUrl})` : 'Use default Safe API'
+        }, {
+            name: 'Custom',
+            value: 'custom',
+            description: 'Use a custom Safe API URL'
+        }]
+    });
+    
+    if (useCustom === 'custom') {
+        return await envVarOrPrompt({
+            title: `Enter custom Safe API URL for ${chainIdName(chainId)}`,
+            isValid: (text) => {
+                try {
+                    let url: string = text;
+                    if (url.startsWith("$")) {
+                        url = process.env[url.substring(1)] ?? '';
+                    }
+                    new URL(url);
+                    return true;
+                } catch {
+                    return false;
+                }
+            },
+            directEntryInputType: 'text',
+            envVarSearchMessage: 'Choose an environment variable with a Safe API URL'
+        });
+    }
+    
+    return defaultUrl;
+};
+
 export const rpcUrl = async (forChainId: number) => {
     let attempt = 0;
     while (true) {

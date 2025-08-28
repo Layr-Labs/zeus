@@ -186,7 +186,9 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                 return;
             }
 
-            const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId)})
+            const defaultUrl = overrideTxServiceUrlForChainId(deploy._.chainId);
+            const safeTxServiceUrl = await prompts.safeTxServiceUrl(deploy._.chainId, defaultUrl);
+            const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: safeTxServiceUrl})
             const multisigTxn = await safeApi.getTransaction(safeTxHash);
             
             if (multisigTxn.confirmations?.length === multisigTxn.confirmationsRequired) {
@@ -216,7 +218,9 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                 await metatxn.commit(`[deploy ${deploy._.name}] multisig step did not output a transaction`);
                 return;
             }
-            const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: overrideTxServiceUrlForChainId(deploy._.chainId)})
+            const defaultUrl = overrideTxServiceUrlForChainId(deploy._.chainId);
+            const safeTxServiceUrl = await prompts.safeTxServiceUrl(deploy._.chainId, defaultUrl);
+            const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: safeTxServiceUrl})
             const multisigTxn = await safeApi.getTransaction(safeTxHash);
 
             const multisigTxnPersist = await metatxn.getJSONFile(canonicalPaths.multisigTransaction({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
