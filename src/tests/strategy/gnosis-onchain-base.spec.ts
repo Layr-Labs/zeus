@@ -93,4 +93,29 @@ describe('GnosisOnchainBaseStrategy', () => {
       }).toThrow('Unsupported chain 999999');
     });
   });
+
+  describe('constructor', () => {
+    test('should call parent constructor with correct parameters', () => {
+      const options = { 
+        nonInteractive: true,
+        defaultArgs: { rpcUrl: 'http://test' }
+      };
+      const newStrategy = new TestGnosisOnchainBaseStrategy(mockDeploy, mockTransaction, options);
+      
+      expect(newStrategy).toBeInstanceOf(TestGnosisOnchainBaseStrategy);
+    });
+  });
+
+  describe('abstract methods', () => {
+    test('should have abstract getSignerAddress method implemented', async () => {
+      const address = await strategy.getSignerAddress();
+      expect(address).toBe('0xtest123');
+    });
+
+    test('should have abstract getWalletClient method implemented', async () => {
+      const mockChain = { id: 1 } as Chain;
+      const walletClient = await strategy.getWalletClient(mockChain);
+      expect(walletClient).toBeDefined();
+    });
+  });
 });
