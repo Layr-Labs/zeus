@@ -1,13 +1,23 @@
-import { describe, expect, test, jest, beforeEach, afterEach } from '@jest/globals';
-import { GnosisOnchainLedgerStrategy } from '../../signing/strategies/gnosis/onchain/onchainLedger';
-import { SavebleDocument, Transaction } from '../../metadata/metadataStore';
-import { TDeploy } from '../../metadata/schema';
+import { describe, expect, test, jest, beforeEach } from '@jest/globals';
+import { GnosisOnchainBaseStrategy } from '../../signing/strategies/gnosis/onchain/onchainBase';
 
-describe('GnosisOnchainLedgerStrategy', () => {
-  let mockDeploy: SavebleDocument<TDeploy>;
-  let mockTransaction: Transaction;
-  let strategy: GnosisOnchainLedgerStrategy;
-  
+// Mock dependencies to avoid external calls
+jest.mock('../../signing/strategies/ledgerTransport', () => ({
+  getLedgerAccount: jest.fn()
+}));
+
+jest.mock('../../commands/prompts', () => ({
+  bip32Path: jest.fn(),
+  pressAnyButtonToContinue: jest.fn()
+}));
+
+import { GnosisOnchainLedgerStrategy } from '../../signing/strategies/gnosis/onchain/onchainLedger';
+
+// Simple basic tests to ensure core functionality coverage without calling methods that require user interaction
+describe('GnosisOnchainLedgerStrategy - Coverage Tests', () => {
+  let mockDeploy: any;
+  let mockTransaction: any;
+
   beforeEach(() => {
     mockDeploy = {
       _: {
@@ -15,34 +25,37 @@ describe('GnosisOnchainLedgerStrategy', () => {
         name: 'test-deploy',
         env: 'test'
       }
-    } as SavebleDocument<TDeploy>;
+    };
+    mockTransaction = {};
+  });
+
+  test('should have correct id and description', () => {
+    const strategy = new GnosisOnchainLedgerStrategy(mockDeploy, mockTransaction);
     
-    mockTransaction = {} as Transaction;
-    strategy = new GnosisOnchainLedgerStrategy(mockDeploy, mockTransaction);
+    expect(strategy.id).toBe('gnosis.onchain.ledger');
+    expect(strategy.description).toBe('Onchain Ledger - Safe.execTransaction() (for 1/N multisigs only)');
+    expect(strategy.bip32Path).toBeDefined();
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  test('should be instance of GnosisOnchainBaseStrategy', () => {
+    const strategy = new GnosisOnchainLedgerStrategy(mockDeploy, mockTransaction);
+    
+    expect(strategy).toBeInstanceOf(GnosisOnchainBaseStrategy);
   });
 
-  describe('constructor and basic properties', () => {
-    test('should have correct id', () => {
-      expect(strategy.id).toBe('gnosis.onchain.ledger');
-    });
-
-    test('should have correct description', () => {
-      expect(strategy.description).toBe('Onchain Ledger - Safe.execTransaction() (for 1/N multisigs only)');
-    });
-
-    test('should initialize bip32Path', () => {
-      expect(strategy.bip32Path).toBeDefined();
-    });
+  test('should have required methods', () => {
+    const strategy = new GnosisOnchainLedgerStrategy(mockDeploy, mockTransaction);
+    
+    expect(typeof strategy.getSignerAddress).toBe('function');
+    expect(typeof strategy.getWalletClient).toBe('function');
   });
 
-  describe('error handling', () => {
-    test('should handle basic instantiation', () => {
-      const newStrategy = new GnosisOnchainLedgerStrategy(mockDeploy, mockTransaction);
-      expect(newStrategy).toBeInstanceOf(GnosisOnchainLedgerStrategy);
-    });
+  test('should initialize with options', () => {
+    const options = { 
+      nonInteractive: true,
+      defaultArgs: { rpcUrl: 'http://localhost:8545' } as any
+    };
+    const strategy = new GnosisOnchainLedgerStrategy(mockDeploy, mockTransaction, options);
+    expect(strategy).toBeInstanceOf(GnosisOnchainLedgerStrategy);
   });
 });
