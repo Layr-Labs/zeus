@@ -80,20 +80,6 @@ describe('GnosisOnchainBaseStrategy', () => {
     });
   });
 
-  describe('getChain utility', () => {
-    test('should throw error for unsupported chain ID', () => {
-      // Testing the getChain function indirectly by looking at the error handling
-      // This tests the error case in the getChain function
-      expect(() => {
-        const chainId = 999999; // Non-existent chain
-        const chain = Object.values({}).find(value => (value as any).id === chainId);
-        if (!chain) {
-          throw new Error(`Unsupported chain ${chainId}`);
-        }
-      }).toThrow('Unsupported chain 999999');
-    });
-  });
-
   describe('constructor', () => {
     test('should call parent constructor with correct parameters', () => {
       const options = { 

@@ -3,7 +3,6 @@ import { GnosisOnchainLedgerStrategy } from '../../signing/strategies/gnosis/onc
 import { SavebleDocument, Transaction } from '../../metadata/metadataStore';
 import { TDeploy } from '../../metadata/schema';
 
-// Simple basic tests to get coverage
 describe('GnosisOnchainLedgerStrategy', () => {
   let mockDeploy: SavebleDocument<TDeploy>;
   let mockTransaction: Transaction;
