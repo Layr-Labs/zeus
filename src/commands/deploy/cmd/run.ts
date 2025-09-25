@@ -276,7 +276,6 @@ const executeOrContinueDeployWithLock = async (name: string, env: string, user: 
     }
 
     try {
-        const txn = await user.metadataStore.begin();
         const deploy = await txn.getJSONFile<TDeploy>(canonicalPaths.deployStatus({name, env}))
         await executeOrContinueDeploy(deploy, user, txn, options);
         if (txn.hasChanges()) {
@@ -284,9 +283,8 @@ const executeOrContinueDeployWithLock = async (name: string, env: string, user: 
         }
     } finally {
         if (shouldUseLock) {
-            const tx = await user.metadataStore.begin();
-            await releaseDeployLock(deploy._, tx);
-            await tx.commit('releasing deploy lock');
+            await releaseDeployLock(deploy._, txn);
+            await txn.commit('releasing deploy lock');
         }
     }
 }
