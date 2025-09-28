@@ -16,7 +16,9 @@
     "lint-fix": "eslint src/**/*.ts --fix",
     "watch": "webpack --watch -c webpack.config.dev.cjs",
     "build-dev": "npm run build-site && webpack -c webpack.config.dev.cjs",
-    "build-prod": "npm run build-site && webpack -c webpack.config.prod.cjs"
+    "build-prod": "npm run build-site && webpack -c webpack.config.prod.cjs",
+    "setup": "allow-scripts run",
+    "allow-scripts": "allow-scripts"
   },
   "bin": {
     "zeus": "./dist/bundle.cjs"
@@ -66,6 +68,8 @@
     "@babel/preset-typescript": "7.25.7",
     "@eslint/js": "9.13.0",
     "@jest/globals": "29.7.0",
+    "@lavamoat/allow-scripts": "3.4.0",
+    "@lavamoat/preinstall-always-fail": "2.1.1",
     "@types/eslint__js": "8.42.3",
     "@types/prompt-sync": "4.2.3",
     "copy-webpack-plugin": "13.0.0",
@@ -77,5 +81,22 @@
     "typescript-eslint": "8.12.2",
     "webpack": "5.95.0",
     "webpack-cli": "5.1.4"
+  },
+  "lavamoat": {
+    "allowScripts": {
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>ethereumjs-util>ethereum-cryptography>secp256k1": true,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>ethereumjs-vm>core-js-pure": true,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>keccak": true,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>web3": false,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>web3-provider-engine>eth-block-tracker>json-rpc-engine>babelify>babel-core>babel-runtime>core-js": true,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>websocket>bufferutil": true,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>websocket>utf-8-validate": true,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>postinstall-postinstall": false,
+      "@foundry-rs/hardhat-anvil>hardhat>keccak": true,
+      "@lavamoat/preinstall-always-fail": false,
+      "@ledgerhq/hw-transport-node-hid>node-hid": true,
+      "@ledgerhq/hw-transport-node-hid>usb": true,
+      "@safe-global/api-kit>@safe-global/protocol-kit>ethereumjs-util>ethereum-cryptography>secp256k1": true
+    }
   }
 }
