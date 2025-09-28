@@ -23,6 +23,9 @@ jobs:
       - name: Install Dependencies
         run: (cd site && npm ci) && npm ci
 
+      - name: Run allowed scripts
+        run: npm run setup
+
       - name: Publish to NPM
         run: npm publish --access public
         env:
