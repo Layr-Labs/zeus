@@ -2,7 +2,7 @@
 import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import Eth from '@ledgerhq/hw-app-eth';
 import { toAccount } from 'viem/accounts';
-import { getAddress, getTypesForEIP712Domain, hashDomain, hashStruct, HashTypedDataParameters, serializeSignature, serializeTransaction } from 'viem';
+import { getAddress, getTypesForEIP712Domain, hashDomain, HashTypedDataParameters, serializeSignature, serializeTransaction, keccak256, encodeAbiParameters, toBytes } from 'viem';
 
 export const BASE_DERIVATION_PATH = `44'/60'/0'/0`
 
@@ -26,6 +26,70 @@ interface MessageTypeProperty {
     name: string
     type: string
 }
+
+// Custom hashStruct implementation for viem v2 compatibility
+const hashStruct = ({ data, primaryType, types }: {
+    data: Record<string, unknown>
+    primaryType: string
+    types: Record<string, MessageTypeProperty[]>
+}): `0x${string}` => {
+    const encodeType = (primaryType: string, types: Record<string, MessageTypeProperty[]>): string => {
+        let deps = findTypeDependencies(primaryType, types)
+        deps = deps.filter((dep) => dep !== primaryType)
+        deps = [primaryType, ...deps.sort()]
+        return deps.map((type) => `${type}(${types[type].map(({ name, type }) => `${type} ${name}`).join(',')})`).join('')
+    }
+
+    const findTypeDependencies = (primaryType: string, types: Record<string, MessageTypeProperty[]>, found: Set<string> = new Set()): string[] => {
+        if (found.has(primaryType) || !types[primaryType]) return []
+        found.add(primaryType)
+        const dependencies: string[] = []
+        for (const field of types[primaryType]) {
+            const typeMatch = field.type.match(/^(\w+)/)
+            if (typeMatch && types[typeMatch[1]]) {
+                dependencies.push(...findTypeDependencies(typeMatch[1], types, found))
+                dependencies.push(typeMatch[1])
+            }
+        }
+        return dependencies
+    }
+
+    const typeHash = keccak256(encodeType(primaryType, types) as `0x${string}`)
+    return keccak256(`0x${typeHash.slice(2)}${encodeData(primaryType, data, types).slice(2)}` as `0x${string}`)
+}
+
+const encodeData = (primaryType: string, data: Record<string, unknown>, types: Record<string, MessageTypeProperty[]>): string => {
+    const encTypes: string[] = []
+    const encValues: unknown[] = []
+
+    for (const field of types[primaryType]) {
+        let value = data[field.name]
+        if (value == null) continue
+
+        if (field.type === 'string' || field.type === 'bytes') {
+            encTypes.push('bytes32')
+            if (field.type === 'string') {
+                encValues.push(keccak256(toBytes(value as string)))
+            } else {
+                encValues.push(keccak256(ensureLeading0x(value as string)))
+            }
+        } else if (types[field.type]) {
+            encTypes.push('bytes32')
+            encValues.push(hashStruct({ data: value as Record<string, unknown>, primaryType: field.type, types }))
+        } else if (field.type.endsWith(']')) {
+            throw new Error('Arrays not supported in this implementation')
+        } else {
+            encTypes.push(field.type)
+            encValues.push(value)
+        }
+    }
+
+    return encodeAbiParameters(
+        encTypes.map((type, i) => ({ type, name: `param${i}` })),
+        encValues
+    )
+}
+
 
 let _ledger: Eth | undefined;
 export const getLedger: () => Promise<Eth> = async () => {
