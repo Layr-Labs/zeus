@@ -31,11 +31,12 @@ class TestGnosisOnchainBaseStrategy extends GnosisOnchainBaseStrategy {
   }
 
   async getWalletClient(chain: Chain): Promise<WalletClient> {
+    // Cast via unknown to satisfy WalletClient's extensive type without implementing all properties.
     return {
       account: { address: '0x1234567890123456789012345678901234567890' },
       transport: {},
       chain
-    } as WalletClient;
+    } as unknown as WalletClient;
   }
 
   // Expose protected methods for testing and track calls
