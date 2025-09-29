@@ -9,7 +9,9 @@
     "webpack.config.prod.cjs",
     "eslint.config.mjs",
     "jest.config.mjs",
-    "site/**/*"
+    "site/**/*",
+    "__mocks__",
+    "src/tests"
   ],
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig to read more about this file */
