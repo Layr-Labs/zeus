@@ -1,8 +1,9 @@
 
 import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import Eth from '@ledgerhq/hw-app-eth';
+import type { EIP712Message, EIP712MessageTypes, EIP712MessageTypesEntry } from '@ledgerhq/types-live';
 import { toAccount } from 'viem/accounts';
-import { getAddress, getTypesForEIP712Domain, hashDomain, hashStruct, HashTypedDataParameters, serializeSignature, serializeTransaction } from 'viem';
+import { getAddress, getTypesForEIP712Domain, serializeSignature, serializeTransaction, type TypedData, type TypedDataDefinition, type TypedDataDomain } from 'viem';
 
 export const BASE_DERIVATION_PATH = `44'/60'/0'/0`
 
@@ -22,10 +23,7 @@ export const trimLeading0x = (input: string | `0x${string}`): string => input.st
 
 export const DEFAULT_DERIVATION_PATH  = `44'/60'/0'/0/0` // derivationPathAtIndex(0)
 
-interface MessageTypeProperty {
-    name: string
-    type: string
-}
+type MessageTypeProperty = EIP712MessageTypesEntry;
 
 let _ledger: Eth | undefined;
 export const getLedger: () => Promise<Eth> = async () => {
@@ -81,28 +79,50 @@ export const ledgerToAccount = async ({
             })
         },
     
-        async signTypedData(_parameters) {
+        async signTypedData<
+            TTypedData extends TypedData | Record<string, unknown>,
+            TPrimaryType extends keyof TTypedData | 'EIP712Domain' = keyof TTypedData
+        >(_parameters: TypedDataDefinition<TTypedData, TPrimaryType>) {
             const {
                 domain = {},
                 message,
                 primaryType,
-              } = _parameters as HashTypedDataParameters
-            const types = {
-                EIP712Domain: getTypesForEIP712Domain({ domain }),
-                ..._parameters.types,
+              } = _parameters
+            // Normalize types into Ledger's EIP-712 struct definitions
+            const domainTypeEntries: EIP712MessageTypesEntry[] = getTypesForEIP712Domain({ domain: domain as TypedDataDomain }).map(({ name, type }) => ({ name, type: type as string }))
+            const inputTypes = (_parameters.types ?? {}) as Record<string, readonly { name: string; type: string }[]>
+            const otherTypeEntries: Record<string, EIP712MessageTypesEntry[]> = Object.fromEntries(
+                Object.entries(inputTypes).map(([key, entries]) => [
+                    key,
+                    entries.map(({ name, type }) => ({ name, type })),
+                ]),
+            )
+            const ledgerTypes: EIP712MessageTypes = {
+                EIP712Domain: domainTypeEntries,
+                ...otherTypeEntries,
             }
 
-            const domainSeperator = hashDomain({domain, types: types as Record<string, MessageTypeProperty[]>});
-            const messageHash = hashStruct({
-                data: message,
-                primaryType,
-                types: types as Record<string, MessageTypeProperty[]>,
-              })
-            
-            console.log(`Requesting EIP-712 signature from ledger: `);
-            console.log(JSON.stringify({domainSeperator, messageHash, path: dp}));
+            // Normalize domain for Ledger (chainId must be a number)
+            const d = domain as Record<string, unknown>
+            const domainForLedger: EIP712Message['domain'] = {}
+            if (typeof d.name === 'string') domainForLedger.name = d.name
+            if (typeof d.version === 'string') domainForLedger.version = d.version
+            if (typeof d.verifyingContract === 'string') domainForLedger.verifyingContract = d.verifyingContract
+            if (typeof d.salt === 'string') domainForLedger.salt = d.salt
+            if (typeof d.chainId === 'number') domainForLedger.chainId = d.chainId
+            else if (typeof d.chainId === 'bigint') domainForLedger.chainId = Number(d.chainId)
 
-            const {r, s, v} = await ledger.signEIP712HashedMessage(dp, domainSeperator, messageHash)
+            const typedData: EIP712Message = {
+                types: ledgerTypes,
+                domain: domainForLedger,
+                primaryType: primaryType as string,
+                message: message as Record<string, unknown>,
+            }
+
+            console.log(`Requesting EIP-712 signature from ledger (typed data): `);
+            console.log(JSON.stringify({ path: dp }));
+
+            const {r, s, v} = await ledger.signEIP712Message(dp, typedData)
 
             return serializeSignature({
                 r: ensureLeading0x(r),

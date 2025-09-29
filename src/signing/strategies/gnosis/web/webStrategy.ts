@@ -205,7 +205,7 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
         const typedData = {
             types: types as unknown as Record<string, unknown>,
             domain: {
-                verifyingContract: safeAddress,
+                verifyingContract: getAddress(safeAddress) as `0x${string}`,
                 chainId: this.deploy._.chainId,
             },
             primaryType: 'SafeTx',
@@ -247,13 +247,14 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
             }
             
             // Serve static files from the React app
+            // Basic hardening: remove X-Powered-By and limit JSON body size
+            app.disable('x-powered-by');
             app.use(express.static(sitePath));
-            app.use(express.json());
+            app.use(express.json({ limit: '64kb' }));
             
             // We're now checking Safe owners directly from the frontend
             
             // Endpoint for receiving the signature
-            // @ts-expect-error express-typing is weird
             app.post('/api/sign', async (req: Request, res: Response) => {
                 const data = req.body as SignatureData;
                 
@@ -351,7 +352,8 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
                 res.sendFile(path.join(sitePath, 'index.html'));
             });
             
-            this.server = app.listen(port, () => {
+            // Bind explicitly to localhost to avoid remote access
+            this.server = app.listen(port, '127.0.0.1', () => {
                 // Encode the EIP-712 typedData object for the URL
                 const encodedTypedData = encodeURIComponent(JSON.stringify(typedData));
                 
