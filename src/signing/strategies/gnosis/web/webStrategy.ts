@@ -5,7 +5,7 @@ import { MultisigMetadata, TDeploy, TMultisigPhase } from "../../../../metadata/
 import { ICachedArg, TSignatureRequest, TSignedGnosisRequest, TStrategyOptions } from "../../../strategy";
 import Safe from '@safe-global/protocol-kit'
 import { OperationType, SafeTransaction } from '@safe-global/types-kit';
-import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
+import { getEip712TxTypes } from "@safe-global/protocol-kit"
 import { getAddress, hexToNumber, verifyTypedData } from "viem";
 import express from 'express';
 import path from 'path';
@@ -46,6 +46,7 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
     id = 'gnosis.api.web';
     description = 'Gnosis API - Web Interface (Metamask, Ledger, GridPlus)';
     safeTxServiceUrl: ICachedArg<string | undefined>
+    safeApiKey: ICachedArg<string | undefined>
     private server: ReturnType<typeof createServer> | null = null;
     private resolveSignaturePromise: ((result: TWebModalSignature) => void) | null = null;
 
@@ -54,6 +55,9 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
         this.safeTxServiceUrl = this.arg(async () => {
             const defaultUrl = overrideTxServiceUrlForChainId(deploy._.chainId);
             return await prompts.safeTxServiceUrl(deploy._.chainId, defaultUrl);
+        });
+        this.safeApiKey = this.arg(async () => {
+            return await prompts.safeApiKey(deploy._.chainId);
         });
     }
 
@@ -169,6 +173,7 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
         const apiKit = new SafeApiKit({
             chainId: BigInt(this.deploy._.chainId),
             txServiceUrl: await this.safeTxServiceUrl.get(),
+            apiKey: await this.safeApiKey.get(),
         })
 
         await apiKit.proposeTransaction({
@@ -390,13 +395,14 @@ export class WebGnosisSigningStrategy extends GnosisSigningStrategy {
                 const apiKit = new SafeApiKit({
                     chainId: BigInt(deploy._.chainId),
                     txServiceUrl: await this.safeTxServiceUrl.get(),
+                    apiKey: await this.safeApiKey.get(),
                 })
                 const tx = await apiKit.getTransaction(metadata.gnosisTransactionHash);
                 if (tx.isExecuted) {
                     throw new Error(`Cannot cancel, transaction ${tx.transactionHash} already executed.`);
                 }
 
-                const rejectionTxn = await protocolKitOwner.createRejectionTransaction(tx.nonce);
+                const rejectionTxn = await protocolKitOwner.createRejectionTransaction(Number(tx.nonce));
                 const hash = await protocolKitOwner.getTransactionHash(rejectionTxn) as `0x${string}`;
                 const sig = await this.requestSignature(rejectionTxn, protocolKitOwner, metadata.multisig)
 

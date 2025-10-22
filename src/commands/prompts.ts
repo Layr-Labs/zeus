@@ -242,7 +242,7 @@ export const safeTxServiceUrl = async (chainId: number, defaultUrl: string | und
             description: 'Use a custom Safe API URL'
         }]
     });
-    
+
     if (useCustom === 'custom') {
         return await envVarOrPrompt({
             title: `Enter custom Safe API URL for ${chainIdName(chainId)}`,
@@ -262,8 +262,24 @@ export const safeTxServiceUrl = async (chainId: number, defaultUrl: string | und
             envVarSearchMessage: 'Choose an environment variable with a Safe API URL'
         });
     }
-    
+
     return defaultUrl;
+};
+
+export const safeApiKey = async (chainId: number) => {
+    const result = await envVarOrPrompt({
+        title: `Enter Safe API Key for ${chainIdName(chainId)} (press Enter to use no API Key)`,
+        isValid: (text) => {
+            if (text === '') {
+                return true;
+            }
+            return text.length > 0;
+        },
+        directEntryInputType: 'password',
+        envVarSearchMessage: 'Choose an environment variable with a Safe API Key'
+    });
+
+    return result === '' ? undefined : result;
 };
 
 export const rpcUrl = async (forChainId: number) => {

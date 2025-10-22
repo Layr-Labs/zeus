@@ -11,6 +11,7 @@ import { mockForgeScriptOutput, MockStrategy } from './mockStrategy';
 // Mock prompts module before importing
 jest.unstable_mockModule('../../commands/prompts', () => ({
   safeTxServiceUrl: jest.fn<any>().mockResolvedValue('https://mock-safe-api.example.com'),
+  safeApiKey: jest.fn<any>().mockResolvedValue(undefined),
   rpcUrl: jest.fn<any>().mockResolvedValue('https://google.com'),
   wouldYouLikeToContinue: jest.fn<any>().mockResolvedValue(true),
   chainIdName: jest.fn<any>((chainId: number) => `chains/${chainId}`),

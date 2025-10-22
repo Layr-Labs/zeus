@@ -39,7 +39,7 @@
     "@ledgerhq/errors": "6.19.1",
     "@ledgerhq/hw-app-eth": "6.42.1",
     "@ledgerhq/hw-transport-node-hid": "6.29.5",
-    "@safe-global/api-kit": "2.5.11",
+    "@safe-global/api-kit": "4.0.0",
     "@types/bun": "1.1.16",
     "@types/express": "5.0.0",
     "@types/node": "22.10.5",

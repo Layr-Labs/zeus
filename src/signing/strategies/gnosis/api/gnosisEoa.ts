@@ -1,7 +1,7 @@
 import { privateKeyToAccount } from "viem/accounts";
 import { GnosisApiStrategy } from "./gnosisApi";
 import { SafeTransaction } from '@safe-global/types-kit';
-import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
+import { getEip712TxTypes } from "@safe-global/protocol-kit"
 import { checkShouldSignGnosisMessage, privateKey, signerKey } from "../../../../commands/prompts";
 import { ICachedArg, TStrategyOptions } from "../../../strategy";
 import { SavebleDocument, Transaction } from "../../../../metadata/metadataStore";

@@ -50,12 +50,27 @@ jest.unstable_mockModule('@safe-global/protocol-kit', () => ({
                 }
             })
         })
-    }
+    },
+    getEip712TxTypes: jest.fn<any>().mockReturnValue({
+        SafeTx: [
+            { type: 'address', name: 'to' },
+            { type: 'uint256', name: 'value' },
+            { type: 'bytes', name: 'data' },
+            { type: 'uint8', name: 'operation' },
+            { type: 'uint256', name: 'safeTxGas' },
+            { type: 'uint256', name: 'baseGas' },
+            { type: 'uint256', name: 'gasPrice' },
+            { type: 'address', name: 'gasToken' },
+            { type: 'address', name: 'refundReceiver' },
+            { type: 'uint256', name: 'nonce' }
+        ]
+    })
 }));
 
 // Mock prompts
 jest.unstable_mockModule('../../commands/prompts', () => ({
     safeTxServiceUrl: jest.fn<any>(),
+    safeApiKey: jest.fn<any>(),
     rpcUrl: jest.fn<any>(),
     privateKey: jest.fn<any>(),
     signerKey: jest.fn<any>(),
@@ -144,20 +159,21 @@ describe('GnosisApiStrategy safeTxServiceUrl integration', () => {
         it('should prompt for Safe URL and cache the result', async () => {
             const defaultUrl = 'https://transaction-holesky.holesky-safe.protofire.io/api';
             const customUrl = 'https://custom-safe.example.com/api';
-            
+
             // Mock safeTxServiceUrl to return custom URL
             mockPrompts.safeTxServiceUrl.mockResolvedValue(customUrl);
+            mockPrompts.safeApiKey.mockResolvedValue(undefined);
             mockPrompts.rpcUrl.mockResolvedValue('https://eth-holesky.example.com');
             mockPrompts.signerKey.mockResolvedValue('0xprivatekey123');
-            
+
             const strategy = new GnosisEOAApiStrategy(mockDeploy, mockTransaction, undefined);
-            
+
             // First call should trigger the prompt
             const url1 = await strategy.safeTxServiceUrl.get();
             expect(url1).toBe(customUrl);
             expect(mockPrompts.safeTxServiceUrl).toHaveBeenCalledWith(17000, defaultUrl);
             expect(mockPrompts.safeTxServiceUrl).toHaveBeenCalledTimes(1);
-            
+
             // Second call should return cached value without prompting
             const url2 = await strategy.safeTxServiceUrl.get();
             expect(url2).toBe(customUrl);
@@ -166,14 +182,15 @@ describe('GnosisApiStrategy safeTxServiceUrl integration', () => {
 
         it('should use default URL when user selects default option', async () => {
             const defaultUrl = 'https://transaction-holesky.holesky-safe.protofire.io/api';
-            
+
             // Mock safeTxServiceUrl to return default URL
             mockPrompts.safeTxServiceUrl.mockResolvedValue(defaultUrl);
+            mockPrompts.safeApiKey.mockResolvedValue(undefined);
             mockPrompts.rpcUrl.mockResolvedValue('https://eth-holesky.example.com');
             mockPrompts.signerKey.mockResolvedValue('0xprivatekey123');
-            
+
             const strategy = new GnosisEOAApiStrategy(mockDeploy, mockTransaction, undefined);
-            
+
             const url = await strategy.safeTxServiceUrl.get();
             expect(url).toBe(defaultUrl);
             expect(mockPrompts.safeTxServiceUrl).toHaveBeenCalledWith(17000, defaultUrl);
@@ -181,14 +198,15 @@ describe('GnosisApiStrategy safeTxServiceUrl integration', () => {
 
         it('should handle undefined default URL for unsupported chains', async () => {
             mockDeploy._.chainId = 1; // Mainnet, no default Safe URL in our mock
-            
+
             // Mock safeTxServiceUrl to return undefined (user selected default with no default available)
             mockPrompts.safeTxServiceUrl.mockResolvedValue(undefined);
+            mockPrompts.safeApiKey.mockResolvedValue(undefined);
             mockPrompts.rpcUrl.mockResolvedValue('https://eth-mainnet.example.com');
             mockPrompts.signerKey.mockResolvedValue('0xprivatekey123');
-            
+
             const strategy = new GnosisEOAApiStrategy(mockDeploy, mockTransaction, undefined);
-            
+
             const url = await strategy.safeTxServiceUrl.get();
             expect(url).toBe(undefined);
             expect(mockPrompts.safeTxServiceUrl).toHaveBeenCalledWith(1, undefined);
@@ -198,12 +216,13 @@ describe('GnosisApiStrategy safeTxServiceUrl integration', () => {
     describe('SafeApiKit usage', () => {
         it('should use custom Safe URL in requestNew method', async () => {
             const customUrl = 'https://custom-safe.example.com/api';
-            
+
             mockPrompts.safeTxServiceUrl.mockResolvedValue(customUrl);
+            mockPrompts.safeApiKey.mockResolvedValue(undefined);
             mockPrompts.rpcUrl.mockResolvedValue('https://eth-holesky.example.com');
             mockPrompts.signerKey.mockResolvedValue('0xprivatekey123');
             mockPrompts.checkShouldSignGnosisMessage.mockResolvedValue(undefined);
-            
+
             // Mock the runForgeScript method
             const strategy = new GnosisEOAApiStrategy(mockDeploy, mockTransaction, undefined);
             (strategy as any).runForgeScript = jest.fn<any>().mockResolvedValue({
@@ -215,30 +234,32 @@ describe('GnosisApiStrategy safeTxServiceUrl integration', () => {
                 },
                 contractDeploys: []
             });
-            
+
             (strategy as any).filterMultisigRequests = jest.fn().mockReturnValue([{
                 to: '0xtargetaddress',
                 value: '0x0',
                 data: '0x'
             }]);
-            
+
             await strategy.requestNew('/path/to/script.sol');
-            
-            // Verify SafeApiKit was called with custom URL
+
+            // Verify SafeApiKit was called with custom URL and undefined API key
             expect(SafeApiKit).toHaveBeenCalledWith({
                 chainId: BigInt(17000),
-                txServiceUrl: customUrl
+                txServiceUrl: customUrl,
+                apiKey: undefined
             });
         });
 
         it('should use custom Safe URL in cancel method', async () => {
             const customUrl = 'https://custom-safe.example.com/api';
-            
+
             mockPrompts.safeTxServiceUrl.mockResolvedValue(customUrl);
+            mockPrompts.safeApiKey.mockResolvedValue(undefined);
             mockPrompts.rpcUrl.mockResolvedValue('https://eth-holesky.example.com');
             mockPrompts.signerKey.mockResolvedValue('0xprivatekey123');
             mockPrompts.checkShouldSignGnosisMessage.mockResolvedValue(undefined);
-            
+
             mockDeploy._.phase = 'multisig_wait_signers';
             mockDeploy._.metadata = {
                 0: {
@@ -248,16 +269,79 @@ describe('GnosisApiStrategy safeTxServiceUrl integration', () => {
                     signer: '0xsigneraddress'
                 }
             };
-            
+
             const strategy = new GnosisEOAApiStrategy(mockDeploy, mockTransaction, undefined);
-            
+
             await strategy.cancel(mockDeploy);
-            
-            // Verify SafeApiKit was called with custom URL for cancel
+
+            // Verify SafeApiKit was called with custom URL and API key for cancel
             expect(SafeApiKit).toHaveBeenCalledWith({
                 chainId: BigInt(17000),
-                txServiceUrl: customUrl
+                txServiceUrl: customUrl,
+                apiKey: undefined
             });
+        });
+    });
+
+    describe('safeApiKey handling', () => {
+        it('should use provided API key when user provides one', async () => {
+            const customUrl = 'https://custom-safe.example.com/api';
+            const apiKey = 'test-api-key-12345';
+
+            mockPrompts.safeTxServiceUrl.mockResolvedValue(customUrl);
+            mockPrompts.safeApiKey.mockResolvedValue(apiKey);
+            mockPrompts.rpcUrl.mockResolvedValue('https://eth-holesky.example.com');
+            mockPrompts.signerKey.mockResolvedValue('0xprivatekey123');
+            mockPrompts.checkShouldSignGnosisMessage.mockResolvedValue(undefined);
+
+            // Mock the runForgeScript method
+            const strategy = new GnosisEOAApiStrategy(mockDeploy, mockTransaction, undefined);
+            (strategy as any).runForgeScript = jest.fn<any>().mockResolvedValue({
+                output: 'script output',
+                stateUpdates: [],
+                safeContext: {
+                    addr: '0xsafeaddress123',
+                    callType: 0
+                },
+                contractDeploys: []
+            });
+
+            (strategy as any).filterMultisigRequests = jest.fn().mockReturnValue([{
+                to: '0xtargetaddress',
+                value: '0x0',
+                data: '0x'
+            }]);
+
+            await strategy.requestNew('/path/to/script.sol');
+
+            // Verify SafeApiKit was called with API key
+            expect(SafeApiKit).toHaveBeenCalledWith({
+                chainId: BigInt(17000),
+                txServiceUrl: customUrl,
+                apiKey: apiKey
+            });
+        });
+
+        it('should cache API key prompt result', async () => {
+            const apiKey = 'test-api-key-12345';
+
+            mockPrompts.safeTxServiceUrl.mockResolvedValue('https://custom-safe.example.com/api');
+            mockPrompts.safeApiKey.mockResolvedValue(apiKey);
+            mockPrompts.rpcUrl.mockResolvedValue('https://eth-holesky.example.com');
+            mockPrompts.signerKey.mockResolvedValue('0xprivatekey123');
+
+            const strategy = new GnosisEOAApiStrategy(mockDeploy, mockTransaction, undefined);
+
+            // First call should trigger the prompt
+            const key1 = await strategy.safeApiKey.get();
+            expect(key1).toBe(apiKey);
+            expect(mockPrompts.safeApiKey).toHaveBeenCalledWith(17000);
+            expect(mockPrompts.safeApiKey).toHaveBeenCalledTimes(1);
+
+            // Second call should return cached value without prompting
+            const key2 = await strategy.safeApiKey.get();
+            expect(key2).toBe(apiKey);
+            expect(mockPrompts.safeApiKey).toHaveBeenCalledTimes(1); // Still only called once
         });
     });
 

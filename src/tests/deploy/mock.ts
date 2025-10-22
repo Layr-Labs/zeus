@@ -146,7 +146,8 @@ await jest.unstable_mockModule('../../commands/prompts', async () => ({
   privateKey: jest.fn<() => Promise<string>>().mockResolvedValue(`0x0`),
   wouldYouLikeToContinue: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
   envVarOrPrompt: jest.fn<() => Promise<string>>().mockResolvedValue(""),
-  etherscanApiKey: jest.fn<typeof oldPrompts['etherscanApiKey']>().mockResolvedValue(false)
+  etherscanApiKey: jest.fn<typeof oldPrompts['etherscanApiKey']>().mockResolvedValue(false),
+  safeApiKey: jest.fn<() => Promise<string | undefined>>().mockResolvedValue(undefined)
 }));
 
 const utilsOld = await import('../../commands/deploy/cmd/utils');
