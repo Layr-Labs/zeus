@@ -20,8 +20,11 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libudev-dev
 
-      - name: Install Dependencies
-        run: (cd site && npm ci) && npm ci
+      - name: Install Dependencies (LavaMoat-gated)
+        run: |
+          cd site && npm ci --ignore-scripts
+          cd .. && npm ci --ignore-scripts
+          npx --yes @lavamoat/allow-scripts
 
       - name: Publish to NPM
         run: npm publish --access public

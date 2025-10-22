@@ -183,3 +183,15 @@ See [LICENSE](https://github.com/Layr-Labs/zeus/blob/master/LICENSE).
 
 
 
+**Secure Builds (LavaMoat)**
+- Local install (deny-by-default): `npm ci --ignore-scripts && npx --yes @lavamoat/allow-scripts`
+- With site assets: `cd site && npm ci --ignore-scripts && cd .. && npm ci --ignore-scripts && npx --yes @lavamoat/allow-scripts`
+- Build commands:
+  - Dev: `npm run build-dev`
+  - Prod: `npm run build-prod`
+  - TypeScript only: `npm run build`
+- Update allowlist if needed: `npm run allow-scripts`, then set only necessary packages to `true` under `lavamoat.allowScripts` in `package.json`. Keep `"$root$": false`.
+- CI pattern (example):
+  - `npm ci --ignore-scripts`
+  - `npx --yes @lavamoat/allow-scripts`
+  - `npm run build-prod`

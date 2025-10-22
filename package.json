@@ -4,6 +4,7 @@
   "description": "web3 deployer / metadata manager",
   "main": "src/index.ts",
   "scripts": {
+    "preinstall": "npx --yes @lavamoat/allow-scripts",
     "build": "tsc",
     "test-coverage": "TS_NODE_PROJECT=tsconfig.json NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" NODE_NO_WARNINGS=1 npx jest --coverage",
     "test": "TS_NODE_PROJECT=tsconfig.json NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" NODE_NO_WARNINGS=1 npx jest --coverage --runInBand",
@@ -16,7 +17,8 @@
     "lint-fix": "eslint src/**/*.ts --fix",
     "watch": "webpack --watch -c webpack.config.dev.cjs",
     "build-dev": "npm run build-site && webpack -c webpack.config.dev.cjs",
-    "build-prod": "npm run build-site && webpack -c webpack.config.prod.cjs"
+    "build-prod": "npm run build-site && webpack -c webpack.config.prod.cjs",
+    "allow-scripts": "npx @lavamoat/allow-scripts auto"
   },
   "bin": {
     "zeus": "./dist/bundle.cjs"
@@ -76,5 +78,21 @@
     "typescript-eslint": "8.19.1",
     "webpack": "5.97.1",
     "webpack-cli": "5.1.4"
+  },
+  "lavamoat": {
+    "allowScripts": {
+      "$root$": false,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>ethereumjs-util>ethereum-cryptography>secp256k1": false,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>ethereumjs-vm>core-js-pure": false,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>keccak": false,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>web3": false,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>web3-provider-engine>eth-block-tracker>json-rpc-engine>babelify>babel-core>babel-runtime>core-js": false,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>websocket>bufferutil": false,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>ganache-core>websocket>utf-8-validate": false,
+      "@foundry-rs/hardhat-anvil>ethereum-waffle>@ethereum-waffle/provider>postinstall-postinstall": false,
+      "@foundry-rs/hardhat-anvil>hardhat>keccak": false,
+      "@ledgerhq/hw-transport-node-hid>node-hid": false,
+      "@ledgerhq/hw-transport-node-hid>usb": false
+    }
   }
 }

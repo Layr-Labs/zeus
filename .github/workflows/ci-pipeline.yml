@@ -21,8 +21,11 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '22'
-      - name: Install dependencies
-        run: (cd site && npm ci) && npm ci
+      - name: Install dependencies (LavaMoat-gated)
+        run: |
+          cd site && npm ci --ignore-scripts
+          cd .. && npm ci --ignore-scripts
+          npx --yes @lavamoat/allow-scripts
       - name: Build Dev
         run: npm run build-dev
 
@@ -38,8 +41,11 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '22'
-      - name: Install dependencies
-        run: (cd site && npm ci) && npm ci
+      - name: Install dependencies (LavaMoat-gated)
+        run: |
+          cd site && npm ci --ignore-scripts
+          cd .. && npm ci --ignore-scripts
+          npx --yes @lavamoat/allow-scripts
       - name: Build Prod
         run: npm run build-prod
 
@@ -55,8 +61,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '22'
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies (LavaMoat-gated)
+        run: |
+          npm ci --ignore-scripts
+          npx --yes @lavamoat/allow-scripts
       - name: Run Linter
         run: npm run lint
 
@@ -72,8 +80,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '22'
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies (LavaMoat-gated)
+        run: |
+          npm ci --ignore-scripts
+          npx --yes @lavamoat/allow-scripts
       - name: Run Tests
         run: npm test
       - name: Upload coverage reports to Codecov
