@@ -1,6 +1,6 @@
 {
   "name": "@layr-labs/zeus",
-  "version": "1.5.12",
+  "version": "1.6.0",
   "description": "web3 deployer / metadata manager",
   "main": "src/index.ts",
   "scripts": {
