@@ -17,13 +17,16 @@ export const checkShouldSignGnosisMessage = async (message: unknown) => {
     }
 }
 
-const cachedAnswers: Record<string, string> = {};
+let cachedAnswers: Record<string, string> = {};
 
 /**
- * Clear all cached prompt answers. Useful for testing.
+ * Test utilities - for testing purposes only.
+ * @internal
  */
-export const clearPromptCache = () => {
-    Object.keys(cachedAnswers).forEach(key => delete cachedAnswers[key]);
+export const __test__ = {
+    clearCache: () => {
+        cachedAnswers = {};
+    }
 };
 
 export const envVarOrPrompt: (args: {

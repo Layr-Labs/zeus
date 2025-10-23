@@ -14,7 +14,8 @@ const prompts = await import('../../commands/prompts');
 describe('safeTxServiceUrl', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        prompts.clearPromptCache();
+        // Clear the internal cache using test utilities
+        prompts.__test__.clearCache();
         // Clear environment variables
         delete process.env.SAFE_TX_SERVICE_URL;
     });
@@ -171,7 +172,8 @@ describe('safeTxServiceUrl', () => {
 describe('envVarOrPrompt', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        prompts.clearPromptCache();
+        // Clear the internal cache using test utilities
+        prompts.__test__.clearCache();
         delete process.env.TEST_VAR;
     });
 
