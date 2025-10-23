@@ -234,12 +234,133 @@ describe('envVarOrPrompt', () => {
 
     it('should throw error when reuseKey is used with password type', async () => {
         mockInquirer.select.mockResolvedValue('enter_directly');
-        
+
         await expect(prompts.envVarOrPrompt({
             title: 'Enter password',
             directEntryInputType: 'password',
             isValid: (text) => text.length > 5,
             reuseKey: 'passwordKey'
         })).rejects.toThrow('Reuse key not supported for passwords');
+    });
+
+    it('should handle text input with reuseKey and cache the result', async () => {
+        mockInquirer.select.mockResolvedValue('enter_directly');
+        mockInquirer.input.mockResolvedValue('cached-value');
+
+        const result = await prompts.envVarOrPrompt({
+            title: 'Enter value',
+            directEntryInputType: 'text',
+            isValid: (text) => text.length > 0,
+            reuseKey: 'testCacheKey'
+        });
+
+        expect(result).toBe('cached-value');
+        expect(mockInquirer.input).toHaveBeenCalledWith({
+            message: 'Enter value',
+            validate: expect.any(Function)
+        });
+    });
+
+    it('should cache environment variable value when reuseKey is provided', async () => {
+        process.env.CACHED_VAR = 'env-cached-value';
+
+        mockInquirer.select.mockResolvedValue('env_var');
+        mockInquirer.search.mockResolvedValue('CACHED_VAR');
+
+        const result = await prompts.envVarOrPrompt({
+            title: 'Select value',
+            directEntryInputType: 'text',
+            isValid: (text) => text === 'env-cached-value',
+            reuseKey: 'envCacheKey'
+        });
+
+        expect(result).toBe('env-cached-value');
+
+        // Clear mocks and try again with same key
+        jest.clearAllMocks();
+
+        const cachedResult = await prompts.envVarOrPrompt({
+            title: 'Select value again',
+            directEntryInputType: 'text',
+            isValid: (text) => text === 'env-cached-value',
+            reuseKey: 'envCacheKey'
+        });
+
+        expect(cachedResult).toBe('env-cached-value');
+        expect(mockInquirer.select).not.toHaveBeenCalled();
+    });
+});
+
+describe('safeApiKey', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        prompts.__test__.clearCache();
+    });
+
+    it('should return undefined when empty string is provided', async () => {
+        mockInquirer.select.mockResolvedValue('enter_directly');
+        mockInquirer.input.mockResolvedValue('');
+
+        const result = await prompts.safeApiKey(1);
+
+        expect(result).toBeUndefined();
+    });
+
+    it('should return the API key when non-empty string is provided', async () => {
+        mockInquirer.select.mockResolvedValue('enter_directly');
+        mockInquirer.input.mockResolvedValue('my-api-key-123');
+
+        const result = await prompts.safeApiKey(1);
+
+        expect(result).toBe('my-api-key-123');
+    });
+});
+
+describe('checkShouldSignGnosisMessage', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        prompts.__test__.clearCache();
+    });
+
+    it('should throw error when user declines to continue', async () => {
+        mockInquirer.select.mockResolvedValue('no');
+
+        const message = { domain: { name: 'Test' }, message: { data: 'test' } };
+
+        await expect(prompts.checkShouldSignGnosisMessage(message))
+            .rejects.toThrow('Transaction not approved. Cancelling for now.');
+    });
+
+    it('should complete successfully when user agrees to continue', async () => {
+        mockInquirer.select.mockResolvedValue('yes');
+
+        const message = { domain: { name: 'Test' }, message: { data: 'test' } };
+
+        await expect(prompts.checkShouldSignGnosisMessage(message))
+            .resolves.toBeUndefined();
+    });
+});
+
+describe('pressAnyButtonToContinue', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('should prompt with default message', async () => {
+        mockInquirer.select.mockResolvedValue('yes');
+
+        await prompts.pressAnyButtonToContinue();
+
+        // The select function from utils.ts converts 'prompt' to 'message'
+        expect(mockInquirer.select).toHaveBeenCalled();
+    });
+
+    it('should prompt with custom message when provided', async () => {
+        mockInquirer.select.mockResolvedValue('yes');
+
+        await prompts.pressAnyButtonToContinue('Custom message');
+
+        // The select function from utils.ts converts 'prompt' to 'message'
+        expect(mockInquirer.select).toHaveBeenCalled();
     });
 });

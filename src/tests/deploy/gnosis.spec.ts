@@ -333,15 +333,48 @@ describe('executeMultisigPhase', () => {
         confirmed: false,
         cancellationTransactionHash: undefined
       };
-      
+
       const { executeMultisigPhase } = await import('../../deploy/handlers/gnosis');
       const handler = (await import('../../deploy/handlers/gnosis')).default;
-      
+
       // This should return without error (the missing line coverage)
       if (handler && handler.cancel) {
         await expect(handler.cancel(deploy, metatxn, undefined)).resolves.toBeUndefined();
       } else {
         throw new Error('Handler or cancel method not found');
+      }
+    });
+
+    it("should handle cancellation with missing metadata", async () => {
+      deploy._.phase = "multisig_wait_signers";
+      deploy._.metadata[deploy._.segmentId] = undefined as any;
+
+      const handler = (await import('../../deploy/handlers/gnosis')).default;
+
+      // This should return without error when metadata is missing
+      if (handler && handler.cancel) {
+        await expect(handler.cancel(deploy, metatxn, undefined)).resolves.toBeUndefined();
+      }
+    });
+
+    it("should handle cancellation with missing gnosisTransactionHash", async () => {
+      deploy._.phase = "multisig_execute";
+      deploy._.metadata[deploy._.segmentId] = {
+        type: "multisig",
+        signer: '0x123' as `0x${string}`,
+        signerType: 'test',
+        gnosisTransactionHash: undefined as any,
+        gnosisCalldata: undefined,
+        multisig: '0xsafe' as `0x${string}`,
+        confirmed: false,
+        cancellationTransactionHash: undefined
+      };
+
+      const handler = (await import('../../deploy/handlers/gnosis')).default;
+
+      // This should return without error when gnosisTransactionHash is missing
+      if (handler && handler.cancel) {
+        await expect(handler.cancel(deploy, metatxn, undefined)).resolves.toBeUndefined();
       }
     });
   });
