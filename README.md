@@ -44,6 +44,13 @@ Zeus integrates with `forge`, and adds:
 4. `zeus init` -- when prompted for your metadata repo, provide the repo from step 0.
 5. `zeus env new` -- create your first environment to deploy your contracts into.
 
+## API Keys
+
+Certain upgrade steps require API Keys:
+
+- Etherscan API Key: Verifying contracts. You can get a key [here](https://docs.etherscan.io/getting-an-api-key). 
+- Gnosis Safe API Key: Interacting with Safe Tx Service API. You can get a key [here](https://docs.safe.global/core-api/how-to-use-api-keys).
+
 # Getting Started
 
 Check out our examples in the [Documentation](https://layr-labs.github.io/zeus/migrations/first-migration).

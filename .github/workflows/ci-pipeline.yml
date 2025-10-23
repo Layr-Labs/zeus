@@ -16,7 +16,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Install deps
-        run: sudo apt-get install libusb-1.0-0-dev libudev-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libusb-1.0-0-dev libudev-dev
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -36,7 +38,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Install deps
-        run: sudo apt-get install libusb-1.0-0-dev libudev-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libusb-1.0-0-dev libudev-dev
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -56,7 +60,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Install deps
-        run: sudo apt-get install libusb-1.0-0-dev libudev-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libusb-1.0-0-dev libudev-dev
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -75,7 +81,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Install deps
-        run: sudo apt-get install libusb-1.0-0-dev libudev-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libusb-1.0-0-dev libudev-dev
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:

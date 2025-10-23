@@ -14,12 +14,16 @@ import * as prompts from '../../../../commands/prompts';
 
 export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
     safeTxServiceUrl: ICachedArg<string | undefined>
+    safeApiKey: ICachedArg<string | undefined>
 
     constructor(deploy: SavebleDocument<TDeploy>, transaction: Transaction, options?: TStrategyOptions) {
         super(deploy, transaction, options);
         this.safeTxServiceUrl = this.arg(async () => {
             const defaultUrl = overrideTxServiceUrlForChainId(deploy._.chainId);
             return await prompts.safeTxServiceUrl(deploy._.chainId, defaultUrl);
+        });
+        this.safeApiKey = this.arg(async () => {
+            return await prompts.safeApiKey(deploy._.chainId);
         });
     }
 
@@ -127,6 +131,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
         const apiKit = new SafeApiKit({
             chainId: BigInt(this.deploy._.chainId),
             txServiceUrl: await this.safeTxServiceUrl.get(),
+            apiKey: await this.safeApiKey.get(),
         })
 
         const protocolKitOwner1 = await Safe.init({
@@ -207,6 +212,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
                 const apiKit = new SafeApiKit({
                     chainId: BigInt(deploy._.chainId),
                     txServiceUrl: await this.safeTxServiceUrl.get(),
+                    apiKey: await this.safeApiKey.get(),
                 })
                 const tx = await apiKit.getTransaction(metadata.gnosisTransactionHash);
                 if (tx.isExecuted) {
@@ -216,7 +222,7 @@ export abstract class GnosisApiStrategy extends GnosisSigningStrategy {
                 // prompt for another strategy, which will be used to sign.
                 console.log(`To cancel this transaction, you'll need to submit a rejection transaction to replace the current multisig txn.`)
 
-                const rejectionTxn = await protocolKitOwner1.createRejectionTransaction(tx.nonce);
+                const rejectionTxn = await protocolKitOwner1.createRejectionTransaction(Number(tx.nonce));
                 const hash = await protocolKitOwner1.getTransactionHash(rejectionTxn) as `0x${string}`;
                 const safeVersion = await protocolKitOwner1.getContractVersion();
 

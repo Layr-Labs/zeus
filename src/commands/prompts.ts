@@ -17,7 +17,17 @@ export const checkShouldSignGnosisMessage = async (message: unknown) => {
     }
 }
 
-const cachedAnswers: Record<string, string> = {};
+let cachedAnswers: Record<string, string> = {};
+
+/**
+ * Test utilities - for testing purposes only.
+ * @internal
+ */
+export const __test__ = {
+    clearCache: () => {
+        cachedAnswers = {};
+    }
+};
 
 export const envVarOrPrompt: (args: {
     title: string,
@@ -230,6 +240,18 @@ export const chainIdName = (chainId: number) => {
 };
 
 export const safeTxServiceUrl = async (chainId: number, defaultUrl: string | undefined) => {
+    // Check if we have a cached custom URL first
+    const cachedCustomUrl = cachedAnswers[`safe-tx-service-url`];
+    if (cachedCustomUrl !== undefined) {
+        return cachedCustomUrl;
+    }
+
+    // Check if we have a cached default choice
+    const cachedChoice = cachedAnswers[`safe-tx-service-url-choice`];
+    if (cachedChoice === 'default') {
+        return defaultUrl;
+    }
+
     const useCustom = await select({
         prompt: "What Safe URL would you like to use?",
         choices: [{
@@ -242,10 +264,11 @@ export const safeTxServiceUrl = async (chainId: number, defaultUrl: string | und
             description: 'Use a custom Safe API URL'
         }]
     });
-    
+
     if (useCustom === 'custom') {
         return await envVarOrPrompt({
             title: `Enter custom Safe API URL for ${chainIdName(chainId)}`,
+            reuseKey: `safe-tx-service-url`,
             isValid: (text) => {
                 try {
                     let url: string = text;
@@ -262,8 +285,27 @@ export const safeTxServiceUrl = async (chainId: number, defaultUrl: string | und
             envVarSearchMessage: 'Choose an environment variable with a Safe API URL'
         });
     }
-    
+
+    // Cache the default choice
+    cachedAnswers[`safe-tx-service-url-choice`] = 'default';
     return defaultUrl;
+};
+
+export const safeApiKey = async (chainId: number) => {
+    const result = await envVarOrPrompt({
+        title: `Enter Safe API Key for ${chainIdName(chainId)}`,
+        reuseKey: `safe-api-key`,
+        isValid: (text) => {
+            if (text === '') {
+                return true;
+            }
+            return text.length > 0;
+        },
+        directEntryInputType: 'text',
+        envVarSearchMessage: 'Choose an environment variable with a Safe API Key'
+    });
+
+    return result === '' ? undefined : result;
 };
 
 export const rpcUrl = async (forChainId: number) => {

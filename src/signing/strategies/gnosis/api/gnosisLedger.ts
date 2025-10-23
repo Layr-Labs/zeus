@@ -1,6 +1,6 @@
 import { GnosisApiStrategy } from "./gnosisApi";
 import { SafeTransaction } from '@safe-global/types-kit';
-import { getEip712TxTypes } from "@safe-global/protocol-kit/dist/src/utils/eip-712/index"
+import { getEip712TxTypes } from "@safe-global/protocol-kit"
 import { checkShouldSignGnosisMessage, pressAnyButtonToContinue } from "../../../../commands/prompts";
 import { createPublicClient, getContract, hashTypedData, http } from "viem";
 import { ICachedArg, TStrategyOptions } from "../../../strategy";

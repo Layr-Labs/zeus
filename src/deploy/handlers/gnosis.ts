@@ -3,7 +3,6 @@ import { existsSync, readFileSync } from "fs";
 import ora from "ora";
 import chalk from "chalk";
 import { createPublicClient, http } from "viem";
-const {default: SafeApiKit} = await import(`@safe-global/api-kit`)
 import { SafeMultisigTransactionResponse} from '@safe-global/types-kit';
 import { SavebleDocument, Transaction } from "../../metadata/metadataStore";
 import { HaltDeployError, PauseDeployError, TGnosisRequest, TStrategyOptions } from "../../signing/strategy";
@@ -20,6 +19,19 @@ import { runTest } from "../../signing/strategies/test";
 import * as prompts from '../../commands/prompts';
 import { configs } from "../../commands/configs";
 import { computeFairHash } from "../../commands/deploy/utils";
+
+async function loadSafeApiKit(): Promise<any> {
+    try {
+        if (process.env.JEST_WORKER_ID) {
+            const mockMod = await import('../../../__mocks__/@safe-global/api-kit');
+            return mockMod.default;
+        }
+    } catch {
+        // ignore and fall through to real module
+    }
+    const realMod = await import('@safe-global/api-kit');
+    return realMod.default;
+}
 
 export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, metatxn: Transaction, options: TStrategyOptions | undefined): Promise<void> {
     let multisigStrategy: GnosisSigningStrategy | undefined = undefined;
@@ -188,7 +200,9 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
 
             const defaultUrl = overrideTxServiceUrlForChainId(deploy._.chainId);
             const safeTxServiceUrl = await prompts.safeTxServiceUrl(deploy._.chainId, defaultUrl);
-            const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: safeTxServiceUrl})
+            const safeApiKey = await prompts.safeApiKey(deploy._.chainId);
+            const SafeApiKitCtor = await loadSafeApiKit();
+            const safeApi = new SafeApiKitCtor({chainId: BigInt(deploy._.chainId), txServiceUrl: safeTxServiceUrl, apiKey: safeApiKey})
             const multisigTxn = await safeApi.getTransaction(safeTxHash);
             
             if (multisigTxn.confirmations?.length === multisigTxn.confirmationsRequired) {
@@ -220,7 +234,9 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
             }
             const defaultUrl = overrideTxServiceUrlForChainId(deploy._.chainId);
             const safeTxServiceUrl = await prompts.safeTxServiceUrl(deploy._.chainId, defaultUrl);
-            const safeApi = new SafeApiKit({chainId: BigInt(deploy._.chainId), txServiceUrl: safeTxServiceUrl})
+            const safeApiKey = await prompts.safeApiKey(deploy._.chainId);
+            const SafeApiKitCtor = await loadSafeApiKit();
+            const safeApi = new SafeApiKitCtor({chainId: BigInt(deploy._.chainId), txServiceUrl: safeTxServiceUrl, apiKey: safeApiKey})
             const multisigTxn = await safeApi.getTransaction(safeTxHash);
 
             const multisigTxnPersist = await metatxn.getJSONFile(canonicalPaths.multisigTransaction({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: deploy._.segmentId}))
