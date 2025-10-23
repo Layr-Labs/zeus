@@ -1,4 +1,4 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 
 // Mock the external prompts library
 jest.unstable_mockModule('@inquirer/prompts', () => ({
@@ -152,6 +152,47 @@ describe('safeTxServiceUrl', () => {
                 delete process.env.TEST_URL;
                 expect(validateFn('$TEST_URL')).toBe(false);
             }
+        });
+    });
+
+    describe('caching behavior', () => {
+        it('should return cached custom URL on subsequent calls', async () => {
+            const customUrl = 'https://cached-safe-api.example.com/api';
+            
+            // First call - user selects custom and enters URL
+            mockInquirer.select
+                .mockResolvedValueOnce('custom')
+                .mockResolvedValueOnce('enter_directly');
+            mockInquirer.input.mockResolvedValue(customUrl);
+            
+            const firstResult = await prompts.safeTxServiceUrl(1, 'https://default.com');
+            expect(firstResult).toBe(customUrl);
+            
+            // Clear mocks to verify no new prompts on second call
+            jest.clearAllMocks();
+            
+            // Second call - should return cached value without prompting
+            const secondResult = await prompts.safeTxServiceUrl(1, 'https://default.com');
+            expect(secondResult).toBe(customUrl);
+            expect(mockInquirer.select).not.toHaveBeenCalled();
+        });
+
+        it('should return default URL from cache on subsequent calls', async () => {
+            const defaultUrl = 'https://default-safe-api.example.com/api';
+            
+            // First call - user selects default
+            mockInquirer.select.mockResolvedValue('default');
+            
+            const firstResult = await prompts.safeTxServiceUrl(1, defaultUrl);
+            expect(firstResult).toBe(defaultUrl);
+            
+            // Clear mocks to verify no new prompts on second call
+            jest.clearAllMocks();
+            
+            // Second call - should return cached default choice
+            const secondResult = await prompts.safeTxServiceUrl(1, defaultUrl);
+            expect(secondResult).toBe(defaultUrl);
+            expect(mockInquirer.select).not.toHaveBeenCalled();
         });
     });
 
@@ -362,5 +403,120 @@ describe('pressAnyButtonToContinue', () => {
 
         // The select function from utils.ts converts 'prompt' to 'message'
         expect(mockInquirer.select).toHaveBeenCalled();
+    });
+});
+
+describe('rpcUrl', () => {
+    const originalFetch = global.fetch;
+    
+    beforeEach(() => {
+        jest.clearAllMocks();
+        prompts.__test__.clearCache();
+    });
+
+    afterEach(() => {
+        global.fetch = originalFetch;
+    });
+
+    it('should return RPC URL when chain ID matches', async () => {
+        const expectedUrl = 'https://mainnet.infura.io/v3/abc123';
+        const expectedChainId = 1;
+
+        // Mock fetch to return the correct chain ID
+        const mockFetch = jest.fn<typeof fetch>(() => 
+            Promise.resolve({
+                json: () => Promise.resolve({
+                    result: '0x1' // Chain ID 1 in hex
+                })
+            } as any)
+        );
+        (global as any).fetch = mockFetch;
+
+        mockInquirer.select.mockResolvedValue('enter_directly');
+        mockInquirer.input.mockResolvedValue(expectedUrl);
+
+        const result = await prompts.rpcUrl(expectedChainId);
+
+        expect(result).toBe(expectedUrl);
+        expect(mockFetch).toHaveBeenCalledWith(expectedUrl, expect.objectContaining({
+            method: 'POST',
+            body: expect.stringContaining('eth_chainId')
+        }));
+    });
+
+    it('should retry when chain ID does not match', async () => {
+        const wrongUrl = 'https://goerli.infura.io/v3/abc123';
+        const correctUrl = 'https://mainnet.infura.io/v3/abc123';
+        const expectedChainId = 1;
+
+        // Mock fetch to return wrong chain ID first, then correct one
+        const mockFetch = jest.fn<typeof fetch>()
+            .mockImplementationOnce(() => Promise.resolve({
+                json: () => Promise.resolve({ result: '0x5' }) // Chain ID 5 (Goerli) in hex
+            } as any))
+            .mockImplementationOnce(() => Promise.resolve({
+                json: () => Promise.resolve({ result: '0x1' }) // Chain ID 1 (Mainnet) in hex
+            } as any));
+        (global as any).fetch = mockFetch;
+
+        // First call gets wrong chain, second call gets correct chain
+        mockInquirer.select
+            .mockResolvedValueOnce('enter_directly')
+            .mockResolvedValueOnce('enter_directly');
+        mockInquirer.input
+            .mockResolvedValueOnce(wrongUrl)
+            .mockResolvedValueOnce(correctUrl);
+
+        const result = await prompts.rpcUrl(expectedChainId);
+
+        expect(result).toBe(correctUrl);
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        expect(mockInquirer.input).toHaveBeenCalledTimes(2);
+    });
+
+    it('should use cached RPC URL on first attempt', async () => {
+        const cachedUrl = 'https://cached-rpc.example.com';
+        const expectedChainId = 1;
+
+        const mockFetch1 = jest.fn<typeof fetch>(() =>
+            Promise.resolve({
+                json: () => Promise.resolve({ result: '0x1' })
+            } as any)
+        );
+        (global as any).fetch = mockFetch1;
+
+        mockInquirer.select.mockResolvedValue('enter_directly');
+        mockInquirer.input.mockResolvedValue(cachedUrl);
+
+        // First call - sets cache
+        const firstResult = await prompts.rpcUrl(expectedChainId);
+        expect(firstResult).toBe(cachedUrl);
+
+        // Clear mocks
+        jest.clearAllMocks();
+        prompts.__test__.clearCache();
+
+        // Mock wrong chain ID to trigger retry
+        const mockFetch2 = jest.fn<typeof fetch>()
+            .mockImplementationOnce(() => Promise.resolve({
+                json: () => Promise.resolve({ result: '0x5' }) // Wrong chain
+            } as any))
+            .mockImplementationOnce(() => Promise.resolve({
+                json: () => Promise.resolve({ result: '0x1' }) // Correct chain
+            } as any));
+        (global as any).fetch = mockFetch2;
+
+        const retryUrl = 'https://retry-rpc.example.com';
+        mockInquirer.select
+            .mockResolvedValueOnce('enter_directly')
+            .mockResolvedValueOnce('enter_directly');
+        mockInquirer.input
+            .mockResolvedValueOnce(cachedUrl) // First attempt uses cache (attempt=0)
+            .mockResolvedValueOnce(retryUrl);  // Second attempt no cache (attempt=1)
+
+        const secondResult = await prompts.rpcUrl(expectedChainId);
+        
+        expect(secondResult).toBe(retryUrl);
+        expect(mockInquirer.input).toHaveBeenCalledTimes(2);
     });
 });
