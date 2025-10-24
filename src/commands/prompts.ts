@@ -309,11 +309,10 @@ export const safeApiKey = async (chainId: number) => {
 };
 
 export const rpcUrl = async (forChainId: number) => {
-    let attempt = 0;
     while (true) {
         const result = await envVarOrPrompt({
             title: `Enter an RPC url (or $ENV_VAR) for ${chainIdName(forChainId)}`,
-            reuseKey: attempt === 0 ? `node-url` : undefined,
+            reuseKey: `node-url`,
             isValid: (text) => {
                 try {
                     let url: string = text;
@@ -330,11 +329,12 @@ export const rpcUrl = async (forChainId: number) => {
             directEntryInputType: 'text',
             envVarSearchMessage: 'Enter a node url'
         })
-        attempt++;
         
         const chainId = await getChainId(result);
         if (chainId !== forChainId) {
             console.error(chalk.red(`This node is for an incorrect network (expected chainId=${chainIdName(forChainId)}, got ${chainIdName(chainId)})\n\n`));
+            // Clear the cached value so we don't reuse the bad URL
+            delete cachedAnswers['node-url'];
             continue;
         }
         

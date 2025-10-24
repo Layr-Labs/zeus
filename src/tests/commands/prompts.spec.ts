@@ -474,49 +474,144 @@ describe('rpcUrl', () => {
         expect(mockInquirer.input).toHaveBeenCalledTimes(2);
     });
 
-    it('should use cached RPC URL on first attempt', async () => {
-        const cachedUrl = 'https://cached-rpc.example.com';
+    it('should cache correct RPC URL for reuse', async () => {
+        const correctUrl = 'https://mainnet.infura.io/v3/abc123';
         const expectedChainId = 1;
 
-        const mockFetch1 = jest.fn<typeof fetch>(() =>
+        const mockFetch = jest.fn<typeof fetch>(() =>
             Promise.resolve({
                 json: () => Promise.resolve({ result: '0x1' })
             } as any)
         );
-        (global as any).fetch = mockFetch1;
+        (global as any).fetch = mockFetch;
 
         mockInquirer.select.mockResolvedValue('enter_directly');
-        mockInquirer.input.mockResolvedValue(cachedUrl);
+        mockInquirer.input.mockResolvedValue(correctUrl);
 
         // First call - sets cache
         const firstResult = await prompts.rpcUrl(expectedChainId);
-        expect(firstResult).toBe(cachedUrl);
+        expect(firstResult).toBe(correctUrl);
+        expect(mockInquirer.input).toHaveBeenCalledTimes(1);
 
-        // Clear mocks
+        // Clear mocks to verify no new prompts
         jest.clearAllMocks();
-        prompts.__test__.clearCache();
 
-        // Mock wrong chain ID to trigger retry
-        const mockFetch2 = jest.fn<typeof fetch>()
+        // Second call - should use cached value
+        const secondResult = await prompts.rpcUrl(expectedChainId);
+        expect(secondResult).toBe(correctUrl);
+        expect(mockInquirer.select).not.toHaveBeenCalled();
+        expect(mockInquirer.input).not.toHaveBeenCalled();
+    });
+
+    it('should NOT cache wrong chain URL and should cache correct URL after retry', async () => {
+        const wrongUrl = 'https://mainnet-ethereum.infura.io/v3/wrong';
+        const correctUrl = 'https://sepolia.infura.io/v3/correct';
+        const expectedChainId = 11155111; // Sepolia
+
+        // Mock fetch to return wrong chain ID first (Ethereum), then correct one (Sepolia)
+        const mockFetch = jest.fn<typeof fetch>()
             .mockImplementationOnce(() => Promise.resolve({
-                json: () => Promise.resolve({ result: '0x5' }) // Wrong chain
+                json: () => Promise.resolve({ result: '0x1' }) // Chain ID 1 (Ethereum) in hex
             } as any))
             .mockImplementationOnce(() => Promise.resolve({
-                json: () => Promise.resolve({ result: '0x1' }) // Correct chain
+                json: () => Promise.resolve({ result: '0xaa36a7' }) // Chain ID 11155111 (Sepolia) in hex
             } as any));
-        (global as any).fetch = mockFetch2;
+        (global as any).fetch = mockFetch;
 
-        const retryUrl = 'https://retry-rpc.example.com';
+        // User enters wrong URL, then correct URL
         mockInquirer.select
             .mockResolvedValueOnce('enter_directly')
             .mockResolvedValueOnce('enter_directly');
         mockInquirer.input
-            .mockResolvedValueOnce(cachedUrl) // First attempt uses cache (attempt=0)
-            .mockResolvedValueOnce(retryUrl);  // Second attempt no cache (attempt=1)
+            .mockResolvedValueOnce(wrongUrl)
+            .mockResolvedValueOnce(correctUrl);
 
-        const secondResult = await prompts.rpcUrl(expectedChainId);
-        
-        expect(secondResult).toBe(retryUrl);
+        const firstResult = await prompts.rpcUrl(expectedChainId);
+
+        expect(firstResult).toBe(correctUrl);
+        expect(mockFetch).toHaveBeenCalledTimes(2);
         expect(mockInquirer.input).toHaveBeenCalledTimes(2);
+
+        // Clear mocks
+        jest.clearAllMocks();
+
+        // Mock fetch for cached call
+        const mockFetch2 = jest.fn<typeof fetch>(() =>
+            Promise.resolve({
+                json: () => Promise.resolve({ result: '0xaa36a7' }) // Sepolia
+            } as any)
+        );
+        (global as any).fetch = mockFetch2;
+
+        // Second call - should use cached CORRECT URL, not prompt again
+        const secondResult = await prompts.rpcUrl(expectedChainId);
+        expect(secondResult).toBe(correctUrl);
+        expect(mockInquirer.select).not.toHaveBeenCalled();
+        expect(mockInquirer.input).not.toHaveBeenCalled();
+        // Should still validate the cached URL
+        expect(mockFetch2).toHaveBeenCalledTimes(1);
+    });
+
+    it('should clear cache when wrong chain is detected and re-prompt', async () => {
+        const wrongUrl1 = 'https://mainnet.infura.io/v3/wrong1';
+        const wrongUrl2 = 'https://goerli.infura.io/v3/wrong2';
+        const correctUrl = 'https://sepolia.infura.io/v3/correct';
+        const expectedChainId = 11155111; // Sepolia
+
+        // Mock fetch to return wrong chain IDs, then correct one
+        const mockFetch = jest.fn<typeof fetch>()
+            .mockImplementationOnce(() => Promise.resolve({
+                json: () => Promise.resolve({ result: '0x1' }) // Ethereum
+            } as any))
+            .mockImplementationOnce(() => Promise.resolve({
+                json: () => Promise.resolve({ result: '0x5' }) // Goerli
+            } as any))
+            .mockImplementationOnce(() => Promise.resolve({
+                json: () => Promise.resolve({ result: '0xaa36a7' }) // Sepolia
+            } as any));
+        (global as any).fetch = mockFetch;
+
+        // User enters multiple wrong URLs, then correct URL
+        mockInquirer.select
+            .mockResolvedValueOnce('enter_directly')
+            .mockResolvedValueOnce('enter_directly')
+            .mockResolvedValueOnce('enter_directly');
+        mockInquirer.input
+            .mockResolvedValueOnce(wrongUrl1)
+            .mockResolvedValueOnce(wrongUrl2)
+            .mockResolvedValueOnce(correctUrl);
+
+        const result = await prompts.rpcUrl(expectedChainId);
+
+        expect(result).toBe(correctUrl);
+        expect(mockFetch).toHaveBeenCalledTimes(3);
+        expect(mockInquirer.input).toHaveBeenCalledTimes(3);
+    });
+
+    it('should use environment variable for RPC URL', async () => {
+        const envUrl = 'https://env-rpc.example.com';
+        process.env.RPC_URL = envUrl;
+        const expectedChainId = 1;
+
+        const mockFetch = jest.fn<typeof fetch>(() =>
+            Promise.resolve({
+                json: () => Promise.resolve({ result: '0x1' })
+            } as any)
+        );
+        (global as any).fetch = mockFetch;
+
+        mockInquirer.select.mockResolvedValue('env_var');
+        mockInquirer.search.mockResolvedValue('RPC_URL');
+
+        const result = await prompts.rpcUrl(expectedChainId);
+
+        expect(result).toBe(envUrl);
+        expect(mockInquirer.search).toHaveBeenCalledWith({
+            message: 'Enter a node url',
+            source: expect.any(Function),
+            validate: expect.any(Function)
+        });
+
+        delete process.env.RPC_URL;
     });
 });
