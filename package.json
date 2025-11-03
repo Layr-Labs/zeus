@@ -1,10 +1,10 @@
 {
   "name": "@layr-labs/zeus",
-  "version": "1.6.3",
+  "version": "1.6.4-rc.0",
   "description": "web3 deployer / metadata manager",
   "main": "src/index.ts",
   "scripts": {
-    "preinstall": "npx --yes --package=@lavamoat/allow-scripts allow-scripts auto",
+    "postinstall": "allow-scripts auto",
     "build": "tsc",
     "test-coverage": "TS_NODE_PROJECT=tsconfig.json NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" NODE_NO_WARNINGS=1 npx jest --coverage",
     "test": "TS_NODE_PROJECT=tsconfig.json NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" NODE_NO_WARNINGS=1 npx jest --coverage --runInBand",
@@ -18,7 +18,7 @@
     "watch": "webpack --watch -c webpack.config.dev.cjs",
     "build-dev": "npm run build-site && webpack -c webpack.config.dev.cjs",
     "build-prod": "npm run build-site && webpack -c webpack.config.prod.cjs",
-    "allow-scripts": "npx @lavamoat/allow-scripts auto"
+    "allow-scripts": "allow-scripts auto"
   },
   "bin": {
     "zeus": "dist/bundle.cjs"
