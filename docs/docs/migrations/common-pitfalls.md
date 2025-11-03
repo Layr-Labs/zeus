@@ -30,6 +30,18 @@ foundryup -v 0.2.0 # Replace with your team's agreed version
 
 Add the Forge version to your project documentation and consider adding a check in your CI/CD pipeline to verify the correct version is being used.
 
+## Verification Failure
+
+### Problem
+
+When on the same commit hash, verifying a deployment can fail if the metadata hash locally does not match the metadata hash of the contract that is deployed.
+
+### Solution
+
+Option 1: In your `foundry.toml` set `bytecode_hash = "none"`. 
+
+Option 2: Pin solc version in `foundry.toml`. 
+
 ## Working on Different Git Commits
 
 ### Problem
