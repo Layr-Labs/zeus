@@ -1,10 +1,10 @@
 {
   "name": "@layr-labs/zeus",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "description": "web3 deployer / metadata manager",
   "main": "src/index.ts",
   "scripts": {
-    "preinstall": "npx --yes @lavamoat/allow-scripts",
+    "preinstall": "npx --yes --package=@lavamoat/allow-scripts allow-scripts auto",
     "build": "tsc",
     "test-coverage": "TS_NODE_PROJECT=tsconfig.json NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" NODE_NO_WARNINGS=1 npx jest --coverage",
     "test": "TS_NODE_PROJECT=tsconfig.json NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" NODE_NO_WARNINGS=1 npx jest --coverage --runInBand",
