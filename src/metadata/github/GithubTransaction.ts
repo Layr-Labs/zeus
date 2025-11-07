@@ -2,6 +2,16 @@ import { Transaction, SavebleDocument, TDirectory } from "../metadataStore";
 import { Octokit } from 'octokit';
 import { GithubJsonDocument } from "./GithubJsonDocument";
 
+const CREATE_COMMIT_ON_BRANCH_MUTATION = `
+    mutation($input: CreateCommitOnBranchInput!) {
+        createCommitOnBranch(input: $input) {
+            commit {
+                oid
+            }
+        }
+    }
+` as const;
+
 export class GithubTransaction implements Transaction {
     //  the commit that all changes are being made against
     baseCommitHash = '';
@@ -55,39 +65,44 @@ export class GithubTransaction implements Transaction {
             return;
         }
 
-        const { data: commitData } = await this.octokit.rest.git.getCommit({
-            ...ghArgs,
-            commit_sha: this.baseCommitHash,
-        });
-        const baseTreeSha = commitData.tree.sha; // This is the tree of the base commit
-        const tree = changedFiles.map((file) => ({
+        const additions = changedFiles.map((file) => ({
             path: file.path,
-            mode: '100644', // File mode for regular files
-            type: 'blob',
-            content: file.pendingSaveableContents(), // The new content for the file
-          } as const));
+            contents: Buffer.from(file.pendingSaveableContents(), 'utf8').toString('base64'),
+        }));
 
-        const { data: newTreeData } = await this.octokit.rest.git.createTree({
-            ...ghArgs,
-            base_tree: baseTreeSha, // The base tree to build upon
-            tree,
-        });
-    
-        // Create a new commit with the new tree
-        const { data: newCommitData } = await this.octokit.rest.git.createCommit({
-            ...ghArgs,
-            message: log,
-            tree: newTreeData.sha,
-            parents: [this.baseCommitHash], // Your existing base commit is the parent of the new commit
-        });
-        await this.octokit.rest.git.updateRef({
-            ...ghArgs,
-            ref: `heads/${this.branch}`,
-            sha: newCommitData.sha,
+        const [headline, ...bodyLines] = (log ?? '').split('\n');
+        const messageHeadline = headline && headline.trim().length > 0 ? headline : 'Update metadata';
+        const body = bodyLines.join('\n').trim();
+        const messageInput: { headline: string; body?: string } = { headline: messageHeadline };
+        if (body.length > 0) {
+            messageInput.body = body;
+        }
+
+        type TCreateCommitResponse = {
+            createCommitOnBranch: {
+                commit: {
+                    oid: string;
+                };
+            };
+        };
+
+        const result = await this.octokit.graphql<TCreateCommitResponse>(CREATE_COMMIT_ON_BRANCH_MUTATION, {
+            input: {
+                branch: {
+                    repositoryNameWithOwner: `${this.owner}/${this.repo}`,
+                    branchName: this.branch,
+                },
+                fileChanges: {
+                    additions,
+                },
+                expectedHeadOid: this.baseCommitHash,
+                message: messageInput,
+            },
         });
 
+        const newCommitSha = result.createCommitOnBranch.commit.oid;
         this._files.forEach(f => f.wasSavedOptimistically()); // indicate that all of these have been updated.
-        this.baseCommitHash = newCommitData.sha;
+        this.baseCommitHash = newCommitSha;
     }
 
     async getFileContents(path: string): Promise<string | undefined> {
