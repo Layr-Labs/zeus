@@ -8,21 +8,20 @@ import type { GithubTransaction } from '../../metadata/github/GithubTransaction'
 describe('GithubTransaction', () => {
     let mockOctokitInstance: jest.Mocked<Octokit>;
     let githubTransaction: Transaction;
+    let graphqlMock: jest.Mock;
 
     beforeEach(() => {
+        graphqlMock = jest.fn();
         mockOctokitInstance = {
             rest: {
                 git: {
                     getRef: jest.fn(),
-                    getCommit: jest.fn(),
-                    createTree: jest.fn(),
-                    createCommit: jest.fn(),
-                    updateRef: jest.fn(),
                 },
                 repos: {
                     getContent: jest.fn(),
                 },
             },
+            graphql: Object.assign(graphqlMock, { paginate: jest.fn() }),
         } as unknown as jest.Mocked<Octokit>;
 
         githubTransaction = new GHT.GithubTransaction(
@@ -53,30 +52,73 @@ describe('GithubTransaction', () => {
         // @ts-expect-error not-full-type
         mockOctokitInstance.rest.git.getRef.mockResolvedValue({ data: { object: { sha: 'baseCommitHash' } } });
 
-        // @ts-expect-error not-full-type
-        mockOctokitInstance.rest.git.getCommit.mockResolvedValue({ data: { tree: { sha: 'baseTreeSha' } } });
-
-        // @ts-expect-error not-full-type
-        mockOctokitInstance.rest.git.createTree.mockResolvedValue({ data: { sha: 'newTreeSha' } });
-
-        // @ts-expect-error not-full-type
-        mockOctokitInstance.rest.git.createCommit.mockResolvedValue({ data: { sha: 'newCommitSha' } });
-
-        // @ts-expect-error not-full-type
-        mockOctokitInstance.rest.git.updateRef.mockResolvedValue({});
+        graphqlMock.mockImplementation(async () => ({
+            createCommitOnBranch: {
+                commit: {
+                    oid: 'newCommitSha',
+                },
+            },
+        }));
 
         await githubTransaction.commit('Commit log message');
 
         expect(mockOctokitInstance.rest.git.getRef).toHaveBeenCalled();
-        expect(mockOctokitInstance.rest.git.getCommit).toHaveBeenCalled();
-        expect(mockOctokitInstance.rest.git.createTree).toHaveBeenCalled();
-        expect(mockOctokitInstance.rest.git.createCommit).toHaveBeenCalled();
-        expect(mockOctokitInstance.rest.git.updateRef).toHaveBeenCalledWith(
-            expect.objectContaining({
-                ref: 'heads/branch',
-                sha: 'newCommitSha',
-            })
-        );
+        expect(graphqlMock).toHaveBeenCalled();
+        expect((githubTransaction as GithubTransaction)._files[0].wasSavedOptimistically).toHaveBeenCalled();
+    });
+
+    it('deduplicates file additions by path before committing', async () => {
+        const firstFile = {
+            dirty: true,
+            save: jest.fn(async () => {}),
+            contents: 'old',
+            _: {},
+            upToDate: false,
+            path: 'filePath',
+            pendingSaveableContents: jest.fn(() => 'first-content'),
+            wasSavedOptimistically: jest.fn(),
+        } as unknown as SavebleDocument<unknown>;
+
+        const secondFile = {
+            dirty: true,
+            save: jest.fn(async () => {}),
+            contents: 'new',
+            _: {},
+            upToDate: false,
+            path: 'filePath',
+            pendingSaveableContents: jest.fn(() => 'second-content'),
+            wasSavedOptimistically: jest.fn(),
+        } as unknown as SavebleDocument<unknown>;
+
+        (githubTransaction as GithubTransaction)._files = [firstFile, secondFile];
+
+        // @ts-expect-error not-full-type
+        mockOctokitInstance.rest.git.getRef.mockResolvedValue({ data: { object: { sha: 'baseCommitHash' } } });
+
+        graphqlMock.mockImplementation(async () => ({
+            createCommitOnBranch: {
+                commit: {
+                    oid: 'newCommitSha',
+                },
+            },
+        }));
+
+        await githubTransaction.commit('Commit log message');
+
+        expect(graphqlMock).toHaveBeenCalledTimes(1);
+        const variables = graphqlMock.mock.calls[0]?.[1] as {
+            input: {
+                fileChanges: {
+                    additions: Array<{ path: string; contents: string }>;
+                };
+            };
+        };
+        expect(variables).toBeDefined();
+        expect(variables.input.fileChanges.additions).toHaveLength(1);
+        expect(variables.input.fileChanges.additions[0]).toMatchObject({
+            path: 'filePath',
+        });
+        expect(Buffer.from(variables.input.fileChanges.additions[0].contents, 'base64').toString('utf8')).toBe('second-content');
     });
 
     it('should throw an error when committing with no changes', async () => {
