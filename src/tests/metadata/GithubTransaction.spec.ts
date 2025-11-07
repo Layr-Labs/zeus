@@ -67,6 +67,60 @@ describe('GithubTransaction', () => {
         expect((githubTransaction as GithubTransaction)._files[0].wasSavedOptimistically).toHaveBeenCalled();
     });
 
+    it('deduplicates file additions by path before committing', async () => {
+        const firstFile = {
+            dirty: true,
+            save: jest.fn(async () => {}),
+            contents: 'old',
+            _: {},
+            upToDate: false,
+            path: 'filePath',
+            pendingSaveableContents: jest.fn(() => 'first-content'),
+            wasSavedOptimistically: jest.fn(),
+        } as unknown as SavebleDocument<unknown>;
+
+        const secondFile = {
+            dirty: true,
+            save: jest.fn(async () => {}),
+            contents: 'new',
+            _: {},
+            upToDate: false,
+            path: 'filePath',
+            pendingSaveableContents: jest.fn(() => 'second-content'),
+            wasSavedOptimistically: jest.fn(),
+        } as unknown as SavebleDocument<unknown>;
+
+        (githubTransaction as GithubTransaction)._files = [firstFile, secondFile];
+
+        // @ts-expect-error not-full-type
+        mockOctokitInstance.rest.git.getRef.mockResolvedValue({ data: { object: { sha: 'baseCommitHash' } } });
+
+        graphqlMock.mockImplementation(async () => ({
+            createCommitOnBranch: {
+                commit: {
+                    oid: 'newCommitSha',
+                },
+            },
+        }));
+
+        await githubTransaction.commit('Commit log message');
+
+        expect(graphqlMock).toHaveBeenCalledTimes(1);
+        const variables = graphqlMock.mock.calls[0]?.[1] as {
+            input: {
+                fileChanges: {
+                    additions: Array<{ path: string; contents: string }>;
+                };
+            };
+        };
+        expect(variables).toBeDefined();
+        expect(variables.input.fileChanges.additions).toHaveLength(1);
+        expect(variables.input.fileChanges.additions[0]).toMatchObject({
+            path: 'filePath',
+        });
+        expect(Buffer.from(variables.input.fileChanges.additions[0].contents, 'base64').toString('utf8')).toBe('second-content');
+    });
+
     it('should throw an error when committing with no changes', async () => {
         (githubTransaction as GithubTransaction)._files = [];
         await expect(githubTransaction.commit('No changes')).resolves.toBeUndefined();

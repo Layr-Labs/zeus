@@ -65,7 +65,11 @@ export class GithubTransaction implements Transaction {
             return;
         }
 
-        const additions = changedFiles.map((file) => ({
+        const uniqueFiles = Array.from(
+            changedFiles.reduce((acc, file) => acc.set(file.path, file), new Map<string, SavebleDocument<unknown>>()).values(),
+        );
+
+        const additions = uniqueFiles.map((file) => ({
             path: file.path,
             contents: Buffer.from(file.pendingSaveableContents(), 'utf8').toString('base64'),
         }));
