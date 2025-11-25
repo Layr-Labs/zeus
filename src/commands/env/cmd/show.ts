@@ -30,7 +30,7 @@ export async function handler(_user: TState, args: {json: boolean |undefined, en
 
         // highlight any parameters that have changed.
         if (withDeploy) {
-            const keys = Object.keys(env);
+            const keys = Object.keys(env).sort();
             interface Item {
                 name: string,
                 value: string,
@@ -47,7 +47,12 @@ export async function handler(_user: TState, args: {json: boolean |undefined, en
             } 
             console.table(printableEnv);
         } else {
-            console.table(env);
+            const sortedKeys = Object.keys(env).sort();
+            const sortedEnv = sortedKeys.reduce((acc, key) => {
+                acc[key] = env[key];
+                return acc;
+            }, {} as Record<string, string>);
+            console.table(sortedEnv);
         }
     }
 }
