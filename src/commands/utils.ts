@@ -35,7 +35,9 @@ export const checkForUpdates = async () => {
                 configs.zeusProfile.write({
                     ...zeusProfile,
                     lastUpdateCheck: Date.now()
-                }).catch(() => {}); // Silently fail
+                }).catch(() => {
+                    // Silently fail
+                });
             });
         }
     } catch {
