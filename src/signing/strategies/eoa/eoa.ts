@@ -58,7 +58,15 @@ export default abstract class EOABaseSigningStrategy extends Strategy {
         const etherscan = await this.etherscanApiKey.get();
         const rpcUrl = await this.rpcUrl.get();
         const subclassForgeArgs = await this.subclassForgeArgs();
-        const etherscanVerify = (etherscan && typeof etherscan === 'string') ? [`--etherscan-api-key`,etherscan, `--chain`, `${this.deploy._.chainId}`, `--verify`] : [];
+        // Add retry and delay options for Etherscan verification to allow time for indexing
+        // Uses 15 retries with 60 second delays to give Etherscan ~15 minutes to index
+        const etherscanVerify = (etherscan && typeof etherscan === 'string') ? [
+            `--etherscan-api-key`, etherscan, 
+            `--chain`, `${this.deploy._.chainId}`, 
+            `--verify`,
+            `--retries`, `15`,
+            `--delay`, `60`
+        ] : [];
         return [...subclassForgeArgs, '--broadcast', ...etherscanVerify, '--rpc-url', rpcUrl, '--sig', `runAsEOA()`];
     }
 

@@ -90,7 +90,8 @@ describe('env show command', () => {
     await cmd.handler(mockUser(mockStorage), {
       json: undefined,
       env: 'nonexistent',
-      pending: false
+      pending: false,
+      pretty: false
     });
     
     expect(console.error).toHaveBeenCalledWith(
@@ -114,7 +115,8 @@ describe('env show command', () => {
     await cmd.handler(mockUser(mockStorage), {
       json: undefined,
       env: 'mainnet',
-      pending: false
+      pending: false,
+      pretty: false
     });
     
     expect(console.log).toHaveBeenCalledWith(
@@ -139,7 +141,8 @@ describe('env show command', () => {
     await cmd.handler(mockUser(mockStorage), {
       json: true,
       env: 'testnet',
-      pending: false
+      pending: false,
+      pretty: false
     });
     
     expect(console.log).toHaveBeenCalledWith(
@@ -163,7 +166,8 @@ describe('env show command', () => {
     await cmd.handler(mockUser(mockStorage), {
       json: undefined,
       env: 'mainnet',
-      pending: true
+      pending: true,
+      pretty: false
     });
     
     expect(console.log).toHaveBeenCalledWith(
