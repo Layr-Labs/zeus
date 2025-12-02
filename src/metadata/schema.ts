@@ -438,7 +438,8 @@ export interface TDeployedInstance extends TDeployedContract {
 }
 
 export interface TDeployedContractsManifest {
-    contracts: TDeployedContractWithValidations[]
+    contracts: TDeployedContractWithValidations[];
+    prefix?: string; // Optional prefix to prepend to contract names when searching for artifacts
 }
 
 export interface TEnvironmentManifest {

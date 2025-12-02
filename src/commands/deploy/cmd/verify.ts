@@ -6,7 +6,7 @@ import { loadExistingEnvs } from "../../env/cmd/list";
 import { execSync } from "child_process";
 import ora from "ora";
 import { rpcUrl } from "../../prompts";
-import { getActiveDeploy } from "./utils";
+import { getActiveDeploy, resolveArtifactName } from "./utils";
 import * as AllChains from "viem/chains";
 import { canonicalPaths } from "../../../metadata/paths";
 import { TForgeRequest, TGnosisRequest } from "../../../signing/strategy";
@@ -16,7 +16,7 @@ import { join } from "path";
 import { computeFairHash } from "../utils";
 import { getTrace } from "../../../signing/utils";
 import chalk from "chalk";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { configs } from "../../configs";
 import EOASigningStrategy from "../../../signing/strategies/eoa/privateKey";
 import { GnosisEOAApiStrategy } from "../../../signing/strategies/gnosis/api/gnosisEoa";
@@ -119,8 +119,17 @@ async function handler(_user: TState, args: {env: string, deploy: string | undef
                         const onchainBytecode: Record<string, `0x${string}`> = {};
             
                         const zeusConfigDirName = await configs.zeus.dirname();
+                        const prefix = deployedContracts._?.prefix;
+                        
                         const contractMetadata = Object.fromEntries(deployedContracts._.contracts.map(contract => {
-                            const metadata = JSON.parse(readFileSync(canonicalPaths.contractJson(zeusConfigDirName, cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
+                            const finalContractName = resolveArtifactName(
+                                contract.contract,
+                                prefix,
+                                zeusConfigDirName,
+                                canonicalPaths.contractJson
+                            );
+                            
+                            const metadata = JSON.parse(readFileSync(canonicalPaths.contractJson(zeusConfigDirName, finalContractName), 'utf-8')) as ForgeSolidityMetadata;
                             return [contract.contract, metadata];
                         }));
             

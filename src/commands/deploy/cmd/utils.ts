@@ -86,6 +86,37 @@ export const cleanContractName = (contractName: string) => {
 
     return contractName;
 }
+
+/**
+ * Resolves the artifact name for a contract, trying with prefix first if provided.
+ * 
+ * @param contractName - The contract name from the deployment event (e.g., "Directory_Impl")
+ * @param prefix - Optional prefix to try prepending (e.g., "EigenDA")
+ * @param zeusConfigDirName - The Zeus config directory path
+ * @param pathResolver - Function to resolve the full path (e.g., canonicalPaths.contractInformation)
+ * @returns The final contract name to use for artifact resolution
+ */
+export const resolveArtifactName = (
+    contractName: string,
+    prefix: string | undefined,
+    zeusConfigDirName: string,
+    pathResolver: (dir: string, name: string) => string
+): string => {
+    const cleanedContractName = cleanContractName(contractName);
+    
+    if (prefix) {
+        const prefixedName = `${prefix}${cleanedContractName}`;
+        const prefixedPath = pathResolver(zeusConfigDirName, prefixedName);
+        
+        // Check if the prefixed version exists (needs fs import)
+        const fs = require('fs');
+        if (fs.existsSync(prefixedPath)) {
+            return prefixedName;
+        }
+    }
+    
+    return cleanedContractName;
+}
 export const currentUser = () => execSync('git config --global user.email').toString('utf-8').trim();
 
 export const blankDeploy = (args: {env: string, chainId: number, upgrade: string, upgradePath: string, name: string, segments: Segment[]}) => {

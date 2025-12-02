@@ -9,7 +9,7 @@ import { HaltDeployError, PauseDeployError, TGnosisRequest, TStrategyOptions } f
 import { GnosisSigningStrategy } from "../../signing/strategies/gnosis/gnosis";
 import { GnosisOnchainEOAStrategy } from "../../signing/strategies/gnosis/onchain/onchainEoa";
 import { MultisigMetadata, TDeploy, TDeployStateMutations, TMutation, TTestOutput, TDeployedContractsManifest, ForgeSolidityMetadata } from "../../metadata/schema";
-import { advance, advanceSegment, getChain, isTerminalPhase, cleanContractName } from "../../commands/deploy/cmd/utils";
+import { advance, advanceSegment, getChain, isTerminalPhase, cleanContractName, resolveArtifactName } from "../../commands/deploy/cmd/utils";
 import { injectableEnvForEnvironment } from "../../commands/run";
 import { canonicalPaths } from "../../metadata/paths";
 import { multisigBaseUrl, overrideTxServiceUrlForChainId } from "../../signing/strategies/gnosis/api/utils";
@@ -126,10 +126,25 @@ export async function executeMultisigPhase(deploy: SavebleDocument<TDeploy>, met
                 // Handle deployed contracts from ZeusDeploy events
                 if (sigRequest.deployedContracts && sigRequest.deployedContracts.length > 0) {
                     const zeusConfigDirName = await configs.zeus.dirname();
+                    
+                    // Load the deployed contracts manifest to check for prefix
+                    const deployedContractsManifest = await metatxn.getJSONFile<TDeployedContractsManifest>(
+                        canonicalPaths.deployDeployedContracts(deploy._)
+                    );
+                    const prefix = deployedContractsManifest._?.prefix;
+                    
                     const withDeployedBytecodeHashes = await Promise.all(sigRequest.deployedContracts.map(async (contract) => {
-                        const contractInfo = JSON.parse(readFileSync(canonicalPaths.contractInformation(zeusConfigDirName, cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
+                        const finalContractName = resolveArtifactName(
+                            contract.contract,
+                            prefix,
+                            zeusConfigDirName,
+                            canonicalPaths.contractInformation
+                        );
+                        
+                        const contractJsonPath = canonicalPaths.contractInformation(zeusConfigDirName, finalContractName);
+                        const contractInfo = JSON.parse(readFileSync(contractJsonPath, 'utf-8')) as ForgeSolidityMetadata;
                         // save the contract abi.
-                        const segmentAbi = await metatxn.getJSONFile<ForgeSolidityMetadata>(canonicalPaths.segmentContractAbi({...deploy._, contractName: cleanContractName(contract.contract)}))
+                        const segmentAbi = await metatxn.getJSONFile<ForgeSolidityMetadata>(canonicalPaths.segmentContractAbi({...deploy._, contractName: finalContractName}))
                         segmentAbi._ = contractInfo;
                         await segmentAbi.save();
                         return {
