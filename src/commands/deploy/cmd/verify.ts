@@ -46,7 +46,7 @@ const shortenHex = (str: string) => {
     return str.substring(0, 5) + '...' + str.substring(str.length - 4);
 }
 
-async function handler(_user: TState, args: {env: string, deploy: string | undefined}) {
+async function handler(_user: TState, args: {env: string, deploy: string | undefined, continueOnFailure: boolean}) {
     try {
         const user = assertInRepo(_user);
         const metatxn = await user.loggedOutMetadataStore.begin();
@@ -83,12 +83,15 @@ async function handler(_user: TState, args: {env: string, deploy: string | undef
             return;
         }
         
+        const stepFailures: Error[] = [];
+
         for (let i = 0; i <= deploy._.segmentId; i++) {
             console.log(`Verifying deploy: step (${i+1}/${deploy._.segmentId+1})...`)
             const segment = deploy._.segments[i];
             const script = join(deploy._.upgradePath, deploy._.segments[i].filename);
-                    
-            switch (segment.type) {
+
+            try {
+                switch (segment.type) {
                 case 'eoa': {
                     // get all signers.
                     const signers = deployedContracts._.contracts.filter((contract) => contract.lastUpdatedIn.segment === i).map(contract => contract.lastUpdatedIn.signer);
@@ -241,11 +244,15 @@ async function handler(_user: TState, args: {env: string, deploy: string | undef
                             }
                         })
             
-                        if (Object.keys(isFailure).length === 0) {
+                        if (!isFailure) {
                             console.log(chalk.green('OK'));
                         } else {
                             console.log(chalk.red(`FAILURE`));
-                            throw new Error(`Deployed contracts did not match local copy.`)
+                            const err = new Error(`Step ${i+1}: deployed contracts did not match local copy.`);
+                            if (!args.continueOnFailure) {
+                                throw err;
+                            }
+                            stepFailures.push(err);
                         }
                     }
                     break;
@@ -268,7 +275,11 @@ async function handler(_user: TState, args: {env: string, deploy: string | undef
                             console.log(`${chalk.green('✔')} ${script} (${gnosisTxnHash})`);
                         } else {
                             console.error(`${chalk.red('x')} ${script} (local=${gnosisTxnHash},reported=${proposedTxHash})`);
-                            throw new Error(`Multisig transaction did not match (local=${gnosisTxnHash},reported=${proposedTxHash})`);
+                            const err = new Error(`Step ${i+1}: multisig transaction did not match (local=${gnosisTxnHash},reported=${proposedTxHash})`);
+                            if (!args.continueOnFailure) {
+                                throw err;
+                            }
+                            stepFailures.push(err);
                         }
                     } else {
                         console.info(chalk.italic(`[${i+1}] step has not yet proposed a transaction. Nothing to validate.`))
@@ -277,6 +288,20 @@ async function handler(_user: TState, args: {env: string, deploy: string | undef
                     break;
                 }
             }
+            } catch (e) {
+                const err = e instanceof Error ? e : new Error(String(e));
+                if (!args.continueOnFailure) {
+                    throw err;
+                }
+                stepFailures.push(new Error(`Step ${i+1}: ${err.message}`));
+                console.error(`Step ${i+1} failed, continuing to next step...`);
+            }
+        }
+
+        if (args.continueOnFailure && stepFailures.length > 0) {
+            console.error(`Verification completed with ${stepFailures.length} failing step(s):`);
+            stepFailures.forEach((err) => console.error(`- ${err.message}`));
+            return;
         }
     } catch (e) {
         console.error(`Failed to verify deploy.`);
@@ -291,7 +316,8 @@ const cmd = command({
     args: {
         env: allArgs.env,
         json,
-        deploy: allArgs.deploy
+        deploy: allArgs.deploy,
+        continueOnFailure: allArgs.continueOnFailure,
     },
     handler: requires(handler, withHost),
 })

@@ -23,6 +23,11 @@ export const requiredRpcUrl = option({ type: string, long: 'rpcUrl', short: 'r',
 export const signer = option({type: string, long: 'signer', short: 's', description: "An ethereum private key"});
 export const deploy = option({type: optional(string), long: 'deploy', short: 'd', description: "The name of a deploy to check. If not supplied, uses the current active deploy."})
 
+export const continueOnFailure = flag({
+    long: 'continue-on-failure',
+    description: "Continue verifying remaining steps even if a step fails.",
+});
+
 export const nonInteractive = flag({
     long: 'nonInteractive',
     short: 'n',
