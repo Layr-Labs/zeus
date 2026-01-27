@@ -3,7 +3,6 @@ import type { TState } from '../../../commands/inject';
 import type { TDeploy, TDeployedContractsManifest } from '../../../metadata/schema';
 import { canonicalPaths } from '../../../metadata/paths';
 
-const prepareMock = jest.fn();
 
 jest.unstable_mockModule('child_process', () => ({
   execSync: jest.fn(),
@@ -34,12 +33,6 @@ jest.unstable_mockModule('../../../commands/inject', () => ({
   requires: jest.fn((handler: unknown) => handler),
 }));
 
-jest.unstable_mockModule('../../../signing/strategies/gnosis/api/gnosisEoa', () => ({
-  GnosisEOAApiStrategy: class {
-    prepare = prepareMock;
-    constructor(..._args: unknown[]) {}
-  },
-}));
 
 const verifyMod = await import('../../../commands/deploy/cmd/verify');
 const utilsMod = await import('../../../commands/deploy/cmd/utils');
@@ -47,7 +40,6 @@ const utilsMod = await import('../../../commands/deploy/cmd/utils');
 describe('deploy verify - continue on failure', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    prepareMock.mockResolvedValue({ safeTxHash: '0xbbb' });
   });
 
   const buildUser = (getJSONFile: (path: string) => Promise<{ _: unknown }>): TState => ({
@@ -67,7 +59,7 @@ describe('deploy verify - continue on failure', () => {
     upgrade: 'upgrade-1',
     chainId: 1,
     upgradePath: 'upgrade/upgrade-1',
-    phase: 'multisig',
+    phase: 'multisig_start',
     segmentId: 1,
     segments: [
       { id: 0, type: 'multisig', filename: 'step-1.s.sol' },
@@ -134,7 +126,6 @@ describe('deploy verify - continue on failure', () => {
     ).resolves.toBeUndefined();
 
     expect(multisigCalls).toBe(2);
-    expect(prepareMock).toHaveBeenCalledTimes(1);
   });
 
   it('throws on the first failing step when --continue-on-failure is false', async () => {

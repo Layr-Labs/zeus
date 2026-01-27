@@ -86,6 +86,30 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
         const stepFailures: Error[] = [];
         const allContracts = deployedContracts._?.contracts ?? [];
         const getSegmentContracts = (segmentId: number) => allContracts.filter((contract) => contract.lastUpdatedIn.segment === segmentId);
+        const formatErrorForLog = (err: unknown) => {
+            if (err instanceof Error) {
+                if (err.message && err.message !== '[object Object]') {
+                    return err.message;
+                }
+                try {
+                    const serialized = JSON.stringify(err, Object.getOwnPropertyNames(err));
+                    if (serialized && serialized !== '{}' && serialized !== '[object Object]') {
+                        return serialized;
+                    }
+                } catch {
+                    // ignore serialization errors
+                }
+                return err.stack ?? err.toString();
+            }
+            if (typeof err === 'string') {
+                return err;
+            }
+            try {
+                return JSON.stringify(err);
+            } catch {
+                return String(err);
+            }
+        };
 
         const verifySegmentContracts = async (
             segmentId: number,
@@ -248,6 +272,151 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
             }
         };
 
+        const verifySegmentContractsFromArtifacts = async (segmentId: number) => {
+            const segmentContracts = getSegmentContracts(segmentId);
+            if (!segmentContracts || segmentContracts.length === 0) {
+                console.log(`${segmentId + 1}: no contracts deployed.`);
+                return;
+            }
+
+            const chain = getChain(deploy._.chainId);
+            const publicClient = createPublicClient({chain, transport: http(customRpcUrl)})
+            const onchainBytecode: Record<string, `0x${string}`> = {};
+
+            const zeusConfigDirName = await configs.zeus.dirname();
+            const contractMetadata = Object.fromEntries(segmentContracts.map(contract => {
+                const metadata = JSON.parse(readFileSync(canonicalPaths.contractJson(zeusConfigDirName, cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
+                return [contract.contract, metadata];
+            }));
+
+            const onchainHashes = Object.fromEntries(await Promise.all(segmentContracts.map(async contract => {
+                try {
+                    const bytecode = await publicClient.getCode({
+                        address: contract.address,
+                    })
+                    if (!bytecode) {
+                        console.warn(`Failed to compute onchain hash of ${contract.contract}@${contract.address}: failed to get code.`)
+                        return [contract.contract, undefined];
+                    }
+
+                    onchainBytecode[contract.contract] = bytecode;
+                    const hash = computeFairHash(bytecode, contractMetadata[contract.contract]);
+                    return [contract.contract, hash]
+                } catch (e) {
+                    console.warn(`Failed to compute onchain hash of ${contract.contract}@${contract.address}`)
+                    console.warn(e);
+                    return [contract.contract, undefined];
+                }
+            })))
+
+            const localBytecode: Record<string, `0x${string}`> = {};
+            const localBytecodeHashes = Object.fromEntries(segmentContracts.map(contract => {
+                try {
+                    const metadata = contractMetadata[contract.contract];
+                    if (!metadata?.deployedBytecode?.object) {
+                        console.warn(`Missing deployedBytecode for ${contract.contract}; cannot validate locally.`);
+                        return undefined;
+                    }
+                    localBytecode[contract.contract] = metadata.deployedBytecode.object as `0x${string}`;
+                    const bytecodeHash = computeFairHash(metadata.deployedBytecode.object, metadata);
+                    return [contract.contract, bytecodeHash] as [string, `0x${string}`];
+                } catch (e) {
+                    console.warn(`Failed to compute local bytecode hash of ${contract.contract}`)
+                    console.error(e);
+                    return undefined;
+                }
+            }).filter(v => !!v) as [string, `0x${string}`][]);
+
+            const instanceCounter: Record<string, number> = {};
+            const info = Object.fromEntries(segmentContracts.map((ctr) => {
+                const instancedContractName = `${ctr.contract}${instanceCounter[ctr.contract] ? `_${instanceCounter[ctr.contract]}` : ``}`
+                instanceCounter[ctr.contract] = (instanceCounter[ctr.contract] ?? 0) + 1;
+                return [instancedContractName, {
+                    ...ctr,
+                    yours: localBytecodeHashes[ctr.contract] ?? '<none>',
+                    onchain: onchainHashes[ctr.contract] ?? '<none>',
+                    match: !!((localBytecodeHashes[ctr.contract] === onchainHashes[ctr.contract]) && localBytecodeHashes[ctr.contract]),
+                }]
+            }))
+
+            const failures = Object.keys(info).filter(ctr => !info[ctr].match)
+            const isFailure = Object.keys(failures).length > 0;
+            if (isFailure) {
+                console.error(`FATAL: Bytecode Hashes did not match for the following contracts;`)
+                console.table(failures.map(key => {
+                    return {
+                        contract: info[key].contract,
+                        address: info[key].address,
+                        yours: shortenHex(info[key].yours),
+                        onchain: shortenHex(info[key].onchain),
+                }}));
+
+                console.log('Local bytecode keys', Object.keys(localBytecode));
+                console.log('Onchain bytecode keys', Object.keys(onchainBytecode));
+                failures.forEach(key => {
+                    const ctr = info[key].contract;
+                    console.log(chalk.bold.underline(`[${ctr}@${info[key].address}] Remote Bytecode (mismatches highlighted red):`))
+
+                    const localBytes = hexToBytes(localBytecode[ctr]);
+                    const remoteBytes = hexToBytes(onchainBytecode[ctr]);
+
+                    remoteBytes.forEach((remoteByte, i) => {
+                        if (localBytes[i] !== remoteByte) {
+                            process.stdout.write(chalk.bgWhite.red(toHex(remoteByte).substring(2)));
+                        } else {
+                            process.stdout.write(chalk.gray(toHex(remoteByte).substring(2)));
+                        }
+                    });
+                    console.log();
+                });
+
+                console.error(`You may: (1) be on the wrong commit, (2) have a dirty local copy, or (3) have witnessed a mistake your teammate made on the other end.`)
+                console.error(`Please flag this, and consider cancelling your other deploy.`)
+            }
+
+            console.log(chalk.bold(`Validated contracts:`));
+            console.log(chalk.italic(`------------------------------------------------------------`));
+            console.log(chalk.italic(`\t${chalk.green('✔')} - the hash of the local compiled contract matched the onchain version`));
+            console.log(chalk.italic(`\t${chalk.red('x')} - the hash of the local compiled contract did not match the onchain version`));
+            console.log(chalk.italic(`NOTE: Zeus zeros-out any immutableReferences in the contract, to avoid runtime parameters which cannot be simulated.`))
+            console.log(chalk.italic(`------------------------------------------------------------`));
+            console.log();
+
+            Object.keys(info).forEach(ctr => {
+                const contractInfo = info[ctr];
+                const metaContract = segmentContracts.find(_contract => _contract.address === contractInfo.address);
+                if (!metaContract) {
+                    console.log(`No metadata on contract ${ctr} available.`);
+                    return;
+                }
+                metaContract.validations = [
+                    ...(metaContract.validations ?? []),
+                    {
+                        by: currentUser(),
+                        valid: contractInfo.match,
+                        expectedBytecodeHash: !contractInfo.match ? contractInfo.yours : undefined
+                    }
+                ]
+
+                if (contractInfo.match) {
+                    console.log(`${chalk.green('✔')} ${ctr} (${contractInfo.address})`);
+                } else {
+                    console.log(`${chalk.red('x')} ${ctr} (${contractInfo.address})`);
+                }
+            })
+
+            if (!isFailure) {
+                console.log(chalk.green('OK'));
+            } else {
+                console.log(chalk.red(`FAILURE`));
+                const err = new Error(`Step ${segmentId + 1}: deployed contracts did not match local copy.`);
+                if (!args.continueOnFailure) {
+                    throw err;
+                }
+                stepFailures.push(err);
+            }
+        };
+
         for (let i = 0; i <= deploy._.segmentId; i++) {
             console.log(`Verifying deploy: step (${i+1}/${deploy._.segmentId+1})...`)
             const segment = deploy._.segments[i];
@@ -273,15 +442,22 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
                 case 'multisig': {
                     const multisigRun = await metatxn.getJSONFile<TGnosisRequest>(canonicalPaths.multisigRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: i}))
                     const proposedTxHash = multisigRun._.safeTxHash;
-                    const signer = multisigRun._.senderAddress;
-                    const strategy = new GnosisEOAApiStrategy(deploy, metatxn, {nonInteractive: false, simulationAddress: signer, defaultArgs: {rpcUrl: customRpcUrl, etherscanApiKey: false}});
-                    
-                    if (proposedTxHash) {
-                        // allow verifying the multisig txn hash.
-                        console.log(chalk.bold(`This deploy has a multisig step ongoing. Checking that the provided gnosisHash matches the local copy.`))
+                    const segmentContracts = getSegmentContracts(i);
 
-                        const script = join(deploy._.upgradePath, deploy._.segments[i].filename);
-                        const request = await strategy.prepare(script) as (TGnosisRequest & { output?: TForgeRequest["output"] });
+                    if (segmentContracts.length > 0) {
+                        if (proposedTxHash) {
+                            console.log(chalk.bold(`Multisig step found an onchain proposal. Skipping dry-run and validating bytecode from local artifacts.`))
+                        }
+                        await verifySegmentContractsFromArtifacts(i);
+                        break;
+                    }
+
+                    if (proposedTxHash) {
+                        // No contracts for this step, so safe to dry-run for hash validation.
+                        console.log(chalk.bold(`Multisig step has no deployed contracts. Validating Safe tx hash.`))
+                        const signer = multisigRun._.senderAddress;
+                        const strategy = new GnosisEOAApiStrategy(deploy, metatxn, {nonInteractive: false, simulationAddress: signer, defaultArgs: {rpcUrl: customRpcUrl, etherscanApiKey: false}});
+                        const request = await strategy.prepare(script) as TGnosisRequest;
                         const gnosisTxnHash = request.safeTxHash;
 
                         if (proposedTxHash === gnosisTxnHash) {
@@ -294,28 +470,26 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
                             }
                             stepFailures.push(err);
                         }
-
-                        await verifySegmentContracts(i, request.output, request.deployedContracts);
                     } else {
                         console.info(chalk.italic(`[${i+1}] step has not yet proposed a transaction. Nothing to validate.`))
                     }
-
                     break;
                 }
             }
             } catch (e) {
-                const err = e instanceof Error ? e : new Error(String(e));
+                const errMessage = formatErrorForLog(e);
+                const err = e instanceof Error ? e : new Error(errMessage);
                 if (!args.continueOnFailure) {
                     throw err;
                 }
-                stepFailures.push(new Error(`Step ${i+1}: ${err.message}`));
+                stepFailures.push(new Error(`Step ${i+1}: ${errMessage}`));
                 console.error(`Step ${i+1} failed, continuing to next step...`);
             }
         }
 
         if (args.continueOnFailure && stepFailures.length > 0) {
             console.error(`Verification completed with ${stepFailures.length} failing step(s):`);
-            stepFailures.forEach((err) => console.error(`- ${err.message}`));
+            stepFailures.forEach((err) => console.error(`- ${formatErrorForLog(err)}`));
             return;
         }
     } catch (e) {
