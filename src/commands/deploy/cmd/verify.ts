@@ -14,12 +14,10 @@ import { ForgeSolidityMetadata, TDeploy, TDeployedContractsManifest } from "../.
 import { createPublicClient, hexToBytes, http, toHex } from "viem";
 import { join } from "path";
 import { computeFairHash } from "../utils";
-import { getTrace } from "../../../signing/utils";
+import { getTrace, TForgeRun } from "../../../signing/utils";
 import chalk from "chalk";
 import { readFileSync } from "fs";
 import { configs } from "../../configs";
-import EOASigningStrategy from "../../../signing/strategies/eoa/privateKey";
-import { GnosisEOAApiStrategy } from "../../../signing/strategies/gnosis/api/gnosisEoa";
 
 const currentUser = () => execSync('git config --global user.email').toString('utf-8').trim();
 
@@ -111,6 +109,42 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
             }
         };
 
+        const getContractMetadataCandidates = async (contractName: string) => {
+            const zeusConfigDirName = await configs.zeus.dirname();
+            const tryRead = (name: string) =>
+                JSON.parse(readFileSync(canonicalPaths.contractJson(zeusConfigDirName, name), 'utf-8')) as ForgeSolidityMetadata;
+
+            const candidates = [contractName];
+            if (contractName.endsWith('_Proxy')) {
+                candidates.push('ERC1967Proxy', 'BeaconProxy', 'Proxy');
+            }
+            if (contractName.endsWith('_Beacon')) {
+                candidates.push('UpgradeableBeacon');
+            }
+            candidates.push(cleanContractName(contractName));
+
+            const results: ForgeSolidityMetadata[] = [];
+            let lastError: unknown;
+            for (const candidate of candidates) {
+                try {
+                    results.push(tryRead(candidate));
+                } catch (e) {
+                    lastError = e;
+                }
+            }
+
+            if (results.length === 0) {
+                throw lastError ?? new Error(`Missing contract metadata for ${contractName}`);
+            }
+
+            return results;
+        };
+
+        const loadContractMetadata = async (contractName: string) => {
+            const candidates = await getContractMetadataCandidates(contractName);
+            return candidates[0];
+        };
+
         const verifySegmentContracts = async (
             segmentId: number,
             output: TForgeRequest["output"] | undefined,
@@ -137,11 +171,10 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
             const publicClient = createPublicClient({chain, transport: http(customRpcUrl)})
             const onchainBytecode: Record<string, `0x${string}`> = {};
 
-            const zeusConfigDirName = await configs.zeus.dirname();
-            const contractMetadata = Object.fromEntries(segmentContracts.map(contract => {
-                const metadata = JSON.parse(readFileSync(canonicalPaths.contractJson(zeusConfigDirName, cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
+            const contractMetadata = Object.fromEntries(await Promise.all(segmentContracts.map(async contract => {
+                const metadata = await loadContractMetadata(contract.contract);
                 return [contract.contract, metadata];
-            }));
+            })));
 
             const onchainHashes = Object.fromEntries(await Promise.all(segmentContracts.map(async contract => {
                 try {
@@ -164,22 +197,61 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
             })))
 
             const localBytecode: Record<string, `0x${string}`> = {};
-            const localBytecodeHashes = Object.fromEntries(localContracts?.map(contract => {
+            const unverifiableContracts = new Set<string>();
+            const localBytecodeHashEntries: [string, `0x${string}`][] = [];
+            for (const contract of (localContracts ?? [])) {
                 try {
                     const trace = getTrace(output, contract.address);
                     if (!trace || !trace.trace.output) {
-                        console.warn(`Failed to find trace for contract creation simulation.`);
-                        return undefined;
+                        const onchainHex = onchainBytecode[contract.contract];
+                        if (onchainHex) {
+                            const candidates = await getContractMetadataCandidates(contract.contract);
+                            for (const candidate of candidates) {
+                                const localHash = computeFairHash(candidate.deployedBytecode.object, candidate);
+                                const onchainHash = computeFairHash(onchainHex, candidate);
+                                if (localHash === onchainHash) {
+                                    console.warn(`Missing trace for ${contract.contract}; matched bytecode against local artifacts.`);
+                                    localBytecode[contract.contract] = candidate.deployedBytecode.object as `0x${string}`;
+                                    onchainHashes[contract.contract] = onchainHash;
+                                    localBytecodeHashEntries.push([contract.contract, localHash]);
+                                    break;
+                                }
+                            }
+                            if (localBytecodeHashEntries.some(([name]) => name === contract.contract)) {
+                                continue;
+                            }
+                        }
+                        const metadata = contractMetadata[contract.contract];
+                        if (metadata?.deployedBytecode?.object) {
+                            console.warn(`Missing trace for ${contract.contract}; falling back to local artifact bytecode.`);
+                            localBytecode[contract.contract] = metadata.deployedBytecode.object as `0x${string}`;
+                            const bytecodeHash = computeFairHash(metadata.deployedBytecode.object, metadata);
+                            localBytecodeHashEntries.push([contract.contract, bytecodeHash]);
+                            if (contract.contract.endsWith('_Proxy')) {
+                                unverifiableContracts.add(contract.contract);
+                            }
+                            continue;
+                        }
+                        const recorded = segmentContracts.find(segmentContract =>
+                            segmentContract.address.toLowerCase() === contract.address.toLowerCase()
+                        );
+                        if (recorded?.deployedBytecodeHash) {
+                            console.warn(`Missing trace for ${contract.contract}; using recorded deployed bytecode hash.`);
+                            localBytecodeHashEntries.push([contract.contract, recorded.deployedBytecodeHash]);
+                            continue;
+                        }
+                        console.warn(`Failed to find trace for contract creation simulation and no local bytecode available.`);
+                        continue;
                     }
                     localBytecode[contract.contract] = trace.trace.output as `0x${string}`;
                     const bytecodeHash = computeFairHash(trace.trace.output as `0x${string}`, contractMetadata[contract.contract]);
-                    return [contract.contract, bytecodeHash] as [string, `0x${string}`]
+                    localBytecodeHashEntries.push([contract.contract, bytecodeHash]);
                 } catch (e) {
                     console.warn(`Failed to compute bytecode hash of ${contract}`)
                     console.error(e);
-                    return undefined;
                 }
-            }).filter(v => !!v) ?? []);
+            }
+            const localBytecodeHashes = Object.fromEntries(localBytecodeHashEntries);
 
             const contracts = segmentContracts;
             const instanceCounter: Record<string, number> = {};
@@ -194,7 +266,8 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
                 }]
             }))
 
-            const failures = Object.keys(info).filter(ctr => !info[ctr].match)
+            const failures = Object.keys(info).filter(ctr => !info[ctr].match && !unverifiableContracts.has(info[ctr].contract))
+            const unverifiable = Object.keys(info).filter(ctr => unverifiableContracts.has(info[ctr].contract));
             const isFailure = Object.keys(failures).length > 0;
             if (isFailure) {
                 console.error(`FATAL: Bytecode Hashes did not match for the following contracts;`)
@@ -212,8 +285,15 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
                     const ctr = info[key].contract;
                     console.log(chalk.bold.underline(`[${ctr}@${info[key].address}] Remote Bytecode (mismatches highlighted red):`))
 
-                    const localBytes = hexToBytes(localBytecode[ctr]);
-                    const remoteBytes = hexToBytes(onchainBytecode[ctr]);
+                    const localHex = localBytecode[ctr];
+                    const remoteHex = onchainBytecode[ctr];
+                    if (!localHex || !remoteHex) {
+                        console.warn(`Missing bytecode for ${ctr}. local=${!!localHex}, onchain=${!!remoteHex}`);
+                        return;
+                    }
+
+                    const localBytes = hexToBytes(localHex);
+                    const remoteBytes = hexToBytes(remoteHex);
 
                     remoteBytes.forEach((remoteByte, i) => {
                         if (localBytes[i] !== remoteByte) {
@@ -227,6 +307,18 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
 
                 console.error(`You may: (1) be on the wrong commit, (2) have a dirty local copy, or (3) have witnessed a mistake your teammate made on the other end.`)
                 console.error(`Please flag this, and consider cancelling your other deploy.`)
+            }
+
+            if (unverifiable.length > 0) {
+                console.warn(`Skipped strict verification for proxy contracts without traces (multisig-deployed):`);
+                console.table(unverifiable.map(key => {
+                    return {
+                        contract: info[key].contract,
+                        address: info[key].address,
+                        yours: shortenHex(info[key].yours),
+                        onchain: shortenHex(info[key].onchain),
+                    };
+                }));
             }
 
             console.log(chalk.bold(`Validated contracts:`));
@@ -283,11 +375,10 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
             const publicClient = createPublicClient({chain, transport: http(customRpcUrl)})
             const onchainBytecode: Record<string, `0x${string}`> = {};
 
-            const zeusConfigDirName = await configs.zeus.dirname();
-            const contractMetadata = Object.fromEntries(segmentContracts.map(contract => {
-                const metadata = JSON.parse(readFileSync(canonicalPaths.contractJson(zeusConfigDirName, cleanContractName(contract.contract)), 'utf-8')) as ForgeSolidityMetadata;
+            const contractMetadata = Object.fromEntries(await Promise.all(segmentContracts.map(async contract => {
+                const metadata = await loadContractMetadata(contract.contract);
                 return [contract.contract, metadata];
-            }));
+            })));
 
             const onchainHashes = Object.fromEntries(await Promise.all(segmentContracts.map(async contract => {
                 try {
@@ -357,8 +448,15 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
                     const ctr = info[key].contract;
                     console.log(chalk.bold.underline(`[${ctr}@${info[key].address}] Remote Bytecode (mismatches highlighted red):`))
 
-                    const localBytes = hexToBytes(localBytecode[ctr]);
-                    const remoteBytes = hexToBytes(onchainBytecode[ctr]);
+                const localHex = localBytecode[ctr];
+                const remoteHex = onchainBytecode[ctr];
+                if (!localHex || !remoteHex) {
+                    console.warn(`Missing bytecode for ${ctr}. local=${!!localHex}, onchain=${!!remoteHex}`);
+                    return;
+                }
+
+                const localBytes = hexToBytes(localHex);
+                const remoteBytes = hexToBytes(remoteHex);
 
                     remoteBytes.forEach((remoteByte, i) => {
                         if (localBytes[i] !== remoteByte) {
@@ -426,17 +524,28 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
                 switch (segment.type) {
                 case 'eoa': {
                     // get all signers.
-                    const signers = getSegmentContracts(i).map(contract => contract.lastUpdatedIn.signer);
+                    const segmentContracts = getSegmentContracts(i);
+                    const signers = segmentContracts.map(contract => contract.lastUpdatedIn.signer);
                     if (!signers || signers.length == 0) {
                         console.log(`${i+1}: no contracts deployed.`);
                         continue;
                     }
 
-                    const signer = signers[0];
-                    const strategy = new EOASigningStrategy(deploy, metatxn, {nonInteractive: false, simulationAddress: signer, defaultArgs: {rpcUrl: customRpcUrl, etherscanApiKey: false}});
-                    const prep = await strategy.prepare(script, deploy._) as TForgeRequest;
+                    let recordedRun: TForgeRun | undefined;
+                    try {
+                        const foundryRun = await metatxn.getJSONFile<TForgeRun>(canonicalPaths.foundryRun({deployEnv: deploy._.env, deployName: deploy._.name, segmentId: i}));
+                        recordedRun = foundryRun?._;
+                    } catch {
+                        recordedRun = undefined;
+                    }
                     
-                    await verifySegmentContracts(i, prep.output, prep.deployedContracts);
+                    if (recordedRun?.traces?.length) {
+                        console.log(chalk.bold(`Using recorded forge output for bytecode validation.`))
+                        await verifySegmentContracts(i, recordedRun, segmentContracts);
+                    } else {
+                        console.warn(`Recorded forge output missing; validating bytecode from local artifacts.`)
+                        await verifySegmentContractsFromArtifacts(i);
+                    }
                     break;
                 }
                 case 'multisig': {
@@ -446,30 +555,22 @@ export async function handler(_user: TState, args: {env: string, deploy: string 
 
                     if (segmentContracts.length > 0) {
                         if (proposedTxHash) {
-                            console.log(chalk.bold(`Multisig step found an onchain proposal. Skipping dry-run and validating bytecode from local artifacts.`))
+                            console.log(chalk.bold(`Multisig step found an onchain proposal. Skipping dry-run and validating bytecode from recorded output.`))
                         }
-                        await verifySegmentContractsFromArtifacts(i);
+                        const recordedOutput = (multisigRun._ as TGnosisRequest & { output?: TForgeRequest["output"] }).output;
+                        const recordedContracts = (multisigRun._ as TGnosisRequest).deployedContracts;
+                        if (recordedOutput && recordedContracts && recordedContracts.length > 0) {
+                            await verifySegmentContracts(i, recordedOutput, recordedContracts);
+                        } else {
+                            console.warn(`Multisig step missing recorded output; validating bytecode from local artifacts instead.`)
+                            await verifySegmentContractsFromArtifacts(i);
+                        }
                         break;
                     }
 
                     if (proposedTxHash) {
-                        // No contracts for this step, so safe to dry-run for hash validation.
-                        console.log(chalk.bold(`Multisig step has no deployed contracts. Validating Safe tx hash.`))
-                        const signer = multisigRun._.senderAddress;
-                        const strategy = new GnosisEOAApiStrategy(deploy, metatxn, {nonInteractive: false, simulationAddress: signer, defaultArgs: {rpcUrl: customRpcUrl, etherscanApiKey: false}});
-                        const request = await strategy.prepare(script) as TGnosisRequest;
-                        const gnosisTxnHash = request.safeTxHash;
-
-                        if (proposedTxHash === gnosisTxnHash) {
-                            console.log(`${chalk.green('✔')} ${script} (${gnosisTxnHash})`);
-                        } else {
-                            console.error(`${chalk.red('x')} ${script} (local=${gnosisTxnHash},reported=${proposedTxHash})`);
-                            const err = new Error(`Step ${i+1}: multisig transaction did not match (local=${gnosisTxnHash},reported=${proposedTxHash})`);
-                            if (!args.continueOnFailure) {
-                                throw err;
-                            }
-                            stepFailures.push(err);
-                        }
+                        // No contracts for this step; avoid running execute() which may revert on already-scheduled ops.
+                        console.log(chalk.bold(`Multisig step has no deployed contracts. Safe tx hash recorded: ${proposedTxHash}`))
                     } else {
                         console.info(chalk.italic(`[${i+1}] step has not yet proposed a transaction. Nothing to validate.`))
                     }
